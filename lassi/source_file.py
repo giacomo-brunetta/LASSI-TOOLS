@@ -29,7 +29,7 @@ class SourceFile:
         # Check whether compilation has produced an executable
         return not self.executable is None
 
-    def execute(self, args: str, profiler: Profiler = Timer()) -> Report:
+    def execute(self, args: str = "", profiler: Profiler = Timer()) -> Report:
         # Execute the compiled binary using ExecTool and optional profiling
         self.exec_tool = ExecTool(executable=self.executable, arguments=args, profiler=profiler)
         return self.exec_tool.run()
@@ -38,17 +38,17 @@ class SourceFile:
         # Retrieve the execution report from the last execution
         return self.exec_tool.get_execution_report() if self.exec_tool else None
 
-    def read_file(self) -> str:
+    def read(self) -> str:
         # Read and return the full contents of the source file
         with open(self.full_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    def write_file(self, content: str) -> None:
+    def write(self, content: str) -> None:
         # Overwrite the source file with the provided content
         with open(self.full_path, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def append_to_file(self, content: str) -> None:
+    def append(self, content: str) -> None:
         # Append the provided content to the source file
         with open(self.full_path, "a", encoding="utf-8") as f:
             f.write(content)

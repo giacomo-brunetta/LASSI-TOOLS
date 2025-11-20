@@ -30,6 +30,8 @@ class ExecTool:
 
         self.profiler = profiler
 
+        self.last_report = None
+
     def __repr__(self) -> str:
         profiler_repr = self.profiler.__class__.__name__ if self.profiler else None
         return (
@@ -40,7 +42,7 @@ class ExecTool:
             f")"
         )
 
-    def run(self, profiler : Profiler = None) -> Tuple[subprocess.CompletedProcess, Optional[Report]]:
+    def run(self, profiler : Profiler = None) -> subprocess.CompletedProcess:
 
         # Build command; subprocess accepts Path objects in recent Python versions
         cmd = [self.executable, *shlex.split(self.args)]
@@ -51,9 +53,14 @@ class ExecTool:
             completed_process, report = self.profiler.profile_task(
                 f = lambda: subprocess.run(cmd, capture_output=True, text=True)
             )
-            return completed_process, report
+            self.last_report = report
+            return completed_process
         else:
             completed_process, report = profiler.profile_task(
                 f = lambda: subprocess.run(cmd, capture_output=True, text=True)
             )
-            return completed_process, report
+            self.last_report = report
+            return completed_process
+        
+    def get_execution_report(self) -> Report:
+        return self.last_report

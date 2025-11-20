@@ -149,6 +149,15 @@ class CompilerTool:
     # ------------------------------------------------------------------
     # Main compile method
     # ------------------------------------------------------------------
+
+    def get_version(self) -> str:
+        # Show compiler version
+        return subprocess.run(
+            [self.compiler.value, "--version"],
+            capture_output=True,
+            text=True
+        )
+
     def compile(
         self,
         file: Path,
@@ -167,14 +176,6 @@ class CompilerTool:
 
         lang_info = f" for language {self.language.value}" if self.language else ""
         print(f"Compiling {file} using {self.compiler.value}{lang_info}...")
-
-        # Show compiler version
-        version = subprocess.run(
-            [self.compiler.value, "--version"],
-            capture_output=True,
-            text=True
-        )
-        print(f"Compiler version:\n{version.stdout}\n")
 
         # Build command
         cmd = [
