@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Callable, List, Tuple, Union, Optional
-import multiprocessing
+from typing import Union, Optional, Iterable
 import subprocess
-import time
 from enum import Enum
 
 import subprocess
@@ -71,6 +67,7 @@ class Compiler(Enum):
     DPCPP = "dpcpp"     # SYCL compiler
     ICC = "icc"         # Intel C compiler
     ICPPC = "icpc"      # Intel C++ compiler
+    MAKE = "make"
 
     @staticmethod
     def from_string(s: str) -> "Compiler":
@@ -106,7 +103,6 @@ class Compiler(Enum):
             raise ValueError(f"No compiler mapping for language: {lang}")
         return lang_map[lang]
 
-
 class CompilationError(Exception):
     pass
 
@@ -123,32 +119,7 @@ class CompilerTool:
     ):
         self.compiler = compiler
         self.default_kwds = kwds
-        self.language = language  # optional, based on your earlier snippet
-
-    # ------------------------------------------------------------------
-    # Factory method: Construct CompilerTool directly from a compiler enum
-    # ------------------------------------------------------------------
-    @classmethod
-    def from_compiler(
-        cls,
-        compiler: "Compiler",
-        kwds: str = "",
-        language: Optional["Language"] = None,
-    ) -> "CompilerTool":
-        """
-        Convenience constructor allowing:
-
-            tool = CompilerTool.from_compiler(Compiler.GCC, "-O2")
-
-        Instead of:
-
-            tool = CompilerTool(Compiler.GCC, "-O2")
-        """
-        return cls(compiler=compiler, kwds=kwds, language=language)
-
-    # ------------------------------------------------------------------
-    # Main compile method
-    # ------------------------------------------------------------------
+        self.language = language
 
     def get_version(self) -> str:
         # Show compiler version
@@ -161,11 +132,16 @@ class CompilerTool:
     def compile(
         self,
         file: Path,
-        kwds: Optional[str] = None,
+        kwds: Optional[Union[str, Iterable]] = None,
         output_file: Optional[Path] = None
     ) -> Path:
 
-        kwds = kwds if kwds else self.default_kwds
+        kwds = kwds if kwds is not None else self.default_kwds
+
+        if isinstance(kwds, (list, tuple, set)):
+            kwds = " ".join(str(x) for x in kwds)
+        elif not isinstance(kwds, str):
+            raise TypeError("kwds must be a string or iterable of strings/numbers")
 
         # Normalize file paths
         file = file.resolve()
@@ -192,8 +168,6 @@ class CompilerTool:
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         if result.returncode != 0:
-            raise CompilationError(
-                f"Compilation failed:\n{result.stderr}"
-            )
+            raise CompilationError(f"Compilation failed:\n{result.stderr}")
 
         return output_file
