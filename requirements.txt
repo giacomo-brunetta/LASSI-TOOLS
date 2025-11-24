@@ -1,0 +1,7 @@
+pydantic
+py3nvml
+amdsmi
+python-dotenv
+pydantic-ai
+groq
+openai

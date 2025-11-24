@@ -7,7 +7,13 @@ import time
 from typing import Optional
 from lassi.lassi_data_classes import *
 from enum import Enum
+from pathlib import Path
+import re
 
+class Vendor(Enum):
+    AMD = 'AMD'
+    NVIDIA = 'NVIDIA'
+    INTEL = 'INTEL'
 
 # =============================================================================
 # Profiler API + MultiProfiler
@@ -243,10 +249,126 @@ class PowerProbe(ABC):
             self.process.join()
             self.process = None
 
-class Vendor(Enum):
-    AMD = 'AMD'
-    NVIDIA = 'NVIDIA'
-    INTEL = 'INTEL'
+class ArmPowerProbe(PowerProbe):
+    """
+    PowerProbe implementation using NVIDIA's NVML interface via py3nvml.
+    """
+    
+    def lookup_power_file(self) -> Path:
+        hwmon_base = Path("/sys/class/hwmon")
+        # Only consider directories matching hwmon<number>
+        for hwmon_dir in hwmon_base.iterdir():
+            if not hwmon_dir.is_dir():
+                continue
+            if not re.fullmatch(r"hwmon\d+", hwmon_dir.name):
+                continue
+            # Try every powerN_label + powerN_input pair in this hwmon directory
+                #print(f"Exploring {hwmon_dir}")
+            for entry in hwmon_dir.iterdir():
+                #print(f"entry: {entry}")
+                m = re.match(r"power(\d+)_label$", entry.name)
+                if not m:
+                    continue
+                idx = m.group(1)
+                label_file = hwmon_dir / f"power{idx}_label"
+                try:
+                    label_value = label_file.read_text().strip()
+                except Exception:
+                    continue
+                if re.search("CPU power", label_value):
+                    input_file = hwmon_dir / f"power{idx}_input"
+                    if input_file.exists():
+                        # Found the matching file
+                        return input_file
+        raise FileNotFoundError(f"No power*_input file found for label 'CPU Power'")
+
+    def __init__(self, interval: float = 0.1, gpu_id: int = -1, path: Path = None):
+        self.power_file_path = self.lookup_power_file() if path is None else path
+        super().__init__(interval=interval, gpu_id=gpu_id)
+
+    def _get_gpu_data(
+        self,
+        powers,
+        times,
+        mem_used,
+        gpu_utils,
+        gpu_id,
+        count,
+        halt,
+        alive,
+        isrunning,
+        prevTime,
+        interval,
+    ) -> None:
+        import time as _time
+
+        while alive.value:
+            while not halt.value and alive.value:
+                isrunning.value = 1
+                power = None
+                try:
+                    with open(self.power_file_path.resolve(), "r", encoding="utf-8") as f:
+                        power = int(f.read()) / 10**6
+
+                    # Wait until next interval
+                    new_time = _time.time()
+                    while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
+                        new_time = _time.time()
+
+                    # Log everything at this timestamp index
+                    idx = count.value
+                    if idx < len(powers):
+                        powers[idx] = power
+                        times[idx] = new_time - prevTime.value
+                        mem_used[idx] = 0
+                        gpu_utils[idx] = 0
+
+                        count.value += 1
+                        prevTime.value = new_time
+                finally:
+                    isrunning.value = 0
+
+class IntelPowerProbe(PowerProbe):
+    """
+    TODO this will use RAPL or pyjoules
+    """
+    pass
+
+class CPUProfiler(Profiler):
+    """
+    Profiler implementation that uses a PowerProbe to collect CPU power
+    over time, and summarizes them as a DeviceReport.
+    """
+
+    def __init__(self, probe: PowerProbe = ArmPowerProbe()):
+        self._probe = probe
+        self._sampling: Optional[SamplingData] = None
+
+    def start(self) -> None:
+        """
+        Begin profiling by starting the underlying PowerProbe sampling.
+        """
+        self._sampling = None
+        self._probe.start()
+
+    def stop(self) -> None:
+        """
+        Stop profiling and snapshot the SamplingData from the PowerProbe.
+        """
+        self._sampling = self._probe.stop()
+
+    def get_report(self) -> DeviceReport:
+        """
+        Convert the collected SamplingData into a DeviceReport combining
+        usage and energy information.
+        """
+        if self._sampling is None:
+            raise RuntimeError(
+                "GPUProfiler.get_report() called before profiling data was collected. "
+                "Ensure start() and stop() have been called."
+            )
+
+        return DeviceReport.from_sampling(self._sampling)
 
 class NvidiaPowerProbe(PowerProbe):
     """
