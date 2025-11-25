@@ -70,7 +70,6 @@ class ExecTool:
         )
 
     def run(self, args : str = None, profiler : Profiler = None, validator : FunctionalValidator = None) -> subprocess.CompletedProcess:
-
         if args:
             args = args
         elif validator:

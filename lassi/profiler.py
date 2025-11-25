@@ -305,7 +305,7 @@ class ArmPowerProbe(PowerProbe):
         while alive.value:
             while not halt.value and alive.value:
                 isrunning.value = 1
-                power = None
+                power = 0
                 try:
                     with open(self.power_file_path.resolve(), "r", encoding="utf-8") as f:
                         power = int(f.read()) / 10**6
@@ -357,9 +357,9 @@ class CPUProfiler(Profiler):
         """
         self._sampling = self._probe.stop()
 
-    def get_report(self) -> DeviceReport:
+    def get_report(self) -> CPUReport:
         """
-        Convert the collected SamplingData into a DeviceReport combining
+        Convert the collected SamplingData into a CPUReport combining
         usage and energy information.
         """
         if self._sampling is None:
@@ -368,7 +368,7 @@ class CPUProfiler(Profiler):
                 "Ensure start() and stop() have been called."
             )
 
-        return DeviceReport.from_sampling(self._sampling)
+        return CPUReport.from_sampling(self._sampling)
 
 class NvidiaPowerProbe(PowerProbe):
     """
@@ -584,9 +584,9 @@ class GPUProfiler(Profiler):
         """
         self._sampling = self._probe.stop()
 
-    def get_report(self) -> DeviceReport:
+    def get_report(self) -> GPUReport:
         """
-        Convert the collected SamplingData into a DeviceReport combining
+        Convert the collected SamplingData into a GPUReport combining
         usage and energy information.
         """
         if self._sampling is None:
@@ -595,4 +595,4 @@ class GPUProfiler(Profiler):
                 "Ensure start() and stop() have been called."
             )
 
-        return DeviceReport.from_sampling(self._sampling)
+        return GPUReport.from_sampling(self._sampling)

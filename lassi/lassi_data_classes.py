@@ -80,36 +80,6 @@ class GPUSysInfo(SysInfo):
         ge=0,
     )
 
-
-class MultiDeviceSysInfo(SysInfo):
-    """
-    Aggregated system information for both CPU and GPU devices.
-
-    This model groups CPU and GPU information into separate lists.
-    """
-
-    cpus: List[CpuSysInfo] = Field(
-        default_factory=list,
-        title="Per-CPU system information",
-        description=(
-            "A list of system information entries, one per CPU configuration. "
-            "On a typical single-socket system, this list will contain a single "
-            "`CpuSysInfo` instance. On multi-socket or heterogeneous systems, "
-            "multiple entries can be included."
-        ),
-    )
-    gpus: List[GPUSysInfo] = Field(
-        default_factory=list,
-        title="Per-GPU system information",
-        description=(
-            "A list of system information entries, one per GPU configuration. "
-            "In homogeneous multi-GPU setups, there may be several identical "
-            "entries; in heterogeneous setups, each `GPUSysInfo` can capture "
-            "distinct memory sizes or counts."
-        ),
-    )
-
-
 # =============================================================================
 # Runtime Monitoring Report Models
 # =============================================================================
@@ -297,39 +267,17 @@ class DeviceReport(UsageReport, EnergyReport):
             utilization_peak=peak_util_pct,
         )
 
+class CPUReport(DeviceReport):
+    pass
 
-class MultiDeviceReport(Report):
-    """
-    Aggregated runtime report for CPU and GPU devices.
-
-    Groups multiple `DeviceReport` instances into separate lists for CPU and
-    GPU devices.
-    """
-
-    cpus: List[DeviceReport] = Field(
-        default_factory=list,
-        title="Per-CPU runtime reports",
-        description=(
-            "A list of `DeviceReport` objects, one per CPU device or CPU group. "
-            "Each report contains combined utilization and energy metrics."
-        ),
-    )
-    gpus: List[DeviceReport] = Field(
-        default_factory=list,
-        title="Per-GPU runtime reports",
-        description=(
-            "A list of `DeviceReport` objects, one per GPU device. Each report "
-            "contains combined utilization and energy metrics."
-        ),
-    )
-
+class GPUReport(DeviceReport):
+    pass
 
 # =============================================================================
 # SamplingData: time-series samples -> DeviceReport
 # =============================================================================
 
-@dataclass
-class SamplingData:
+class SamplingData(BaseModel):
     """
     Container for raw time-series samples collected from device monitoring.
 
