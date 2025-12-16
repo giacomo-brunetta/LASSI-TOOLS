@@ -305,10 +305,9 @@ class ArmPowerProbe(PowerProbe):
         while alive.value:
             while not halt.value and alive.value:
                 isrunning.value = 1
-                power = 0
                 try:
                     with open(self.power_file_path.resolve(), "r", encoding="utf-8") as f:
-                        power = int(f.read()) / 10**6
+                        power = float(f.read()) / 10**6
 
                     # Wait until next interval
                     new_time = _time.time()

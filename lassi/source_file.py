@@ -53,6 +53,7 @@ class SourceFile:
                 return self.exec_tool.get_execution_history()
         else:
             self.exec_tool.run()
+            return self.exec_tool.get_last_execution_report()
 
     def get_last_execution_report(self):
         # Retrieve the execution report from the last execution

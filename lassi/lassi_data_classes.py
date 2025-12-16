@@ -221,14 +221,14 @@ class DeviceReport(UsageReport, EnergyReport):
         n = len(data.power)
         if n == 0:
             # You can decide to raise instead if this should never happen
-            avg_power = 0.0
-            peak_power = 0.0
+            avg_power = None
+            peak_power = None
         else:
             avg_power = sum(data.power) / n
             peak_power = max(data.power)
 
         # Total duration from sample intervals (if provided)
-        duration_s = sum(data.time_intervals) if data.time_intervals else 0.0
+        duration_s = sum(data.time_intervals) if data.time_intervals else None
 
         # Energy in Joules: sum(P * dt)
         if data.time_intervals:
@@ -236,23 +236,23 @@ class DeviceReport(UsageReport, EnergyReport):
                 p * dt for p, dt in zip(data.power, data.time_intervals)
             )
         else:
-            total_energy_j = 0.0
+            total_energy_j = None
 
         # Memory usage
         if data.mem_used_mib:
             avg_mem_mib = sum(data.mem_used_mib) / len(data.mem_used_mib)
             peak_mem_mib = max(data.mem_used_mib)
         else:
-            avg_mem_mib = 0.0
-            peak_mem_mib = 0.0
+            avg_mem_mib = None
+            peak_mem_mib = None
 
         # GPU utilization
         if data.gpu_util_pct:
             avg_util_pct = sum(data.gpu_util_pct) / len(data.gpu_util_pct)
             peak_util_pct = max(data.gpu_util_pct)
         else:
-            avg_util_pct = 0.0
-            peak_util_pct = 0.0
+            avg_util_pct = None
+            peak_util_pct = None
 
         return cls(
             # EnergyReport-like fields:
