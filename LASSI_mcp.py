@@ -9,20 +9,37 @@ from lassi.profiler import Timer, MultiProfiler, GPUProfiler, CPUProfiler
 from lassi.source_file import SourceFile
 from lassi.executer import FunctionalValidator
 
-source_file = SourceFile(file_name = Path("test.c"))
 profiler = MultiProfiler([GPUProfiler(), CPUProfiler()])
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
 
 @mcp.tool()
-async def read() -> str:
+async def file_name(path : Path) -> str:
+    """Read the filename of the source file."""
+    source_file = SourceFile(file_name = path)
+    return str(source_file.file_name)
+
+@mcp.tool()
+async def read(path : Path) -> str:
     """Read the content of the source file."""
+    source_file = SourceFile(file_name = path)
     return source_file.read()
 
 @mcp.tool()
-async def compile() -> str:
+async def compile(path : Path) -> str:
     """Compile the source file."""
+    source_file = SourceFile(file_name = path)
+    try: 
+        source_file.compile()
+        return "Compilation successful."
+    except Exception as e:
+        return f"Compilation failed: {str(e)}"
+    
+@mcp.tool()
+async def compile_to_MLIR(path : Path) -> str:
+    """Compile the source file."""
+    source_file = SourceFile(file_name = path)
     try: 
         source_file.compile()
         return "Compilation successful."
@@ -30,8 +47,9 @@ async def compile() -> str:
         return f"Compilation failed: {str(e)}"
 
 @mcp.tool()
-async def execute() -> str:
+async def execute(path : Path) -> str:
     """Execute the compiled source file with profiling."""
+    source_file = SourceFile(file_name = path)
     try:
         report = source_file.execute(profiler=profiler)
         return f"Execution successful. Report: {report}"

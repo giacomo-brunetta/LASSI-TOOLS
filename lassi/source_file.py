@@ -97,13 +97,7 @@ class SourceFile:
 
     def __str__(self):
         # String representation for debugging and display
-        return (
-            f"Source File:\n"
-            f"   file name: {self.file_name},\n"
-            f"   folder path: {self.folder_path},\n"
-            f"   language:    {self.lang},\n"
-            f"   executable:  {self.executable}"
-        )
+        return self.file_name
 
     def __repr__(self):
         # Delegate representation to __str__

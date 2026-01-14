@@ -23,6 +23,7 @@ class Language(Enum):
     OMP = 'OMP'
     HIP = 'HIP'
     SYCL = 'SYCL'
+    MLIR = 'MLIR'
 
     @staticmethod
     def from_string(s: str) -> "Language":
@@ -68,6 +69,7 @@ class Compiler(Enum):
     ICC = "icc"         # Intel C compiler
     ICPPC = "icpc"      # Intel C++ compiler
     MAKE = "make"
+    POLYGEIST = "polygeist-opt"
 
     @staticmethod
     def from_string(s: str) -> "Compiler":
