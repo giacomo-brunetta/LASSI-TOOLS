@@ -27,7 +27,7 @@ model = GroqModel(MODEL_NAME)
 from pydantic_ai import Agent
 from pydantic_ai.toolsets.fastmcp import FastMCPToolset
 
-toolset = FastMCPToolset('http://127.0.0.1:8000/mcp')
+toolset = FastMCPToolset('http://127.0.0.1:8067/mcp')
  
 agent = Agent(
     model=model,
@@ -39,5 +39,6 @@ agent = Agent(
 
 from fastmcp import Client
 
-result = agent.run_sync("Compile and run the C program using the tools. Tell me how much time it takes and how much power is consumed.")
+
+result = agent.run_sync("Compile and run the C program called /home/gbrun/LASSI-TOOLS/test.c to a file called test_binary. Use flag -O3 for compilation. Then execute the binary with argument '10' and return the output.")
 print(result)

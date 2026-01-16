@@ -339,7 +339,7 @@ class CPUProfiler(Profiler):
     over time, and summarizes them as a DeviceReport.
     """
 
-    def __init__(self, probe: PowerProbe = ArmPowerProbe()):
+    def __init__(self, probe: PowerProbe):
         self._probe = probe
         self._sampling: Optional[SamplingData] = None
 
@@ -566,7 +566,7 @@ class GPUProfiler(Profiler):
     as a DeviceReport.
     """
 
-    def __init__(self, probe: PowerProbe = NvidiaPowerProbe()):
+    def __init__(self, probe: PowerProbe):
         self._probe = probe
         self._sampling: Optional[SamplingData] = None
 

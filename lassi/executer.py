@@ -13,7 +13,12 @@ class WrongOutput(Exception):
 
 class FunctionalValidator:
     
-    def __init__(self, args : str = "", golden_output : str | Path = None, ret_code : int = 0):
+    def __init__(
+        self, 
+        args : str = "",
+        golden_output : str | Path = None,
+        ret_code : int = 0
+    ):
         self.args = args
         self.golden_output = golden_output
         self.ret_code = ret_code
@@ -69,7 +74,13 @@ class ExecTool:
             f")"
         )
 
-    def run(self, args : str = None, profiler : Profiler = None, validator : FunctionalValidator = None) -> subprocess.CompletedProcess:
+    def run(
+        self,
+        args : str = None, 
+        profiler : Profiler = None, 
+        validator : FunctionalValidator = None
+    ) -> subprocess.CompletedProcess:
+        
         if args:
             args = args
         elif validator:

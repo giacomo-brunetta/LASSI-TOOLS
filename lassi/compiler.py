@@ -23,7 +23,6 @@ class Language(Enum):
     OMP = 'OMP'
     HIP = 'HIP'
     SYCL = 'SYCL'
-    MLIR = 'MLIR'
 
     @staticmethod
     def from_string(s: str) -> "Language":
@@ -69,7 +68,7 @@ class Compiler(Enum):
     ICC = "icc"         # Intel C compiler
     ICPPC = "icpc"      # Intel C++ compiler
     MAKE = "make"
-    POLYGEIST = "polygeist-opt"
+    CGEIST = "cgeist"
 
     @staticmethod
     def from_string(s: str) -> "Compiler":
@@ -123,6 +122,14 @@ class CompilerTool:
         self.default_kwds = kwds
         self.language = language
 
+    @staticmethod
+    def from_string(s: str) -> "CompilerTool":
+        return CompilerTool(Compiler.from_string(s))
+    
+    @classmethod
+    def from_language(cls, lang: Language) -> "CompilerTool":
+        return CompilerTool(Compiler.from_language(lang))
+
     def get_version(self) -> str:
         # Show compiler version
         return subprocess.run(
@@ -173,3 +180,39 @@ class CompilerTool:
             raise CompilationError(f"Compilation failed:\n{result.stderr}")
 
         return output_file
+
+COMPILER_FLAGS_DB = {
+    "gcc": {
+        "optimization": {
+            "-O0": "No optimization (best for debugging).",
+            "-O2": "Standard optimization (recommended for deployment).",
+            "-O3": "Aggressive optimization (may increase binary size).",
+            "-Ofast": "Disregard strict standards compliance for speed."
+        },
+        "debugging": {
+            "-g": "Generate debug information.",
+            "-Wall": "Enable all common warnings.",
+            "-fsanitize=address": "Enable AddressSanitizer (memory error detector)."
+        },
+        "dialect": {
+            "-std=c++17": "Use C++17 standard.",
+            "-std=c++20": "Use C++20 standard."
+        }
+    },
+    "nvcc": {
+        "gpu_arch": {
+            "-arch=sm_70": "Target Volta architecture.",
+            "-arch=sm_80": "Target Ampere architecture."
+        },
+        "optimization": {
+            "-O3": "Generate optimized code.",
+            "--use_fast_math": "Make use of fast math library."
+        }
+    },
+    "cgeist": {
+        "polyhedral": {
+            "-raise-scf-to-affine": "Raise loops to affine representation.",
+            "-polyhedral-opt": "Enable polyhedral optimizations."
+        }
+    }
+}
