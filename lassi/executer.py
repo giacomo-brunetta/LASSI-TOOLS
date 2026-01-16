@@ -1,8 +1,7 @@
-import subprocess
 import shlex
 from pathlib import Path
 from typing import Callable, Optional, Tuple, Type, List
-
+from lassi.utils import *
 from lassi.profiler import Profiler, Timer, Report
 
 class WrongRetCode(Exception):
@@ -75,43 +74,42 @@ class ExecTool:
         )
 
     def run(
-        self,
-        args : str = None, 
-        profiler : Profiler = None, 
-        validator : FunctionalValidator = None
+        self, 
+        args: str = None, 
+        profiler: Profiler = None, 
+        validator: FunctionalValidator = None
     ) -> subprocess.CompletedProcess:
         
         if args:
-            args = args
+            pass # args is already set
         elif validator:
             args = validator.args
         else:
             args = self.args
 
-        # Build command; subprocess accepts Path objects in recent Python versions
-        cmd = [self.executable, *shlex.split(args)]
+        # FIX 1: Wrap map() in list(). 
+        # Without this, 'cmd' is an iterator that gets exhausted by the print statement below.
+        cmd = list(map(str, [str(self.executable.resolve()), *shlex.split(args)]))
 
-        print(f"Running with command: {' '.join(map(str, cmd))}")
+        # FIX 2: Redirect logs to stderr. 
+        # Regular print() writes to stdout, which corrupts the MCP JSON-RPC protocol.
+        print(f"Running with command: {' '.join(cmd)}", file=sys.stderr)
 
-        if profiler is None:
-            completed_process, report = self.profiler.profile_task(
-                f = lambda: subprocess.run(
-                    cmd, 
-                    capture_output=True, 
-                    text=True)
+        # Use provided profiler if available, otherwise fallback to default
+        active_profiler = profiler if profiler is not None else self.profiler
+
+        if active_profiler is not None:
+            completed_process, report = active_profiler.profile_task(
+                f = lambda: stdio_safe_subprocess_run(cmd, timeout=300)
             )
             self.report_history.append(report)
-
         else:
-            completed_process, report = profiler.profile_task(
-                f = lambda: subprocess.run(
-                    cmd, 
-                    capture_output=True, 
-                    text=True)
-            )
+            # Note: Ensure stdio_safe_subprocess_run handles capture_output internally
+            # as defined in our previous step.
+            completed_process = stdio_safe_subprocess_run(cmd)
 
         if validator:
-            print("Validating output")
+            print("Validating output", file=sys.stderr) # FIX 3: Safe logging
             validator.validate(completed_process)
 
         return completed_process

@@ -5,7 +5,7 @@ import mcp.types as types
 import json
 import sys
 
-import asyncio 
+import asyncio
 
 from fastmcp import FastMCP
 
@@ -13,6 +13,7 @@ from lassi.profiler import Timer
 from lassi.compiler import Compiler, CompilerTool, CompilationError, COMPILER_FLAGS_DB
 from lassi.source_file import SourceFile
 from lassi.executer import FunctionalValidator, ExecTool
+from lassi.profiler import MultiProfiler, CPUProfiler, GPUProfiler, ArmPowerProbe, NvidiaPowerProbe
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
@@ -97,12 +98,12 @@ async def compile_to_mlir(
         return f"MLIR generation failed: {str(e)}"
 
 @mcp.tool()
-async def execute(
+async def execute_with_latency(
     path: Annotated[str, Field(description="The absolute path to the executable binary.")],
     args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
 ) -> str:
     """
-    Runs an executable and returns both the output and the execution time/profiling report.
+    Runs an executable and returns both the output and the execution time.
     """
     target_path = Path(path).resolve()
 
@@ -115,8 +116,66 @@ async def execute(
 
     try:
         # 1. Run the execution
-        # The run method returns a subprocess.CompletedProcess object
-        process_result = executer.run(args=args)
+        # Use asyncio.to_thread to run the blocking executer.run without stalling the event loop
+        process_result = await asyncio.to_thread(executer.run, args=args)
+
+        # 2. Retrieve the profiling report (time, memory, etc.)
+        # Since we didn't pass a custom profiler to .run(), it used self.profiler 
+        # and saved the result to history.
+        report = executer.get_last_execution_report()
+
+        # 3. Construct the response for the LLM
+        # We need to combine the Program Output + The Profiling Stats
+        output_parts = []
+        
+        # Header
+        status = "Success" if process_result.returncode == 0 else f"Failed (Code {process_result.returncode})"
+        output_parts.append(f"--- Execution {status} ---")
+        
+        # The Report (Timing)
+        output_parts.append(f"Profile Report: {report}") 
+
+        # Standard Output (truncated if too long, optional safety measure)
+        if process_result.stdout:
+            output_parts.append("\n--- Stdout ---")
+            output_parts.append(process_result.stdout.strip())
+            
+        # Standard Error (important for debugging)
+        if process_result.stderr:
+            output_parts.append("\n--- Stderr ---")
+            output_parts.append(process_result.stderr.strip())
+
+        return "\n".join(output_parts)
+
+    except Exception as e:
+        return f"Execution failed with internal error: {str(e)}"
+
+@mcp.tool()
+async def execute_with_profile(
+    path: Annotated[str, Field(description="The absolute path to the executable binary.")],
+    args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
+) -> str:
+    """
+    Runs an executable and returns both the output and the execution power profiling report.
+    """
+    target_path = Path(path).resolve()
+
+    if not target_path.exists():
+        return f"Execution failed: Executable not found at {target_path}"
+
+    executer = ExecTool(
+        executable=target_path,
+        profiler=MultiProfiler([
+                    Timer(),
+                    CPUProfiler(ArmPowerProbe()),
+                    GPUProfiler(NvidiaPowerProbe())]
+            )
+        )
+
+    try:
+        # 1. Run the execution
+        # Use asyncio.to_thread to run the blocking executer.run without stalling the event loop
+        process_result = await asyncio.to_thread(executer.run, args=args)
 
         # 2. Retrieve the profiling report (time, memory, etc.)
         # Since we didn't pass a custom profiler to .run(), it used self.profiler 

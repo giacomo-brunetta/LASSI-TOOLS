@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Tuple, Union
 import multiprocessing
-import subprocess
-import time
+import threading
 import time
 from typing import Optional
 from lassi.lassi_data_classes import *
+from lassi.utils import *
 from enum import Enum
 from pathlib import Path
 import re
@@ -167,28 +167,28 @@ class PowerProbe(ABC):
         ...
 
     def __init__(self, interval: float = 0.01, gpu_id: int = -1):
-        self.interval = multiprocessing.Value('d', interval)
+        self.interval = type('obj', (object,), {'value': interval})
         self.len = int(MAX_VALUES / interval)
 
-        self.powers = multiprocessing.Array('d', self.len)
-        self.times = multiprocessing.Array('d', self.len)
-        self.mem_used = multiprocessing.Array('d', self.len)
-        self.gpu_utils = multiprocessing.Array('d', self.len)
+        self.powers = [0.0] * self.len
+        self.times = [0.0] * self.len
+        self.mem_used = [0.0] * self.len
+        self.gpu_utils = [0.0] * self.len
 
-        self.gpu_id = multiprocessing.Value('i', gpu_id)
-        self.process: multiprocessing.Process | None = None
-        self.prevTime = multiprocessing.Value('d', time.time())
-        self.halt = multiprocessing.Value('i', 1)
-        self.count = multiprocessing.Value('i', 0)
-        self.isrunning = multiprocessing.Value('i', 0)
-        self.alive = multiprocessing.Value('i', 0)
+        self.gpu_id = type('obj', (object,), {'value': gpu_id})
+        self.process: threading.Thread | None = None
+        self.prevTime = type('obj', (object,), {'value': time.time()})
+        self.halt = type('obj', (object,), {'value': 1})
+        self.count = type('obj', (object,), {'value': 0})
+        self.isrunning = type('obj', (object,), {'value': 0})
+        self.alive = type('obj', (object,), {'value': 0})
 
         self._init_process()
 
     def _init_process(self) -> None:
         self.halt.value = 1
         self.alive.value = 1
-        args = (
+        self.process = threading.Thread(target=self._get_gpu_data, args=(
             self.powers,
             self.times,
             self.mem_used,
@@ -200,8 +200,7 @@ class PowerProbe(ABC):
             self.isrunning,
             self.prevTime,
             self.interval,
-        )
-        self.process = multiprocessing.Process(target=self._get_gpu_data, args=args)
+        ), daemon=True)
         self.process.start()
 
     def start(self) -> None:
@@ -282,7 +281,7 @@ class ArmPowerProbe(PowerProbe):
                         return input_file
         raise FileNotFoundError(f"No power*_input file found for label 'CPU Power'")
 
-    def __init__(self, interval: float = 0.1, gpu_id: int = -1, path: Path = None):
+    def __init__(self, interval: float = 0.01, gpu_id: int = -1, path: Path = None):
         self.power_file_path = self.lookup_power_file() if path is None else path
         super().__init__(interval=interval, gpu_id=gpu_id)
 
@@ -303,29 +302,32 @@ class ArmPowerProbe(PowerProbe):
         import time as _time
 
         while alive.value:
-            while not halt.value and alive.value:
-                isrunning.value = 1
-                try:
-                    with open(self.power_file_path.resolve(), "r", encoding="utf-8") as f:
-                        power = float(f.read()) / 10**6
+            if halt.value:
+                _time.sleep(0.01)
+                continue
 
-                    # Wait until next interval
+            isrunning.value = 1
+            try:
+                with open(self.power_file_path.resolve(), "r", encoding="utf-8") as f:
+                    power = float(f.read()) / 10**6
+
+                # Wait until next interval
+                new_time = _time.time()
+                while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
                     new_time = _time.time()
-                    while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
-                        new_time = _time.time()
 
-                    # Log everything at this timestamp index
-                    idx = count.value
-                    if idx < len(powers):
-                        powers[idx] = power
-                        times[idx] = new_time - prevTime.value
-                        mem_used[idx] = 0
-                        gpu_utils[idx] = 0
+                # Log everything at this timestamp index
+                idx = count.value
+                if idx < len(powers):
+                    powers[idx] = power
+                    times[idx] = new_time - prevTime.value
+                    mem_used[idx] = 0
+                    gpu_utils[idx] = 0
 
-                        count.value += 1
-                        prevTime.value = new_time
-                finally:
-                    isrunning.value = 0
+                    count.value += 1
+                    prevTime.value = new_time
+            finally:
+                isrunning.value = 0
 
 class IntelPowerProbe(PowerProbe):
     """
@@ -421,52 +423,55 @@ class NvidiaPowerProbe(PowerProbe):
         self.nvmlInit()
         try:
             while alive.value:
-                while not halt.value and alive.value:
-                    isrunning.value = 1
-                    try:
-                        # Determine which GPUs to query
-                        if gpu_id.value > -1:
-                            handles = [self.nvmlDeviceGetHandleByIndex(gpu_id.value)]
-                        else:
-                            num_gpus = self.nvmlDeviceGetCount()
-                            handles = [self.nvmlDeviceGetHandleByIndex(i) for i in range(num_gpus)]
+                if halt.value:
+                    _time.sleep(0.01)
+                    continue
 
-                        # --- Power measurement ---
-                        power = 0.0
-                        for h in handles:
-                            # NVML returns mW; convert to W if needed.
-                            power += self.nvmlDeviceGetPowerUsage(h) / 1000.0
+                isrunning.value = 1
+                try:
+                    # Determine which GPUs to query
+                    if gpu_id.value > -1:
+                        handles = [self.nvmlDeviceGetHandleByIndex(gpu_id.value)]
+                    else:
+                        num_gpus = self.nvmlDeviceGetCount()
+                        handles = [self.nvmlDeviceGetHandleByIndex(i) for i in range(num_gpus)]
 
-                        # --- Memory measurement (MiB) ---
-                        total_mem_used = 0.0
-                        for h in handles:
-                            mem_info = self.nvmlDeviceGetMemoryInfo(h)
-                            total_mem_used += mem_info.used / (1024 ** 2)
+                    # --- Power measurement ---
+                    power = 0.0
+                    for h in handles:
+                        # NVML returns mW; convert to W if needed.
+                        power += self.nvmlDeviceGetPowerUsage(h) / 1000.0
 
-                        # --- Utilization measurement (%)
-                        gpu_util_sum = 0.0
-                        for h in handles:
-                            util = self.nvmlDeviceGetUtilizationRates(h)
-                            gpu_util_sum += util.gpu
-                        avg_gpu_util = gpu_util_sum / len(handles)
+                    # --- Memory measurement (MiB) ---
+                    total_mem_used = 0.0
+                    for h in handles:
+                        mem_info = self.nvmlDeviceGetMemoryInfo(h)
+                        total_mem_used += mem_info.used / (1024 ** 2)
 
-                        # Wait until next interval
+                    # --- Utilization measurement (%)
+                    gpu_util_sum = 0.0
+                    for h in handles:
+                        util = self.nvmlDeviceGetUtilizationRates(h)
+                        gpu_util_sum += util.gpu
+                    avg_gpu_util = gpu_util_sum / len(handles)
+
+                    # Wait until next interval
+                    new_time = _time.time()
+                    while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
                         new_time = _time.time()
-                        while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
-                            new_time = _time.time()
 
-                        # Log everything at this timestamp index
-                        idx = count.value
-                        if idx < len(powers):
-                            powers[idx] = power
-                            times[idx] = new_time - prevTime.value
-                            mem_used[idx] = total_mem_used
-                            gpu_utils[idx] = avg_gpu_util
+                    # Log everything at this timestamp index
+                    idx = count.value
+                    if idx < len(powers):
+                        powers[idx] = power
+                        times[idx] = new_time - prevTime.value
+                        mem_used[idx] = total_mem_used
+                        gpu_utils[idx] = avg_gpu_util
 
-                            count.value += 1
-                            prevTime.value = new_time
-                    finally:
-                        isrunning.value = 0
+                        count.value += 1
+                        prevTime.value = new_time
+                finally:
+                    isrunning.value = 0
         finally:
             self.nvmlShutdown()
 
@@ -523,36 +528,39 @@ class AMDPowerProbe(PowerProbe):
 
         try:
             while alive.value:
-                while not halt.value and alive.value:
-                    isrunning.value = 1
-                    try:
-                        # --- Power measurement ---
-                        power_str = self.amdsmi_get_power_info(h)["current_socket_power"]
-                        # amdsmi may return a string like "120" (W) or "N/A"
-                        power = float(power_str) if power_str != "N/A" else 0.0
+                if halt.value:
+                    _time.sleep(0.01)
+                    continue
 
-                        # --- Memory measurement (MiB) ---
-                        mem_info = self.amdsmi_get_gpu_vram_usage(h)["vram_used"] / 1024.0
+                isrunning.value = 1
+                try:
+                    # --- Power measurement ---
+                    power_str = self.amdsmi_get_power_info(h)["current_socket_power"]
+                    # amdsmi may return a string like "120" (W) or "N/A"
+                    power = float(power_str) if power_str != "N/A" else 0.0
 
-                        # --- Utilization measurement (%)
-                        gpu_util = self.amdsmi_get_gpu_activity(h)["gfx_activity"]
+                    # --- Memory measurement (MiB) ---
+                    mem_info = self.amdsmi_get_gpu_vram_usage(h)["vram_used"] / 1024.0
 
-                        # Wait until next interval
+                    # --- Utilization measurement (%)
+                    gpu_util = self.amdsmi_get_gpu_activity(h)["gfx_activity"]
+
+                    # Wait until next interval
+                    new_time = _time.time()
+                    while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
                         new_time = _time.time()
-                        while (new_time - prevTime.value) < interval.value and alive.value and not halt.value:
-                            new_time = _time.time()
 
-                        idx = int(count.value)
-                        if idx < len(powers):
-                            powers[idx] = power
-                            times[idx] = new_time - prevTime.value
-                            mem_used[idx] = mem_info
-                            gpu_utils[idx] = gpu_util
+                    idx = int(count.value)
+                    if idx < len(powers):
+                        powers[idx] = power
+                        times[idx] = new_time - prevTime.value
+                        mem_used[idx] = mem_info
+                        gpu_utils[idx] = gpu_util
 
-                            count.value += 1
-                            prevTime.value = new_time
-                    finally:
-                        isrunning.value = 0
+                        count.value += 1
+                        prevTime.value = new_time
+                finally:
+                    isrunning.value = 0
         finally:
             self.amdsmi_shut_down()
 
