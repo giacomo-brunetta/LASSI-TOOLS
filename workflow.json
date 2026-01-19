@@ -1,0 +1,169 @@
+{
+  "id": "LASSI Workflow",
+  "name": "LASSI Workflow (Orchestrated)",
+  "description": "Orchestrated workflow for code performance and energy efficiency improvements using LASSI methodology",
+  "version": "2.0.0",
+  "initialState": "analyst",
+  "orchestration": {
+    "enabled": true,
+    "executionMode": "sequential",
+    "maxIterations": 20
+  },
+  "states": [
+    {
+      "id": "analyst",
+      "name": "Analyst Agent",
+      "type": "analyst",
+      "mode": "code",
+      "promptConfig": {
+        "requiresPrompt": true,
+        "promptTemplate": "## SYSTEM INSTRUCTIONS\nYou are a Senior Software Architect. Your goal is to map the codebase and provide a technical specification.\n### MISSION OBJECTIVES\n1. Functional Analysis: Summarize the core purpose.\n2. Architecture Mapping: Identify key modules and relationships.\n3. Build-Time Configuration: List compile-time parameters and flags.\n4. Runtime Interface: Detail CLI flags or config files.\n## USER REQUEST\n{user_prompt}\n## REPOSITORY CONTEXT\n{context}",
+        "placeholders": ["user_prompt", "context"]
+      },
+      "contextBuilding": {
+        "onComplete": {
+          "extractors": [{ "source": "completion_message", "key": "analysis_summary" }]
+        }
+      },
+      "transitions": [
+        {
+          "targetState": "profiler",
+          "condition": { "type": "success" },
+          "contextTransform": {
+            "inherit": ["analysis_summary"],
+            "format": "## Architecture Overview\n{analysis_summary}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "profiler",
+      "name": "Initial Profiler",
+      "type": "profiler",
+      "mode": "code",
+      "promptConfig": {
+        "requiresPrompt": true,
+        "promptTemplate": "## SYSTEM INSTRUCTIONS\nEstablish a baseline for performance. Use gprof and MCP tools to measure latency and energy consumption.\n### MISSION OBJECTIVES\n1. Profiling: Gather execution time data per function.\n2. Performance Measurement: Measure latency/energy with multiple inputs.\n3. Reporting: Summarize findings into a baseline report.\n## ANALYSIS CONTEXT\n{context}",
+        "placeholders": ["context"]
+      },
+      "contextBuilding": {
+        "onComplete": {
+          "extractors": [{ "source": "completion_message", "key": "initial_metrics" }]
+        }
+      },
+      "transitions": [
+        {
+          "targetState": "planner",
+          "condition": { "type": "success" },
+          "contextTransform": {
+            "inherit": ["analysis_summary", "initial_metrics"],
+            "format": "## Baseline Metrics (Target to beat)\n{initial_metrics}\n\n## Code Analysis\n{analysis_summary}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "planner",
+      "name": "Planning Agent",
+      "type": "planner",
+      "mode": "architect",
+      "promptConfig": {
+        "requiresPrompt": true,
+        "promptTemplate": "## SYSTEM INSTRUCTIONS\nBased on baseline metrics, create a plan to optimize for energy and speed (AVX-512, alignment, etc.).\n### MISSION OBJECTIVES\n1. Optimization Strategies: Propose algorithmic or hardware-specific changes.\n2. Implementation Steps: Actionable subtasks.\n3. Expected Outcomes: Quantifiable goals.\n## CONTEXT\n{context}",
+        "placeholders": ["context"]
+      },
+      "contextBuilding": {
+        "onComplete": {
+          "extractors": [{ "source": "completion_message", "key": "planning_summary" }]
+        }
+      },
+      "transitions": [
+        {
+          "targetState": "coder",
+          "condition": { "type": "success" },
+          "contextTransform": {
+            "inherit": ["analysis_summary", "initial_metrics", "planning_summary"],
+            "format": "## Plan to Implement\n{planning_summary}\n\n## Reference Baseline\n{initial_metrics}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coder",
+      "name": "Coding Agent",
+      "type": "coder",
+      "mode": "code",
+      "promptConfig": {
+        "requiresPrompt": true,
+        "promptTemplate": "## SYSTEM INSTRUCTIONS\nExecute the optimization plan. Focus on memory alignment and energy efficiency.\n### MISSION OBJECTIVES\n1. Subtask Execution: Implement the code changes.\n2. Documentation: Comment all optimizations.\n3. Verification Preparation: Ensure code builds for the verifier.\n## CONTEXT\n{context}",
+        "placeholders": ["context"]
+      },
+      "contextBuilding": {
+        "onComplete": {
+          "extractors": [{ "source": "completion_message", "key": "implementation_summary" }]
+        }
+      },
+      "transitions": [
+        {
+          "targetState": "verifier",
+          "condition": { "type": "success" },
+          "contextTransform": {
+            "inherit": ["analysis_summary", "initial_metrics", "implementation_summary"],
+            "format": "## Changes to Verify\n{implementation_summary}\n\n## Original Baseline\n{initial_metrics}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "name": "QA Verifier",
+      "type": "verifier",
+      "mode": "code",
+      "promptConfig": {
+        "requiresPrompt": true,
+        "promptTemplate": "## SYSTEM INSTRUCTIONS\nVerify functional equivalence. Ensure the optimizations didn't break core logic.\n### MISSION OBJECTIVES\n1. Code Review: Check for standards and regressions.\n2. Functionality Testing: Run tests to ensure correct output.\n## CONTEXT\n{context}",
+        "placeholders": ["context"]
+      },
+      "transitions": [
+        {
+          "targetState": "profiler2",
+          "condition": { "type": "success" },
+          "contextTransform": {
+            "inherit": ["analysis_summary", "initial_metrics", "implementation_summary"],
+            "format": "## Verification Passed\nNow re-profile the code and compare against:\n{initial_metrics}"
+          }
+        },
+        {
+          "targetState": "coder",
+          "condition": { "type": "failure" },
+          "description": "Bugs found in implementation. Return to Coder."
+        }
+      ]
+    },
+    {
+      "id": "profiler2",
+      "name": "Post-Optimization Profiler",
+      "type": "profiler",
+      "mode": "code",
+      "promptConfig": {
+        "requiresPrompt": true,
+        "promptTemplate": "## SYSTEM INSTRUCTIONS\nPerform a final profile of the modified code. Compare results against the baseline.\n### MISSION OBJECTIVES\n1. Re-profile: Run gprof and energy tools again.\n2. Comparison: Is Latency/Energy < Baseline?\n3. DECISION: If significantly better, output 'OPTIMIZATION_SUCCESS'. If worse/equal, output 'OPTIMIZATION_FAILURE' and explain why.\n## BASELINE TO COMPARE AGAINST\n{context}",
+        "placeholders": ["context"]
+      },
+      "transitions": [
+        {
+          "targetState": "complete",
+          "condition": { "type": "match", "pattern": "OPTIMIZATION_SUCCESS" }
+        },
+        {
+          "targetState": "planner",
+          "condition": { "type": "match", "pattern": "OPTIMIZATION_FAILURE" },
+          "contextTransform": {
+            "inherit": ["initial_metrics", "analysis_summary"],
+            "format": "The last implementation failed to improve the baseline. Return to Planning to find a new approach.\nBaseline: {initial_metrics}"
+          }
+        }
+      ]
+    }
+  ]
+}
