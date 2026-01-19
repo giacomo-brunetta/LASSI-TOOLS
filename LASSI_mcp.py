@@ -14,6 +14,7 @@ from lassi.compiler import Compiler, CompilerTool, CompilationError, COMPILER_FL
 from lassi.source_file import SourceFile
 from lassi.executer import FunctionalValidator, ExecTool
 from lassi.profiler import MultiProfiler, CPUProfiler, GPUProfiler, ArmPowerProbe, NvidiaPowerProbe
+from lassi.gprof import GProf
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
@@ -96,6 +97,29 @@ async def compile_to_mlir(
     
     except Exception as e:
         return f"MLIR generation failed: {str(e)}"
+
+@mcp.tool()
+async def gprof_profiling(
+    path: Annotated[str, Field(description="The absolute path to the source file to compile.")],
+    compiler: Annotated[str, Field(description="The compiler to use (e.g. 'gcc', 'nvcc').")] = None,
+    kwds: Annotated[str, Field(description="Compiler flags (e.g. '-O3 -Wall'). Gprof-specific flags (e.g. -pg) are added by default.")] = None,
+    args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
+) -> str:
+    """
+    Compile file using gprof and returns the callgraph information.
+    """
+
+    target_path = Path(path).resolve()
+    
+    gprofile = GProf(
+        target_path,
+        compiler_tool=CompilerTool.from_string(compiler.lower())
+        )
+
+    return gprofile.profile(
+            args=args,
+            kwds=kwds,
+        )
 
 @mcp.tool()
 async def execute_with_latency(
