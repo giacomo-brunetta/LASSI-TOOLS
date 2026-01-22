@@ -60,9 +60,8 @@ This repository implements an agentic workflow focused on code performance and e
    - More info: https://docs.roocode.com/features/marketplace
 5. **Clone the LASSI workflow (remote VS Code server example)**
    ```bash
-   cd .vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline
    mkdir -p workflows
-   cp workflow.json lassi-workflow.json
+   cp workflow.json $HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/workflows/lassi-workflow.json
    cd ~/LASSI-TOOLS
    ```
    - More info: https://docs.roocode.com/features/custom-modes
