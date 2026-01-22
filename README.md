@@ -46,6 +46,8 @@ This repository implements an agentic workflow focused on code performance and e
    - Documentation: https://docs.roocode.com/getting-started/installing
 2. **Install Python dependencies**
    ```bash
+   conda create --name LASSI python=3.12
+   conda activate LASSI
    pip install -r requirements.txt
    ```
 3. **Register the LASSI MCP server**
@@ -70,7 +72,73 @@ This repository implements an agentic workflow focused on code performance and e
    ```bash
    python LASSI_MCP.py
    ```
+   - Note: Roo Code will automatically spawn the LASSI MCP server once it is registerd. This command is just for checking..
 
+8. **Other Dependencies**
+
+   Check presence of compiler and profiling tools.
+   ```bash
+   gcc --version
+   g++ --version
+   make --version
+   gprof --version
+   ```
+   If missing, install eseential tools.
+   - In Conda: no sudo required. Can create conglicts with Polygeist.
+      ```bash
+      conda install -c conda-forge gcc_linux-64 gxx_linux-64 make binutils_linux-64
+      ```
+   - With APT: sudo required.
+      ```bash
+      sudo apt update
+      sudo apt install -y build-essential binutils
+      ```
+
+9. **MLIR DEPS**
+
+   Clone Polygeist
+   ```bash
+   git clone --recursive https://github.com/llvm/Polygeist.git
+   cd Polygeist
+   ```
+   Build LLVM (this takes a while).
+   ```bash
+   mkdir -p llvm-project/build-release
+   cd llvm-project/build-release
+
+   cmake -G Ninja ../llvm \
+   -DLLVM_ENABLE_PROJECTS="mlir;clang" \
+   -DLLVM_TARGETS_TO_BUILD="host" \
+   -DLLVM_ENABLE_ASSERTIONS=OFF \
+   -DCMAKE_BUILD_TYPE=Release
+
+   ninja
+   ninja check-mlir
+   cd ../..
+   ```
+   Build Polygeist.
+   ```bash
+   mkdir -p build-release
+   cd build-release
+
+   cmake -G Ninja .. \
+   -DMLIR_DIR=$PWD/../llvm-project/build-release/lib/cmake/mlir \
+   -DCLANG_DIR=$PWD/../llvm-project/build-release/lib/cmake/clang \
+   -DLLVM_TARGETS_TO_BUILD="host" \
+   -DLLVM_ENABLE_ASSERTIONS=OFF \
+   -DCMAKE_BUILD_TYPE=Release
+
+   ninja
+   ```
+   Add to path. (Add to `.bashrc` for persistence.)
+   ```bash
+   export PATH="$HOME/Polygeist/build-release/bin:$PATH"
+   ```
+   Check installation.
+   ```bash
+   cgeist --version
+   polygeist-opt --version
+   ```
 ## Example Usage
 > _"I want to optimize the performance of my @~/TEST/matmul.c script. Make it as fast as possible."_
 
