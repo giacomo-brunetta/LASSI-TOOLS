@@ -1,4 +1,6 @@
 import subprocess
+import re
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -109,6 +111,110 @@ def parse_flat_profile(gprof_output: str) -> List[Dict[str, Any]]:
 
     return results
 
+def parse_gprof_to_memory_schema(gprof_output: str):
+    """
+    Parses gprof text into mcp-memory entities and relations.
+    Now includes a pre-cleaning step to strip file headers.
+    """
+    
+    # 1. CLEANING REGEX: Remove everything before the table header
+    # This strips command lines, granularity info, and preamble text.
+    # We look for "index", followed by "%", followed by "time" with variable spacing.
+    gprof_output = re.sub(
+        r"(?s)^.*?(?=index\s+%\s+time)", 
+        "", 
+        gprof_output, 
+        flags=re.DOTALL
+    )
+
+    # 2. Split into blocks based on dashed lines
+    blocks = re.split(r'-{10,}', gprof_output)
+    
+    entities_map = {}
+    relations = []
+
+    for block in blocks:
+        lines = block.strip().split('\n')
+        if not lines: continue
+
+        # Identify Focus Line
+        focus_idx = -1
+        for i, line in enumerate(lines):
+            # Skip the header line itself if it appears in the block
+            if "index" in line and "%" in line and "time" in line: continue
+            
+            if re.match(r'^\s*\[(\d+)\]', line):
+                focus_idx = i
+                break
+        
+        if focus_idx == -1: continue
+
+        # --- 3. Parse Node & Attributes ---
+        match = re.search(r'\[(\d+)\]\s+([\d\.]+)?\s*([\d\.]+)?\s*([\d\.]+)?\s+(?:[\d/]+)?\s+([^\s]+)', lines[focus_idx])
+        if match:
+            idx, pct, self_t, child_t, name = match.groups()
+            
+            # Attributes as JSON string
+            attributes = {
+                "gprof_index": int(idx) if idx else None,
+                "percent_time": float(pct) if pct else 0.0,
+                "self_time_sec": float(self_t) if self_t else 0.0,
+                "children_time_sec": float(child_t) if child_t else 0.0
+            }
+            json_observation = json.dumps(attributes)
+
+            entities_map[name] = {
+                "name": name,
+                "entityType": "function",
+                "observations": [json_observation]
+            }
+            
+            # Helper for edge weights
+            def extract_calls(txt):
+                m = re.search(r'\s(\d+)(?:/\d+)?\s+[^\s]+\s*(?:\[\d+\])?$', txt)
+                return m.group(1) if m else None
+
+            # --- 4. Incoming Edges (Callers) ---
+            for i in range(0, focus_idx):
+                line = lines[i].strip()
+                if not line or ("index" in line and "%" in line): continue
+
+                if "<spontaneous>" in line:
+                    relations.append({"from": "ROOT", "to": name, "relationType": "spawns"})
+                else:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        caller = parts[-2] if parts[-1].startswith('[') else parts[-1]
+                        calls = extract_calls(line)
+                        rel_type = f"calls ({calls})" if calls else "calls"
+
+                        if caller not in entities_map:
+                            entities_map[caller] = {
+                                "name": caller,
+                                "entityType": "function",
+                                "observations": ["{\"status\": \"stub_node\"}"]
+                            }
+                        relations.append({"from": caller, "to": name, "relationType": rel_type})
+
+            # --- 5. Outgoing Edges (Callees) ---
+            for i in range(focus_idx + 1, len(lines)):
+                line = lines[i].strip()
+                parts = line.split()
+                if len(parts) >= 2:
+                    callee = parts[-2] if parts[-1].startswith('[') else parts[-1]
+                    calls = extract_calls(line)
+                    rel_type = f"calls ({calls})" if calls else "calls"
+
+                    if callee not in entities_map:
+                        entities_map[callee] = {
+                            "name": callee,
+                            "entityType": "function",
+                            "observations": ["{\"status\": \"stub_node\"}"]
+                        }
+                    relations.append({"from": name, "to": callee, "relationType": rel_type})
+
+    return list(entities_map.values()), relations
+
 class GProf:
     """
     A class to handle gprof profiling for a source file.
@@ -132,7 +238,7 @@ class GProf:
             compiler_tool=compiler_tool
         )
 
-    def get_gprof_profile(self) -> str:
+    def get_gprof_flat_profile(self) -> str:
         """
         Runs gprof on the compiled executable and returns a Markdown table.
         """
@@ -158,15 +264,42 @@ class GProf:
         flat_profile_data = parse_flat_profile(gprof_result.stdout)
         return generate_profile_table(flat_profile_data)
 
+    def get_call_graph_profile(self) -> str:
+        """
+        Runs gprof on the compiled executable and returns call graph data.
+        """
+        if not self.source_file.executable:
+            return "Executable not found. Did you compile and run first?"
+
+        exe_path = self.source_file.executable.resolve()
+        
+        cmd = ["gprof", str(exe_path), "gmon.out", "-q"]
+
+        print(f"Profiling with gprof (call graph): {' '.join(cmd)}")
+
+        gprof_result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True
+        )
+
+        if gprof_result.returncode != 0:
+            return f"gprof failed: {gprof_result.stderr.strip()}"
+
+        call_graph_data = parse_gprof_to_memory_schema(gprof_result.stdout)
+        # For simplicity, just returning a placeholder string
+        return call_graph_data
+
     def profile(self,
         kwds: str = "",
         args: str = "",
+        type: str = "flat"
     ) -> str:
         """
         Compiles, executes, and profiles the source file.
         """
         # Add a space if kwds is not empty
-        compile_flags = kwds + (" " if kwds else "") + "-pg -no-pie -fno-builtin"
+        compile_flags = (kwds if kwds else "") + (" " if kwds else "") + "-pg -no-pie -fno-builtin"
         
         # Use .stem and .suffix from the Path object
         gprof_exe = self.source_file.full_path.parent / (self.source_file.file_name.stem + "_gprof.out")
@@ -182,4 +315,14 @@ class GProf:
         # Execute the binary to generate gmon.out
         self.source_file.execute(args=args)
         
-        return self.get_gprof_profile()
+        if type == "flat":
+            return self.get_gprof_flat_profile()
+        elif type == "callgraph":
+            # Call graph parsing not implemented
+            return "Call graph profiling not implemented yet."
+        elif type == "both":
+            flat_profile = self.get_gprof_flat_profile()
+            call_graph = "Call graph profiling not implemented yet."
+            return flat_profile + "\n\n" + call_graph
+        else:
+            return f"Unknown profiling type: {type}"
