@@ -417,6 +417,8 @@ async def get_gpu_info() -> str:
 #                               RESOURCES
 #============================================================================
 
+# TODO all the prompts of the original LASSI prompts can be converted to resources here.
+
 @mcp.resource("compiler://{name}/flags")
 def get_compiler_flags(name: str) -> str:
     """
