@@ -1,3 +1,4 @@
+from typing import Union, Iterable
 from pathlib import Path
 from lassi.compiler import *
 from lassi.executer import *
@@ -21,9 +22,15 @@ class SourceFile:
             Compiler.from_language(self.lang)
         )
 
-    def compile(self, kwds: str = None, output_file: Path = None):
-        # Compile the source file using the associated compiler tool
-        self.executable = self.compiler_tool.compile(self.full_path, kwds=kwds, output_file=output_file)
+    def compile(self, kwds: str = None, include_dirs: Union[Path, Iterable[Path]] = None, library_dirs: Union[Path, Iterable[Path]] = None, extra_files: Union[Path, Iterable[Path]] = None, output_file: Path = None):
+        # Compile the source file(s) using the associated compiler tool
+        files = [self.full_path]
+        if extra_files:
+            if isinstance(extra_files, (Path, str)):
+                files.append(Path(extra_files))
+            else:
+                files.extend([Path(f) for f in extra_files])
+        self.executable = self.compiler_tool.compile(files, kwds=kwds, include_dirs=include_dirs, library_dirs=library_dirs, output_file=output_file)
 
     def is_compiled(self):
         # Check whether compilation has produced an executable

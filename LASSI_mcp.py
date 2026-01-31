@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Union, List
 from pathlib import Path
 from pydantic import Field
 import mcp.types as types
@@ -28,71 +28,77 @@ mcp = FastMCP("LASSI")
 
 @mcp.tool()
 async def compile_source(
-    path: Annotated[str, Field(description="The absolute path to the source file to compile.")],
+    path: Annotated[Union[str, List[str]], Field(description="The absolute path or list of paths to the source file(s) to compile.")],
     compiler: Annotated[str, Field(description="The compiler to use (e.g. 'gcc', 'nvcc').")],
     kwds: Annotated[str, Field(description="Compiler flags (e.g. '-O3 -Wall').")] = None,
+    includes: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the include directory(ies).")] = None,
+    libraries: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the library directory(ies).")] = None,
     output: Annotated[str, Field(description="The output binary file name.")] = None,
 ) -> str:
     """
-    Compiles a source file using a specific compiler.
+    Compiles one or more source files using a specific compiler.
     """
-    #print(f"Received compile_source request with path: {path}, compiler: {compiler}, kwds: {kwds}, output: {output}", file=sys.stderr)
+    if isinstance(path, str):
+        target_paths = [Path(path).resolve()]
+    else:
+        target_paths = [Path(p).resolve() for p in path]
 
-    target_path = Path(path).resolve()
     output_path = Path(output).resolve() if output else None
 
-    if not target_path.exists():
-        return f"Compilation failed: File not found at {target_path}"
+    for p in target_paths:
+        if not p.exists():
+            return f"Compilation failed: File not found at {p}"
 
     # 3. Logic: Resolve the Compiler Enum
     try:
         compiler_tool = CompilerTool.from_string(compiler.lower())
-            
     except ValueError as e:
         return f"Configuration Error: {str(e)}"
 
     # 4. Execution
     try:
-        
         result_path = compiler_tool.compile(
-            file=target_path,
+            files=target_paths,
             kwds=kwds,
+            include_dirs=includes,
+            library_dirs=libraries,
             output_file=output_path
         )
         return f"Compilation successful. Binary created at: {result_path.name}"
-    
     except Exception as e:
         return f"Compilation failed: {str(e)}"
     
 @mcp.tool()
 async def compile_to_mlir(
-    path: Annotated[str, Field(description="The absolute path to the source file to compile.")],
+    path: Annotated[Union[str, List[str]], Field(description="The absolute path or list of paths to the source file(s) to compile.")],
     kwds: Annotated[str, Field(description="Specific flags for cgeist (e.g., '-function=*').")] = None,
+    includes: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the include directory(ies).")] = None,
+    libraries: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the library directory(ies).")] = None,
     output: Annotated[str, Field(description="The output MLIR file name.")] = None,
 ) -> str:
     """
-    Compiles a C/C++ source file specifically to MLIR using cgeist.
+    Compiles C/C++ source file(s) specifically to MLIR using cgeist.
     """
-    # 1. Resolve Input Paths
-    target_path = Path(path).resolve()
+    if isinstance(path, str):
+        target_paths = [Path(path).resolve()]
+    else:
+        target_paths = [Path(p).resolve() for p in path]
+
     output_path = Path(output).resolve() if output else None
 
-    # 2. Validation
-    if not target_path.exists():
-        return f"Compilation failed: File not found at {target_path}"
+    for p in target_paths:
+        if not p.exists():
+            return f"Compilation failed: File not found at {p}"
 
     try:
         # 3. Execution
-        # We enforce CGEIST here. We do not ask the LLM to choose it.
-        source_file = SourceFile(
-            file_name=target_path, 
-            compiler=Compiler.CGEIST
-        )
+        compiler_tool = CompilerTool(Compiler.CGEIST)
         
-        # We pass the arguments to the instance method
-        result_path = source_file.compile(
-            file=target_path,
+        result_path = compiler_tool.compile(
+            files=target_paths,
             kwds=kwds,
+            include_dirs=includes,
+            library_dirs=libraries,
             output_file=output_path
         )
         return f"MLIR generation successful. Output file: {result_path.name}"
@@ -101,26 +107,123 @@ async def compile_to_mlir(
         return f"MLIR generation failed: {str(e)}"
 
 @mcp.tool()
+async def compile_with_libtorch(
+    path: Annotated[Union[str, List[str]], Field(description="The absolute path or list of paths to the source file(s) to compile.")],
+    kwds: Annotated[str, Field(description="Flags for GPP")] = None,
+    includes: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the include directory(ies).")] = None,
+    libraries: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the library directory(ies).")] = None,
+    output: Annotated[str, Field(description="The output file name.")] = None,
+) -> str:
+    """
+    Compiles C++ file(s). Automatically finds libtorch include and lib paths and adds them to the compilation command.
+    """
+    print(f"DEBUG: Received path={path}", file=sys.stderr)
+    if isinstance(path, str):
+        target_paths = [Path(path).resolve()]
+    else:
+        target_paths = [Path(p).resolve() for p in path]
+    print(f"DEBUG: Resolved target_paths={target_paths}", file=sys.stderr)
+
+    output_path = Path(output).resolve() if output else None
+
+    for p in target_paths:
+        if not p.exists():
+            return f"Compilation failed: File not found at {p}"
+
+    torch_paths = CompilerTool.find_torchlib_paths()
+    torch_inc = torch_paths["TORCH_INC"]
+    torch_api_inc = torch_paths["TORCH_API_INC"]
+    torch_lib = torch_paths["TORCH_LIB"]
+
+    # Handle includes and libraries lists
+    if includes is None:
+        includes = []
+    elif isinstance(includes, str):
+        includes = [includes]
+    else:
+        includes = list(includes)
+    includes.extend([str(torch_inc), str(torch_api_inc)])
+
+    if libraries is None:
+        libraries = []
+    elif isinstance(libraries, str):
+        libraries = [libraries]
+    else:
+        libraries = list(libraries)
+    libraries.append(str(torch_lib))
+
+    abi_flag = "-D_GLIBCXX_USE_CXX11_ABI=1"
+    std_flag = "-std=c++17"
+
+    flag_parts = []
+    if kwds:
+        flag_parts.append(kwds.strip())
+    flag_parts.extend(["-O3", std_flag, abi_flag])
+    
+    # Specific libtorch linkage flags
+    lib_link_flags = [
+        "-ltorch",
+        "-ltorch_cpu",
+        "-ltorch_cuda",
+        "-lc10",
+        "-lpthread",
+        "-ldl",
+        "-lrt",
+        f"-Wl,-rpath,{torch_lib}",
+    ]
+    flag_parts.extend(lib_link_flags)
+
+    kwds = " ".join(flag_parts)
+
+    # 2. Validation
+    try:
+        # 3. Execution
+        compiler_tool = CompilerTool(Compiler.GPP)
+        
+        print(f"DEBUG: Calling compile with files={target_paths}, kwds={kwds}, includes={includes}, libraries={libraries}", file=sys.stderr)
+        result_path = compiler_tool.compile(
+            files=target_paths,
+            kwds=kwds,
+            include_dirs=includes,
+            library_dirs=libraries,
+            output_file=output_path
+        )
+        return f"Compilation successful. Binary created at: {result_path.name}"
+    
+    except Exception as e:
+        return f"Compilation failed: {str(e)}"
+
+@mcp.tool()
 async def gprof_profiling(
-    path: Annotated[str, Field(description="The absolute path to the source file to compile.")],
+    path: Annotated[Union[str, List[str]], Field(description="The absolute path or list of paths to the source file(s) to compile.")],
     compiler: Annotated[str, Field(description="The compiler to use (e.g. 'gcc', 'nvcc').")] = None,
     kwds: Annotated[str, Field(description="Compiler flags (e.g. '-O3 -Wall'). Gprof-specific flags (e.g. -pg) are added by default.")] = None,
+    includes: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the include directory(ies).")] = None,
+    libraries: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the library directory(ies).")] = None,
     args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
 ) -> str:
     """
-    Compile file using gprof and returns the callgraph information.
+    Compile file(s) using gprof and returns the callgraph information.
     """
 
-    target_path = Path(path).resolve()
+    if isinstance(path, str):
+        target_path = Path(path).resolve()
+        extra_files = None
+    else:
+        target_path = Path(path[0]).resolve()
+        extra_files = [Path(p).resolve() for p in path[1:]]
     
     gprofile = GProf(
         target_path,
-        compiler_tool=CompilerTool.from_string(compiler.lower())
+        compiler_tool=CompilerTool.from_string(compiler.lower()) if compiler else None
         )
 
     return gprofile.profile(
             args=args,
             kwds=kwds if kwds else "",
+            include_dirs=includes,
+            library_dirs=libraries,
+            extra_files=extra_files,
         )
 
 @mcp.tool()
@@ -235,13 +338,20 @@ async def execute_with_profile(
         return f"Execution failed with internal error: {str(e)}"
 
 async def _push_callgraph_to_memory_impl(
-    path: str,
+    path: Union[str, List[str]],
     compiler: str = None,
     kwds: str = None,
+    includes: Union[str, List[str]] = None,
+    libraries: Union[str, List[str]] = None,
     args: str = ""
 ) -> str:
     """Internal implementation of pushing callgraph to memory."""
-    target_path = Path(path).resolve()
+    if isinstance(path, str):
+        target_path = Path(path).resolve()
+        extra_files = None
+    else:
+        target_path = Path(path[0]).resolve()
+        extra_files = [Path(p).resolve() for p in path[1:]]
     
     gprofile = GProf(
         target_path,
@@ -254,6 +364,9 @@ async def _push_callgraph_to_memory_impl(
 
     gprofile.source_file.compile(
         kwds=compile_flags,
+        include_dirs=includes,
+        library_dirs=libraries,
+        extra_files=extra_files,
         output_file=gprof_exe
     )
     
@@ -324,15 +437,17 @@ async def _push_callgraph_to_memory_impl(
 
 @mcp.tool()
 async def push_callgraph_to_memory(
-    path: Annotated[str, Field(description="The absolute path to the source file to compile.")],
+    path: Annotated[Union[str, List[str]], Field(description="The absolute path or list of paths to the source file(s) to compile.")],
     compiler: Annotated[str, Field(description="The compiler to use (e.g. 'gcc', 'nvcc').")] = None,
     kwds: Annotated[str, Field(description="Compiler flags (e.g. '-O3 -Wall'). Gprof-specific flags (e.g. -pg) are added by default.")] = None,
+    includes: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the include directory(ies).")] = None,
+    libraries: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the library directory(ies).")] = None,
     args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
 ) -> str:
     """
     Runs gprof to get the callgraph and pushes it to the Memory MCP server.
     """
-    return await _push_callgraph_to_memory_impl(path, compiler, kwds, args)
+    return await _push_callgraph_to_memory_impl(path, compiler, kwds, includes, libraries, args)
 
 @mcp.tool()
 async def get_machine_info() -> str:

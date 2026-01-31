@@ -2,7 +2,7 @@ import subprocess
 import re
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union, Iterable
 
 from lassi.compiler import Language, CompilerTool
 from lassi.source_file import SourceFile
@@ -293,6 +293,9 @@ class GProf:
     def profile(self,
         kwds: str = "",
         args: str = "",
+        include_dirs: Optional[Union[Path, Iterable[Path]]] = None,
+        library_dirs: Optional[Union[Path, Iterable[Path]]] = None,
+        extra_files: Optional[Union[Path, Iterable[Path]]] = None,
         type: str = "flat"
     ) -> str:
         """
@@ -306,6 +309,9 @@ class GProf:
 
         self.source_file.compile(
             kwds=compile_flags,
+            include_dirs=include_dirs,
+            library_dirs=library_dirs,
+            extra_files=extra_files,
             output_file=gprof_exe
         )
         
