@@ -60,7 +60,7 @@ This repository implements an agentic workflow focused on code performance and e
    - More info: https://docs.roocode.com/features/marketplace
 5. **Clone the LASSI workflow (remote VS Code server example)**
    ```bash
-   mkdir -p workflows
+   mkdir -p $HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/workflows
    cp workflow.json $HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/workflows/lassi-workflow.json
    cd ~/LASSI-TOOLS
    ```
@@ -93,7 +93,20 @@ This repository implements an agentic workflow focused on code performance and e
       sudo apt install -y build-essential binutils
       ```
 
-9. **MLIR DEPS**
+9. **Add LASSI Modes and Rules**
+   
+   Copy rules folder in main `.roo`
+   ```bash
+   ln -s ./rules ~/.roo
+   ```
+
+   Copy `custom_modes.yaml` into Roo's setting folder.
+   With VS-Code remote:
+   ```bash
+   ln -s custom_modes.yaml .vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/settings/
+   ```
+
+10. **MLIR DEPS**
 
    Clone Polygeist
    ```bash

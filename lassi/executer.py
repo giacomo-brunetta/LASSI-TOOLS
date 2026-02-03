@@ -13,7 +13,7 @@ class WrongOutput(Exception):
 class FunctionalValidator:
     
     def __init__(
-        self, 
+        self,
         args : str = "",
         golden_output : str | Path = None,
         ret_code : int = 0
@@ -26,8 +26,14 @@ class FunctionalValidator:
         if program_output.returncode != self.ret_code:
             raise WrongRetCode(f"Wrong return code.\nExpected {self.ret_code}, received {program_output.returncode}")
         
-        if self.golden_output and self.golden_output != program_output.stdout:
-            raise WrongOutput(f"Wrong output.\nExpected {self.golden_output}, received {program_output.stdout}")
+        if self.golden_output:
+            # If golden_output is a path, read its content for comparison
+            expected = self.golden_output
+            if isinstance(self.golden_output, Path) or (isinstance(self.golden_output, str) and Path(self.golden_output).exists()):
+                expected = Path(self.golden_output).read_text()
+
+            if expected != program_output.stdout:
+                raise WrongOutput(f"Wrong output.\nExpected output does not match received stdout.")
         
         return True
 
@@ -74,10 +80,11 @@ class ExecTool:
         )
 
     def run(
-        self, 
-        args: str = None, 
-        profiler: Profiler = None, 
-        validator: FunctionalValidator = None
+        self,
+        args: str = None,
+        profiler: Profiler = None,
+        validator: FunctionalValidator = None,
+        dump_output: str | Path = None
     ) -> subprocess.CompletedProcess:
         
         if args:
@@ -107,6 +114,11 @@ class ExecTool:
             # Note: Ensure stdio_safe_subprocess_run handles capture_output internally
             # as defined in our previous step.
             completed_process = stdio_safe_subprocess_run(cmd)
+
+        if dump_output:
+            dump_path = Path(dump_output).resolve()
+            print(f"Dumping output to: {dump_path}", file=sys.stderr)
+            dump_path.write_text(completed_process.stdout)
 
         if validator:
             print("Validating output", file=sys.stderr) # FIX 3: Safe logging

@@ -229,7 +229,9 @@ async def gprof_profiling(
 @mcp.tool()
 async def execute_with_latency(
     path: Annotated[str, Field(description="The absolute path to the executable binary.")],
-    args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
+    args: Annotated[str, Field(description="Command line arguments for the executable.")] = "",
+    dump_output: Annotated[str, Field(description="Optional path to dump the stdout to a file.")] = None,
+    expected_output: Annotated[str, Field(description="Optional path or string to compare the output against.")] = None
 ) -> str:
     """
     Runs an executable and returns both the output and the execution time.
@@ -243,10 +245,12 @@ async def execute_with_latency(
     # Note: We assume 'Timer' is imported or available in your scope
     executer = ExecTool(executable=target_path, profiler=Timer())
 
+    validator = FunctionalValidator(golden_output=expected_output) if expected_output else None
+
     try:
         # 1. Run the execution
         # Use asyncio.to_thread to run the blocking executer.run without stalling the event loop
-        process_result = await asyncio.to_thread(executer.run, args=args)
+        process_result = await asyncio.to_thread(executer.run, args=args, dump_output=dump_output, validator=validator)
 
         # 2. Retrieve the profiling report (time, memory, etc.)
         # Since we didn't pass a custom profiler to .run(), it used self.profiler 
@@ -282,7 +286,9 @@ async def execute_with_latency(
 @mcp.tool()
 async def execute_with_profile(
     path: Annotated[str, Field(description="The absolute path to the executable binary.")],
-    args: Annotated[str, Field(description="Command line arguments for the executable.")] = ""
+    args: Annotated[str, Field(description="Command line arguments for the executable.")] = "",
+    dump_output: Annotated[str, Field(description="Optional path to dump the stdout to a file.")] = None,
+    expected_output: Annotated[str, Field(description="Optional path or string to compare the output against.")] = None
 ) -> str:
     """
     Runs an executable and returns both the output and the execution power profiling report.
@@ -301,10 +307,12 @@ async def execute_with_profile(
             )
         )
 
+    validator = FunctionalValidator(golden_output=expected_output) if expected_output else None
+
     try:
         # 1. Run the execution
         # Use asyncio.to_thread to run the blocking executer.run without stalling the event loop
-        process_result = await asyncio.to_thread(executer.run, args=args)
+        process_result = await asyncio.to_thread(executer.run, args=args, dump_output=dump_output, validator=validator)
 
         # 2. Retrieve the profiling report (time, memory, etc.)
         # Since we didn't pass a custom profiler to .run(), it used self.profiler 
