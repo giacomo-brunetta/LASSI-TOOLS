@@ -15,7 +15,7 @@ Use this skill when you need to compile C++ code that utilizes the LibTorch (PyT
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/compile-with-libtorch/compile_with_libtorch.py \
+python3 ~/LASSI-TOOLS/.roo/skills/compile-with-libtorch/compile_with_libtorch.py \
     --path torch_app.cpp \
     --output torch_app
 ```

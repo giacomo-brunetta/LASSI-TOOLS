@@ -16,7 +16,7 @@ Use this skill when you need to compile source code into an executable or object
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/compile-source/compile_source.py \
+python3 ~/LASSI-TOOLS/.roo/skills/compile-source/compile_source.py \
     --path main.cpp utils.cpp \
     --compiler g++ \
     --kwds "-O3 -Wall" \

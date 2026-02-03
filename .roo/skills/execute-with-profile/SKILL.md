@@ -15,7 +15,7 @@ Use this skill to measure both execution time and energy/power consumption of a 
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/execute-with-profile/execute_with_profile.py \
+python3 ~/LASSI-TOOLS/.roo/skills/execute-with-profile/execute_with_profile.py \
     --path ./my_app \
     --args "--iterations 1000"
 ```

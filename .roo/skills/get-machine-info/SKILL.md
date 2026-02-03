@@ -12,7 +12,7 @@ Use this skill to understand the hardware capabilities of the system you are wor
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/get-machine-info/get_machine_info.py
+python3 ~/LASSI-TOOLS/.roo/skills/get-machine-info/get_machine_info.py
 ```
 
 ## Common Issues

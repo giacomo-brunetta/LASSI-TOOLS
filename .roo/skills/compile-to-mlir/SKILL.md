@@ -15,7 +15,7 @@ Use this skill when you need to transform C or C++ code into MLIR format using t
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/compile-to-mlir/compile_to_mlir.py \
+python3 ~/LASSI-TOOLS/.roo/skills/compile-to-mlir/compile_to_mlir.py \
     --path input.cpp \
     --kwds "-function=*" \
     --output input.mlir

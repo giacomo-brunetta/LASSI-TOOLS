@@ -101,11 +101,11 @@ This repository implements an agentic workflow focused on code performance and e
    ```bash
    # Sync Rules to Global
    rm -rf ~/.roo/rules/*
-   cp -r ./.roo/rules .roo/rules
+   cp -r ./.roo/rules/* ~/.roo/rules
    
    # Sync Skills to Global
    rm -rf ~/.roo/skills/*
-   cp -r ./.roo/skills .roo/skills
+   cp -r ./.roo/skills/* ~/.roo/skills
    ```
 
    Copy `custom_modes.yaml` into Roo's setting folder.

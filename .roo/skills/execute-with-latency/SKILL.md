@@ -15,7 +15,7 @@ Use this skill to measure the execution time of a binary and optionally verify i
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/execute-with-latency/execute_with_latency.py \
+python3 ~/LASSI-TOOLS/.roo/skills/execute-with-latency/execute_with_latency.py \
     --path ./my_app \
     --args "--iterations 1000" \
     --expected_output golden.txt

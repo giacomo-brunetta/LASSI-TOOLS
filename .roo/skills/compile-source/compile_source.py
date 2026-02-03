@@ -1,6 +1,13 @@
 import argparse
 import sys
 from pathlib import Path
+import sys
+import os
+# Resolve lassi dependency
+skill_dir = os.path.dirname(os.path.abspath(__file__))
+lassi_tools_dir = os.path.abspath(os.path.join(skill_dir, "..", "..", ".."))
+if lassi_tools_dir not in sys.path:
+    sys.path.insert(0, lassi_tools_dir)
 from lassi.compiler import CompilerTool
 
 def main():

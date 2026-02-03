@@ -12,7 +12,7 @@ Use this skill to identify available GPU hardware and its current utilization.
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/get-gpu-info/get_gpu_info.py
+python3 ~/LASSI-TOOLS/.roo/skills/get-gpu-info/get_gpu_info.py
 ```
 
 ## Common Issues

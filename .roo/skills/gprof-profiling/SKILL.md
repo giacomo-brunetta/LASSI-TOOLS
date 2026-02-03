@@ -15,7 +15,7 @@ Use this skill to identify performance bottlenecks in C/C++/CUDA code by generat
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/gprof-profiling/gprof_profiling.py \
+python3 ~/LASSI-TOOLS/.roo/skills/gprof-profiling/gprof_profiling.py \
     --path main.cpp utils.cpp \
     --compiler g++ \
     --args "input_data.txt"

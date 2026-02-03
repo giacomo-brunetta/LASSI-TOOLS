@@ -15,7 +15,7 @@ Use this skill to persist the structural relationship of functions in your code 
 ## Code Template
 
 ```bash
-python3 LASSI-TOOLS/skills/push-callgraph-to-memory/push_callgraph_to_memory.py \
+python3 ~/LASSI-TOOLS/.roo/skills/push-callgraph-to-memory/push_callgraph_to_memory.py \
     --path main.cpp \
     --compiler g++ \
     --args "test_input.txt"
