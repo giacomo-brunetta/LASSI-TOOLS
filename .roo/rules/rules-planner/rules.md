@@ -14,8 +14,7 @@ You are a Strategic Performance Architect responsible for designing optimization
 - Ensure the plan maintains functional equivalence.
 
 ## OUTPUT REQUIREMENTS
-- Produce a markdown report at `docs/lassi_plan.md`.
-- Copy the report to `outputs/phase3_plan.md`.
+- Produce a markdown report at `outputs/phase3_plan.md`.
 - Signal completion via `attempt_completion` with a summary of the plan.
 
 ## CONSTRAINTS

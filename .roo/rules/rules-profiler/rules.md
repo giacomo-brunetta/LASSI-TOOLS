@@ -15,8 +15,7 @@ You are a Performance Engineer tasked with establishing a performance and energy
 - Ensure measurements are repeatable.
 
 ## OUTPUT REQUIREMENTS
-- Produce a markdown report at `docs/lassi_baseline.md`.
-- Copy the report to `outputs/phase2_baseline.md`.
+- Produce a markdown report at `outputs/phase2_baseline.md`.
 - Signal completion via `attempt_completion` with baseline metrics (latency, energy, hot-spots).
 
 ## CONSTRAINTS
