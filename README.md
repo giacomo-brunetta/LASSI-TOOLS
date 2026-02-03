@@ -82,7 +82,7 @@ This repository implements an agentic workflow focused on code performance and e
    make --version
    gprof --version
    ```
-   If missing, install eseential tools.
+   If missing, install essential tools.
    - In Conda: no sudo required. Can create conglicts with Polygeist.
       ```bash
       conda install -c conda-forge gcc_linux-64 gxx_linux-64 make binutils_linux-64
@@ -93,11 +93,19 @@ This repository implements an agentic workflow focused on code performance and e
       sudo apt install -y build-essential binutils
       ```
 
-9. **Add LASSI Modes and Rules**
+9. **Add LASSI Modes, Rules and Skills**
    
-   Copy rules folder in main `.roo`
+   Internal rules and skills are managed in the `.roo` directory within `LASSI-TOOLS/`.
+   
+   To synchronize these with your global Roo configuration:
    ```bash
-   ln -s ./rules ~/.roo
+   # Sync Rules to Global
+   rm -rf ~/.roo/rules
+   cp -r LASSI-TOOLS/.roo/rules ~/.roo/rules
+   
+   # Sync Skills to Global
+   rm -rf ~/.roo/skills
+   cp -r LASSI-TOOLS/.roo/skills ~/.roo/skills
    ```
 
    Copy `custom_modes.yaml` into Roo's setting folder.
