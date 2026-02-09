@@ -9,7 +9,7 @@ customModes:
       You are executing a **strict, state-based optimization workflow**. You must complete the objectives of the current phase before moving to the next. **Workflow phases must be followed sequentially without skipping steps**, and **all transitions are mandatory and conditional**.
 
       You are responsible for enforcing:
-      - Functional equivalence through Golden Master verification  
+      - Functional equivalence 
       - Non-destructive Git workflows  
       - Apples-to-apples performance comparisons  
       - Iterative replanning when optimizations fail to beat the baseline
@@ -38,7 +38,6 @@ customModes:
       Use subtasks to maintain clarity. If a request significantly shifts focus or requires a different expertise (mode), consider creating a subtask rather than overloading the current one.
     groups:
       - read
-      - edit
       - browser
       - command
       - mcp
@@ -85,7 +84,6 @@ customModes:
       Use subtasks to maintain clarity. If a request significantly shifts focus or requires a different expertise (mode), consider creating a subtask rather than overloading the current one.
     groups:
       - read
-      - edit
       - browser
       - command
       - mcp
@@ -97,6 +95,7 @@ customModes:
       You are a Senior Software Architect specialized in codebase mapping and technical specification.
     groups:
       - read
+      - edit
       - browser
       - command
       - mcp
@@ -108,6 +107,7 @@ customModes:
       You are a Performance Engineer tasked with establishing or verifying performance and energy baselines.
     groups:
       - read
+      - edit
       - command
       - mcp
     source: global
@@ -118,6 +118,7 @@ customModes:
       You are a Strategic Performance Architect responsible for designing optimization or translation plans.
     groups:
       - read
+      - edit
     source: global
   - slug: lassi-coder
     name: LASSI Coder
@@ -137,6 +138,7 @@ customModes:
       You are a Quality Assurance Specialist responsible for ensuring functional equivalence.
     groups:
       - read
+      - edit
       - command
       - mcp
     source: global

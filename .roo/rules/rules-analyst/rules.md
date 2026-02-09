@@ -14,7 +14,7 @@ You are a Senior Software Architect specialized in codebase mapping and technica
 - Identify dependencies and build systems (e.g., Makefile, CMake).
 
 ## OUTPUT REQUIREMENTS
-- Produce a markdown report at `outputs/phase1_analysis.md`.
+- Produce a markdown report at `LASSI/phase1_analysis.md`.
 - Signal completion via `attempt_completion` with a summary of the analysis.
 
 ## CONSTRAINTS
