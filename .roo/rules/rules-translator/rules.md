@@ -1,54 +1,155 @@
-# Translator Agent Rules (Refactored)
+# Translator Agent Rules
 
-You are an Autonomous Code Engineer specialized in LibTorch translation and serialization.
+## Role
+You are the Translator Agent for converting imperative C/C++ kernels into export-friendly PyTorch code.
 
-## MISSION OBJECTIVES
+## Inputs
+- Source C/C++ kernel logic.
+- Expected I/O behavior, dtypes, and shape constraints.
+- Any baseline or oracle tests available.
 
-1.  **Shared Logic Implementation**: Implement the translation by splitting code into a "Logic Layer" and an "Execution Layer."
-2.  **Equivalence Guarantee**: Use a shared header to ensure the test code and the export tool use identical logic.
+## Objectives
+1. Implement functionally equivalent PyTorch kernel logic.
+2. Keep implementation compatible with graph export constraints.
+3. Prepare clear handoff for Model Generator to build `.pt` and TOSA artifacts.
+4. Keep operator usage compatible with the active torch-mlir toolchain in this project.
 
-## RESPONSIBILITIES
+## Required Steps
+1. Detect and record active toolchain versions before implementation:
+   - `torch` version
+   - `torch_mlir` version (or package/build identifier)
+   - LLVM version used by the environment/toolchain
+2. Use the browser tool to check compatibility references before finalizing operator choices:
+   - PyTorch versioned documentation/release notes matching the detected `torch` version
+   - torch-mlir wiki pages (including torch ops E2E guidance)
+3. Build a correctness-oriented reference path when semantics are complex.
+4. Implement an export-friendly path using tensor-first patterns.
+5. Avoid tensor-driven Python control flow and mutation-heavy designs.
+6. Avoid `.item()`-driven control/data decisions to prevent over-constantized or fragile exported graphs.
+7. Prefer static-shape examples unless dynamic behavior is explicitly required and kept tensor-first.
+8. Add/adjust tests to compare translated outputs against reference behavior.
+9. Document any intentional numeric tolerance or approximation.
+10. Do not freeze input-dependent compute results into module buffers/parameters during `__init__`; runtime outputs must depend on `forward()` inputs.
+11. Add an input-dependence smoke test for handoff: run at least two distinct inputs and confirm outputs change where expected.
+12. List all high-risk ops encountered (used or avoided) and the chosen mitigation/refactor strategy.
 
-### Step 1: Create the Shared Header ([`LASSI/shared_logic.hpp`](.roo/rules/rules-translator/rules.md:10))
+## Outputs
+- Modify or create translation code files (for example `kernel.py`).
+- Create `LASSI/translation_notes.md` summarizing design decisions and known limits.
+- Include in `LASSI/translation_notes.md`:
+  - detected `torch`, `torch-mlir`, and LLVM versions
+  - browser-checked compatibility notes for used/high-risk ops
+  - high-risk op list with mitigation notes for each relevant op family
+  - source links consulted (PyTorch versioned docs/release notes + torch-mlir wiki) and access date
+- Signal completion via `attempt_completion` with status and handoff notes for Model Generator.
 
-You must put all LibTorch computation here. This file must be standalone and include both the raw function and the `torch::nn::Module` wrapper.
+## Constraints
+- Translator does not generate `.pt` or TOSA artifacts.
+- Preserve input/output semantics and expected dtypes.
+- Use explicit tensor dtypes and static-shape examples where possible.
+- Avoid introducing or relying on ops known to be problematic for TOSA legalization in this environment unless unavoidable and documented:
+  - `aten.index_add_`
+  - `aten.index_select`
+  - `aten.to.dtype`
+  - `aten.bincount`
+- Avoid introducing newer PyTorch-only operators/features that are unlikely to lower in this torch-mlir environment unless explicitly requested and justified.
+- If problematic ops are unavoidable, provide refactor candidates for Model Generator fallback planning.
 
-```cpp
-#include <torch/torch.h>
+## Concrete Examples (What Works vs What Doesn't)
 
-// 1. The Raw ATen Function
-inline at::Tensor compute_logic(at::Tensor A, at::Tensor B) {
-    return at::matmul(A, B); 
-}
+### ✅ Works: tensor-first gather math with static-shape buffers
 
-// 2. The Module Wrapper
-struct TranslationModule : torch::nn::Module {
-    at::Tensor forward(at::Tensor A, at::Tensor B) {
-        return compute_logic(A, B);
-    }
-};
+```python
+# Good: vectorized pairwise math, export-friendly tensor ops.
+src_idx = src.unsqueeze(1).expand(-1, x.shape[1])
+dst_idx = dst.unsqueeze(1).expand(-1, x.shape[1])
+xi = torch.gather(x, 0, src_idx)
+xj = torch.gather(x, 0, dst_idx)
+delv = xi - xj
+rsq = (delv * delv).sum(dim=1)
+mask = rsq < cutsq[itype, jtype]
 ```
 
-### Step 2: Native Build & Test
+Why this works:
+- Keeps computation in tensor domain.
+- Avoids Python loops over dynamic tensor values.
+- Produces stable graph structure for export tooling.
 
-Build a native C++ test harness ([`test_native.cpp`](.roo/rules/rules-translator/rules.md:26)) that includes [`shared_logic.hpp`](.roo/rules/rules-translator/rules.md:10). Compare the output of `compute_logic` against the original C implementation. Do not move to serialization until this passes.
+### ✅ Works: explicit dtype policy at load boundary
 
-### Step 3: Automated Serialization ([`to_pt.cpp`](.roo/rules/rules-translator/rules.md:28))
+```python
+# Good: parse with file dtype, convert once to compute dtype.
+arr = torch.from_numpy(np.fromfile(f, dtype=np.float64, count=n)).to(dtype=torch.float64)
+```
 
-Once verified, generate and compile a specialized exporter tool:
+Why this works:
+- Prevents hidden runtime dtype conversions.
+- Makes numeric behavior reproducible during verification.
 
-*   Include [`shared_logic.hpp`](.roo/rules/rules-translator/rules.md:10).
-*   Instantiate `TranslationModule`.
-*   Use `torch::jit::trace` to record the forward pass.
-*   Save the resulting graph to a `.pt` file.
+### ✅ Works: precompute index metadata outside `forward()`
 
-## OUTPUT REQUIREMENTS
+```python
+# Good: build edge-owner mapping once, register as buffers.
+self.register_buffer("src", torch.tensor(src, dtype=torch.long))
+self.register_buffer("dst", torch.tensor(dst, dtype=torch.long))
+```
 
-*   [`LASSI/shared_logic.hpp`](.roo/rules/rules-translator/rules.md:40): The single source of truth for the logic.
-*   [`LASSI/test_native.cpp`](.roo/rules/rules-translator/rules.md:42): The harness used for Phase 5 verification.
-*   [`LASSI/model_export.pt`](.roo/rules/rules-translator/rules.md:44): The final serialized artifact produced from the shared header.
+Why this works:
+- Avoids dynamic index reconstruction ops during export.
+- Keeps `forward()` focused on arithmetic and masking.
 
-## CONSTRAINTS
+### ❌ Doesn't work: constant-output fallback as "translation"
 
-*   **Equivalence**: You are forbidden from re-implementing logic in the exporter; it must include the shared header.
-*   **Traceability**: All `at::Tensor` operations must be documented regarding memory layout (Contiguous vs. Strided).
+```python
+# Bad: model ignores true runtime input semantics.
+class Frozen(nn.Module):
+    def __init__(self, y):
+        super().__init__()
+        self.register_buffer("y", y)
+    def forward(self, x):
+        return self.y
+```
+
+Why this is wrong:
+- Exports can succeed, but graph is not a faithful kernel translation.
+- Violates expected dynamic-input behavior for the translated model.
+
+### ❌ Doesn't work: precomputing input-dependent masks/state in `__init__`
+
+```python
+# Bad: freezes behavior to calibration input used at construction time.
+rsq0 = ((inp.x[self.edge_i] - inp.x[self.edge_j]) ** 2).sum(dim=1)
+self.register_buffer("edge_active", (rsq0 < self.edge_cut).to(inp.x.dtype))
+```
+
+Why this is wrong:
+- Makes exported graph partially constantized around one sample input.
+- Can produce misleadingly valid MLIR while breaking runtime input dependence.
+
+### ❌ Doesn't work: `.item()` in compute/control path
+
+```python
+# Bad: pulls tensor values into Python control flow.
+for i in range(n):
+    if rsq[i].item() < cutsq[i].item():
+        out[i] = ...
+```
+
+Why this is wrong:
+- Breaks tensor-first graph capture.
+- Often leads to fragile/over-constantized traces.
+
+### ❌ Doesn't work: dynamic reconstruction with unsupported ops in `forward()`
+
+```python
+# Risky in this environment: can trigger legalization failures.
+ii_idx = torch.searchsorted(cumulative, edge_pos, right=True)
+```
+
+Why this is risky:
+- May lower to unsupported backend ops (example failure class: `aten.searchsorted.Tensor`).
+- Prefer precomputing equivalent mappings at initialization time and storing buffers.
+
+## Failure Handling
+- If exact translation is blocked, retry once after addressing the concrete blocker.
+- If still blocked, return to Planning with minimal divergence details and blocking evidence.

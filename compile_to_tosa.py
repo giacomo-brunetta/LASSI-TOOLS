@@ -17,7 +17,7 @@ D = torch.randn(16, 16, dtype=torch.float64)
 # In your version, the function is tucked inside .torchscript
 tosa_mlir = torch_mlir.torchscript.compile(
     module, 
-    [A, B, C, D], # Note: Some versions expect a list of tuples for inputs
+    [A, B, C, D],
     output_type="tosa"
 )
 
