@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<bambu_results bambu_args="bambu -v3 --print-dot -lm --soft-float --compiler=I386_CLANG16 --device=xc7z020-1clg484 --clock-period=10 --experimental-setup=BAMBU-BALANCED-MP --channels-number=2 --memory-allocation-policy=ALL_BRAM --disable-function-proxy --generate-tb=../../forward_kernel_testbench.c --simulate --simulator=VERILATOR --verilator-parallel --top-fname=forward_kernel input.ll " bambu_version="Version: PandA 2024.10 - Revision c2ba6936ca2ed63137095fea0b630a1c66e20e63" timestamp="2026-02-23T23:57:03" benchmark_name="forward_kernel_0">
+  <CYCLES value="168994"/>
+  <HLS_execution_time value="4.02999999999999999976"/>
+</bambu_results>

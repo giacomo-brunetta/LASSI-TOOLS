@@ -1,0 +1,13 @@
+MDPI driver: Memory size for parameter 0 set to 3840 bytes.
+MDPI driver: Memory size for parameter 1 set to 61440 bytes.
+MDPI driver: Memory size for parameter 2 set to 64 bytes.
+MDPI driver: Address 0xFFB5D990 mapped at 0x40000000 (3840 bytes)
+MDPI driver: Address 0xFFB5E890 mapped at 0x40000F00 (61440 bytes)
+MDPI driver: Address 0xFFB5D950 mapped at 0x4000FF00 (64 bytes)
+MDPI driver: Pointer parameter 0xFFB5D990 mapped at 0x40000000
+MDPI driver: Pointer parameter 0xFFB5E890 mapped at 0x40000F00
+MDPI driver: Pointer parameter 0xFFB5D950 mapped at 0x4000FF00
+Results file: results.txt
+Reset active: LOW
+Sim: Testbench returned: 0
+- HLS_output/simulation/bambu_testbench.v:305: Verilog $finish

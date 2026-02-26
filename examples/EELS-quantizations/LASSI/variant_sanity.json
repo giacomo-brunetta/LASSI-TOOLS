@@ -1,0 +1,215 @@
+{
+  "fp32_baseline_savedmodel": {
+    "input_sensitivity": {
+      "z_log_var": true,
+      "z_mean": true
+    },
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "outputs": {
+        "z_log_var": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        "z_mean": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      }
+    }
+  },
+  "graph_xla_savedmodel": {
+    "input_sensitivity": {
+      "z_log_var": true,
+      "z_mean": true
+    },
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "outputs": {
+        "z_log_var": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        "z_mean": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      }
+    }
+  },
+  "mixed_bf16_savedmodel": {
+    "input_sensitivity": {
+      "z_log_var": true,
+      "z_mean": true
+    },
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "outputs": {
+        "z_log_var": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        "z_mean": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      }
+    }
+  },
+  "mixed_fp16_savedmodel": {
+    "input_sensitivity": {
+      "z_log_var": true,
+      "z_mean": true
+    },
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "outputs": {
+        "z_log_var": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        "z_mean": {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      }
+    }
+  },
+  "ptq_dynamic_int8": {
+    "input_sensitivity": [
+      true,
+      true
+    ],
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "num_outputs": 2,
+      "outputs": [
+        {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      ]
+    }
+  },
+  "ptq_float16_tflite": {
+    "input_sensitivity": [
+      true,
+      true
+    ],
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "num_outputs": 2,
+      "outputs": [
+        {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      ]
+    }
+  },
+  "ptq_full_int8": {
+    "input_sensitivity": [
+      true,
+      true
+    ],
+    "io_contract": {
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        240,
+        1
+      ],
+      "num_outputs": 2,
+      "outputs": [
+        {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        },
+        {
+          "dtype": "float32",
+          "shape": [
+            1,
+            16
+          ]
+        }
+      ]
+    }
+  }
+}

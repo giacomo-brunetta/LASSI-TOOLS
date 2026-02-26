@@ -1,0 +1,5 @@
+NET "clock" TNM_NET = clock;
+BEGIN MODEL "forward_kernel"
+NET "clock" buffer_type=bufgp;
+END;
+TIMESPEC TS_clock = PERIOD "clock" 10 ns HIGH 50%;

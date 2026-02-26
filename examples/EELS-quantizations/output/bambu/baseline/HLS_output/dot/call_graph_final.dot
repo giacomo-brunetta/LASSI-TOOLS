@@ -1,0 +1,6 @@
+digraph G {
+0[shape=box, label="forward_kernel"];
+1[shape=box, label="__float_mule8m23b_127nih"];
+2[shape=box, label="__float_adde8m23b_127nih"];
+0->2 [color=blue, label="DIRECT: \n500104"];
+}

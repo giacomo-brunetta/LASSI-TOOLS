@@ -1,0 +1,20 @@
+2026-02-24 00:57:32.229412: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-02-24 00:57:32.258957: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX512_FP16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1771894653.873041     322 service.cc:146] XLA service 0x7edd080d3b50 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1771894653.873119     322 service.cc:154]   StreamExecutor device (0): Host, Default Version
+I0000 00:00:1771894653.944433     322 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+{
+  "overall_verification_gate": "FAIL",
+  "variant_classification": {
+    "fp32_baseline_savedmodel": "IDENTICAL",
+    "graph_xla_savedmodel": "IDENTICAL",
+    "mixed_bf16_savedmodel": "ACCEPTABLE_NUMERIC_DRIFT",
+    "mixed_fp16_savedmodel": "ACCEPTABLE_NUMERIC_DRIFT",
+    "ptq_dynamic_int8": "DIFF_EXISTS",
+    "ptq_float16_tflite": "ACCEPTABLE_NUMERIC_DRIFT",
+    "ptq_full_int8": "DIFF_EXISTS"
+  }
+}

@@ -1,0 +1,4 @@
+Results file: results.txt
+Reset active: LOW
+Sim: Testbench returned: 0
+- HLS_output/simulation/bambu_testbench.v:305: Verilog $finish

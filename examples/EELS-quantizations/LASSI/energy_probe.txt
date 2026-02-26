@@ -1,0 +1,8 @@
+[powercap_rapl_dirs]
+intel-rapl
+intel-rapl:0
+intel-rapl:0:0
+intel-rapl:1
+intel-rapl:1:0
+
+[intel_rapl_energy_uj]

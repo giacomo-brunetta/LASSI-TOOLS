@@ -1,0 +1,99 @@
+{
+  "classification": "ACCEPTABLE_NUMERIC_DRIFT",
+  "comparison_primary": {
+    "z_log_var": {
+      "atol": 0.0005,
+      "candidate_dtype": "float32",
+      "exact_equal": false,
+      "first_mismatch": {
+        "candidate_value": -0.07144681364297867,
+        "golden_value": -0.0713065043091774,
+        "index": [
+          0,
+          13
+        ]
+      },
+      "golden_dtype": "float32",
+      "integer_only": false,
+      "max_abs_error": 0.00014030933380126953,
+      "mean_abs_error": 4.376468132250011e-05,
+      "rtol": 0.005,
+      "shape": [
+        1,
+        16
+      ],
+      "within_tolerance": true
+    },
+    "z_mean": {
+      "atol": 0.0005,
+      "candidate_dtype": "float32",
+      "exact_equal": false,
+      "first_mismatch": {
+        "candidate_value": 0.0645749419927597,
+        "golden_value": 0.06467274576425552,
+        "index": [
+          0,
+          4
+        ]
+      },
+      "golden_dtype": "float32",
+      "integer_only": false,
+      "max_abs_error": 9.780377149581909e-05,
+      "mean_abs_error": 3.614230081439018e-05,
+      "rtol": 0.005,
+      "shape": [
+        1,
+        16
+      ],
+      "within_tolerance": true
+    }
+  },
+  "input_sensitivity": {
+    "z_log_var": {
+      "baseline_distinct_inputs_change_max_abs": 0.29160189628601074,
+      "baseline_sensitive": true,
+      "candidate_distinct_inputs_change_max_abs": 0.29145029187202454,
+      "candidate_sensitive": true
+    },
+    "z_mean": {
+      "baseline_distinct_inputs_change_max_abs": 0.2446877360343933,
+      "baseline_sensitive": true,
+      "candidate_distinct_inputs_change_max_abs": 0.24467703700065613,
+      "candidate_sensitive": true
+    }
+  },
+  "nan_inf_check": {
+    "z_log_var": {
+      "contains_inf": false,
+      "contains_nan": false
+    },
+    "z_mean": {
+      "contains_inf": false,
+      "contains_nan": false
+    }
+  },
+  "output_pinning": {
+    "baseline_source_output_keys": [
+      "output_1",
+      "output_0"
+    ],
+    "output_order": [
+      "z_mean",
+      "z_log_var"
+    ],
+    "primary_mapping_score_mean_abs_sum": 7.990698213689029e-05,
+    "raw_output_dtypes": [
+      "float32",
+      "float32"
+    ],
+    "tflite_output_index_mapping": {
+      "z_log_var": 0,
+      "z_mean": 1
+    }
+  },
+  "tolerance": {
+    "atol": 0.0005,
+    "rtol": 0.005
+  },
+  "warnings": []
+}

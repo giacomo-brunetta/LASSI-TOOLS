@@ -1,0 +1,10 @@
+$ ../../../scripts/tflite_to_tosa.sh /home/gbrun/soda-benchmarks/models/tensorflow/EELS/output/model/variants/ptq_dynamic_int8.tflite output/tosa_variants/ptq_dynamic_int8/01_tosa.mlir
+WARNING: The docker binary could not be found. Verifying if all needed binaries are available locally...
+ERROR: soda-opt could not be found. Exiting.
+
+$ /opt/tensorflow/bin/flatbuffer_translate -tflite-flatbuffer-to-mlir -mlir-print-local-scope -emit-builtin-tflite-ops -lower-tensor-list-ops /home/gbrun/soda-benchmarks/models/tensorflow/EELS/output/model/variants/ptq_dynamic_int8.tflite -o output/tosa_variants/ptq_dynamic_int8/00_tfl.mlir
+2026-02-24 20:33:33.997874: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+
+$ /opt/tensorflow/bin/tf-opt -tf-executor-to-functional-conversion -tf-region-control-flow-to-functional -tf-shape-inference -tf-to-tosa-pipeline -tfl-to-tosa-pipeline -tf-tfl-to-tosa-pipeline -tosa-legalize-tfl -tosa-strip-quant-types -tosa-tflite-verify-fully-converted output/tosa_variants/ptq_dynamic_int8/00_tfl.mlir -o output/tosa_variants/ptq_dynamic_int8/01_tosa.mlir
+2026-02-24 20:33:34.028781: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+
