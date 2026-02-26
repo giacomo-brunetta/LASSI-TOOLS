@@ -1,0 +1,11 @@
+=== PairLJCut Test Harness ===
+Reading input snapshot from /home/gbrun/lj-refactor/lammps_ljcut_32K.bin...
+  nlocal=32000, nmax=65536, inum=32000
+  ntypes=1, newton_pair=1
+  eflag=1, vflag=2
+Input snapshot loaded successfully.
+
+Calling bottleneck function...
+Bottleneck function completed.
+  eng_vdwl = -2.167477777034950e+05
+  eng_coul = 0.000000000000000e+00

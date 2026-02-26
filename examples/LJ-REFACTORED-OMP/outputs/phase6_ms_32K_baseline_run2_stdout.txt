@@ -1,0 +1,5 @@
+=== PairLJCut Test Harness ===
+Reading input snapshot from /home/gbrun/lj-refactor/lammps_ljcut_32K.bin...
+  nlocal=1, nmax=1, inum=32000
+  ntypes=51911, newton_pair=32000
+  eflag=1, vflag=1
