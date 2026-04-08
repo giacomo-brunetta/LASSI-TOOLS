@@ -18,6 +18,8 @@ from lassi.source_file import SourceFile
 from lassi.executer import FunctionalValidator, ExecTool
 from lassi.profiler import MultiProfiler, CPUProfiler, GPUProfiler, ArmPowerProbe, NvidiaPowerProbe
 from lassi.gprof import GProf
+from lassi.export_pt_tool import export_model_to_pt_impl
+from lassi.torch_to_mlir_tool import compile_torch_to_mlir_impl
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
@@ -535,6 +537,86 @@ async def get_gpu_info() -> str:
         return f"Intel GPU Detected:\n{output}"
 
     return "No dedicated GPU management tools (nvidia-smi, rocm-smi, xpu-smi) were found."
+
+@mcp.tool()
+async def export_model_to_pt(
+    model_file: Annotated[
+        str,
+        Field(description="Path to Python file containing the model class")
+    ],
+    class_name: Annotated[
+        str,
+        Field(description="Name of the model class to instantiate")
+    ],
+    output_path: Annotated[
+        str,
+        Field(description="Path to save the exported .pt file")
+    ],
+    init_args: Annotated[
+        Union[dict, None],
+        Field(description="Constructor arguments for the model")
+    ] = None,
+    weights_path: Annotated[
+        Union[str, None],
+        Field(description="Optional path to state_dict weights (.pth)")
+    ] = None,
+    export_type: Annotated[
+        str,
+        Field(description="Export format: torchscript, state_dict, or full")
+    ] = "torchscript",
+    input_shape: Annotated[
+        Union[list, None],
+        Field(description="Required for tracing if scripting fails")
+    ] = None,
+) -> str:
+    """
+    Load a PyTorch model from a Python file and export it to a .pt file.
+    """
+    return await export_model_to_pt_impl(
+        model_file=model_file,
+        class_name=class_name,
+        output_path=output_path,
+        init_args=init_args,
+        weights_path=weights_path,
+        export_type=export_type,
+        input_shape=input_shape,
+    )
+
+@mcp.tool()
+async def compile_torch_to_mlir(
+    model_path: Annotated[str, Field(description="Path to the .pt model file")],
+    inputs: Annotated[
+        List[dict],
+        Field(description="List of input specs, e.g. [{'shape':[1,3,224,224],'dtype':'float32'}]")
+    ],
+    target: Annotated[
+        str,
+        Field(description="Desired MLIR dialect: torch, linalg, linalg-on-tensors, tosa, or stablehlo")
+    ] = "linalg-on-tensors",
+    frontend: Annotated[
+        str,
+        Field(description="Frontend to use for tracing: torchscript, fx, or export")
+    ] = "torchscript",
+    validate: Annotated[
+        bool,
+        Field(description="Run a dry forward pass before compiling")
+    ] = True,
+    output_path: Annotated[
+        Union[str, None],
+        Field(description="Optional path to save the generated MLIR. Defaults to the model path with a .mlir extension.")
+    ] = None,
+) -> str:
+    """
+    Compile a PyTorch .pt model into MLIR using torch-mlir.
+    """
+    return await compile_torch_to_mlir_impl(
+        model_path=model_path,
+        inputs=inputs,
+        target=target,
+        frontend=frontend,
+        validate=validate,
+        output_path=output_path,
+    )
 
 #============================================================================
 #                               RESOURCES

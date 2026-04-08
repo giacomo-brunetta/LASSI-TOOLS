@@ -1,32 +1,68 @@
 import json
-import os
-import sys
 import pathlib
-import subprocess
 
-# get python path for the current environment
-python_path = sys.executable
-
-#get cwd
-cwd = pathlib.Path().absolute()
+cwd = pathlib.Path(__file__).resolve().parent
+home = pathlib.Path.home()
+image_name = "lassi-soda-mcp:latest"
 
 mcp_server_path = cwd / "LASSI_mcp.py"
+roocode_global_settings_path = (
+    home
+    / ".vscode-server"
+    / "data"
+    / "User"
+    / "globalStorage"
+    / "rooveterinaryinc.roo-cline"
+    / "settings"
+    / "mcp_settings.json"
+)
 
-mcp_server_config = json.dumps({
+always_allow = [
+    "execute",
+    "compile_source",
+    "execute_with_latency",
+    "execute_with_profile",
+    "gprof_profiling",
+    "get_machine_info",
+    "get_gpu_info",
+    "compile_with_libtorch",
+    "push_callgraph_to_memory",
+    "export_model_to_pt",
+    "compile_torch_to_mlir",
+]
+
+config = {
     "mcpServers": {
         "lassi": {
-            "command": python_path,
-            "args": [str(mcp_server_path)],
-            "env": {"PYTHONUNBUFFERED": "1"},
+            "command": "docker",
+            "args": [
+                "run",
+                "--rm",
+                "-i",
+                "-v",
+                f"{home}:{home}",
+                "--workdir",
+                str(cwd),
+                "-e",
+                "PYTHONUNBUFFERED=1",
+                image_name,
+                "python3",
+                str(mcp_server_path),
+            ],
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+            },
             "disabled": False,
-            "alwaysAllow": []
+            "alwaysAllow": always_allow,
         }
     }
-})
+}
 
-roocode_global_settings_path = pathlib.Path.home() / ".vscode-server" / "data" / "User" / "globalStorage" / "rooveterinaryinc.roo-cline" / "settings" / "mcp_settings.json"
-
+roocode_global_settings_path.parent.mkdir(parents=True, exist_ok=True)
 with open(roocode_global_settings_path, "w") as f:
-    f.write(mcp_server_config)
+    json.dump(config, f, indent=2)
+    f.write("\n")
 
-print(f"Configured MCP server in {roocode_global_settings_path}")   
+print(f"Configured MCP server in {roocode_global_settings_path}")
+print(f"Using Docker image: {image_name}")
+print(f"Using MCP server entrypoint: {mcp_server_path}")

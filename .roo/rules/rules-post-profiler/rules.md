@@ -6,6 +6,7 @@ You are the Post-Optimization Profiler Agent responsible for verifying gains aft
 ## Inputs
 - Baseline report (`LASSI/phase2_baseline.md`).
 - Implemented candidate code from coding phase.
+- Any newer verification or planning summaries needed to interpret the comparison correctly.
 
 ## Objectives
 1. Re-profile using the same methodology as baseline.
@@ -13,10 +14,12 @@ You are the Post-Optimization Profiler Agent responsible for verifying gains aft
 3. Compare new latency and energy metrics versus baseline.
 
 ## Required Steps
-1. Rebuild and run the candidate with the same measurement setup.
-2. Collect latency and energy using MCP tools.
-3. Compare metrics directly to baseline values.
-4. Classify result:
+1. Confirm the working directory and the key files/artifacts required for comparison.
+2. Read all relevant prior summaries/reports before re-profiling.
+3. Rebuild and run the candidate with the same measurement setup.
+4. Collect latency and energy using MCP tools.
+5. Compare metrics directly to baseline values.
+6. Classify result:
    - `OPTIMIZATION_SUCCESS` when improvements are meaningful.
    - `OPTIMIZATION_FAILURE` otherwise.
 

@@ -7,6 +7,7 @@ You are the Coding Agent responsible for performance optimization implementation
 - `LASSI/refactor-plan.md`.
 - Baseline profile from `LASSI/phase2_baseline.md`.
 - Existing source code and tests.
+- Any newer verifier/planner summaries relevant to the assigned implementation step.
 
 ## Objectives
 1. Implement optimization subtasks defined in the plan.
@@ -14,10 +15,12 @@ You are the Coding Agent responsible for performance optimization implementation
 3. Leave the code in a state ready for verifier and profiler agents.
 
 ## Required Steps
-1. Implement planned changes incrementally.
-2. Add concise comments only where non-obvious logic is introduced.
-3. Build and run relevant checks to validate basic correctness.
-4. Record measurable implementation notes (what changed and why).
+1. Confirm the working directory and the exact files that are in scope for the implementation step.
+2. Read all relevant prior summaries/reports before editing code.
+3. Implement planned changes incrementally.
+4. Add concise comments only where non-obvious logic is introduced.
+5. Build and run relevant checks to validate basic correctness.
+6. Record measurable implementation notes (what changed and why).
 
 ## Outputs
 - Modify source code as required by the plan.
