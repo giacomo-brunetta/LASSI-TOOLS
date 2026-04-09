@@ -42,125 +42,82 @@ This repository implements an agentic workflow focused on code performance and e
 
 ## Installation
 
+Run these commands from the repository root:
+
+```bash
+cd ~/LASSI-TOOLS
+```
+
 1. **Install Roo Code**
-   - Documentation: https://docs.roocode.com/getting-started/installing
-2. **Install Python dependencies**
+
+   Follow the Roo Code install guide: https://docs.roocode.com/getting-started/installing
+
+2. **Install the LASSI Roo modes and rules**
+
+   Roo loads global custom modes from `settings/custom_modes.yaml`. For a VS Code Remote server, that settings directory is:
+
+   ```bash
+   ROO_SETTINGS="$HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/settings"
+   ```
+
+   Install the LASSI mode definitions and their matching global rule folders:
+
+   ```bash
+   mkdir -p "$ROO_SETTINGS" "$HOME/.roo"
+   cp custom_modes.yaml "$ROO_SETTINGS/custom_modes.yaml"
+   cp -R .roo/rules-* "$HOME/.roo/"
+   ```
+
+   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. The rule directory names must match the mode slugs. For example, the `model-generator` mode uses `.roo/rules-model-generator/`.
+
+3. **Configure the LASSI MCP server**
+
+   Use Docker when you want the MCP server and its Python dependencies to run in a container:
+
+   ```bash
+   ./setup_mcp_docker.sh
+   ```
+
+   Use Conda when you want the MCP server to run directly on the host:
+
    ```bash
    conda create --name LASSI python=3.12
    conda activate LASSI
    pip install -r requirements.txt
+   python configure_MCP.py --mode conda --conda-env LASSI
    ```
-3. **Register the LASSI MCP server**
+
+   Docker mode writes a Roo MCP entry that launches `LASSI_mcp.py` through `docker run`. Conda mode writes a Roo MCP entry that launches `LASSI_mcp.py` through `conda run`.
+
+4. **Reload Roo Code**
+
+   Reload the VS Code window or restart the Roo Code extension. The mode dropdown should include:
+
+   - `LASSI Optimizer`
+   - `LASSI Torch Translator`
+   - `LASSI Analyst`
+   - `LASSI Profiler`
+   - `LASSI Planner`
+   - `LASSI Coder`
+   - `LASSI Translator`
+   - `LASSI Verifier`
+   - `LASSI Model Generator`
+   - `LASSI Post Profiler`
+
+5. **Verify MCP availability**
+
+   In Roo Code, open the MCP servers view and confirm the `lassi` server is enabled. If it is not, inspect:
+
    ```bash
-   python configure_MCP.py
-   ```
-4. **Install Roo MCP Marketplace dependencies**
-
-   Add the `github` and `memory` MCPs from the Roo Code marketplace.
-   - More info: https://docs.roocode.com/features/marketplace
-5. **Clone the LASSI workflow (remote VS Code server example)**
-   ```bash
-   mkdir -p $HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/workflows
-   cp workflow.json $HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/workflows/lassi-workflow.json
-   cd ~/LASSI-TOOLS
-   ```
-   - More info: https://docs.roocode.com/features/custom-modes
-6. **Select the LASSI Workflow from the Roo Code modes dropdown**
-
-7. **Verify MCP availability**
-   ```bash
-   python LASSI_MCP.py
-   ```
-   - Note: Roo Code will automatically spawn the LASSI MCP server once it is registerd. This command is just for checking..
-
-8. **Other Dependencies**
-
-   Check presence of compiler and profiling tools.
-   ```bash
-   gcc --version
-   g++ --version
-   make --version
-   gprof --version
-   ```
-   If missing, install essential tools.
-   - In Conda: no sudo required. Can create conglicts with Polygeist.
-      ```bash
-      conda install -c conda-forge gcc_linux-64 gxx_linux-64 make binutils_linux-64
-      ```
-   - With APT: sudo required.
-      ```bash
-      sudo apt update
-      sudo apt install -y build-essential binutils
-      ```
-
-9. **Add LASSI Modes, Rules and Skills**
-   
-   Internal rules and skills are managed in the `.roo` directory within `LASSI-TOOLS/`.
-   
-   To synchronize these with your global Roo configuration:
-   ```bash
-   # Sync Rules to Global
-   rm -rf ~/.roo/rules/*
-   cp -r ./.roo/rules/* ~/.roo/rules
-   
-   # Sync Skills to Global
-   rm -rf ~/.roo/skills/*
-   cp -r ./.roo/skills/* ~/.roo/skills
+   sed -n '1,220p' "$ROO_SETTINGS/mcp_settings.json"
    ```
 
-   Copy `custom_modes.yaml` into Roo's setting folder.
-   With VS-Code remote:
-   ```bash
-   ln -s custom_modes.yaml .vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/settings/
-   ```
-
-10. **MLIR DEPS**
-
-   Clone Polygeist
-   ```bash
-   git clone --recursive https://github.com/llvm/Polygeist.git
-   cd Polygeist
-   ```
-   Build LLVM (this takes a while).
-   ```bash
-   mkdir -p llvm-project/build-release
-   cd llvm-project/build-release
-
-   cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS="mlir;clang" \
-   -DLLVM_TARGETS_TO_BUILD="host" \
-   -DLLVM_ENABLE_ASSERTIONS=OFF \
-   -DCMAKE_BUILD_TYPE=Release
-
-   ninja
-   ninja check-mlir
-   cd ../..
-   ```
-   Build Polygeist.
-   ```bash
-   mkdir -p build-release
-   cd build-release
-
-   cmake -G Ninja .. \
-   -DMLIR_DIR=$PWD/../llvm-project/build-release/lib/cmake/mlir \
-   -DCLANG_DIR=$PWD/../llvm-project/build-release/lib/cmake/clang \
-   -DLLVM_TARGETS_TO_BUILD="host" \
-   -DLLVM_ENABLE_ASSERTIONS=OFF \
-   -DCMAKE_BUILD_TYPE=Release
-
-   ninja
-   ```
-   Add to path. (Add to `.bashrc` for persistence.)
-   ```bash
-   export PATH="$HOME/Polygeist/build-release/bin:$PATH"
-   ```
-   Check installation.
-   ```bash
-   cgeist --version
-   polygeist-opt --version
-   ```
 ## Example Usage
-> _"I want to optimize the performance of my @~/TEST/matmul.c script. Make it as fast as possible."_
 
-### Tips
-- Use mentions to pass files. (e.g. `@TEST/file.c`) https://docs.roocode.com/basic-usage/context-mentions
+> "Optimize the performance of my `@~/TEST/matmul.c` script. Make it as fast as possible."
+
+## Tips
+
+- Use Roo context mentions to pass files, such as `@TEST/file.c`.
+- If custom modes do not appear, confirm `custom_modes.yaml` is in Roo's `settings` directory and the rule folders are directly under `~/.roo/` as `rules-{slug}` directories.
+- If MCP tools do not appear, rerun `python configure_MCP.py --mode docker --image-name lassi-soda-mcp:latest` or `python configure_MCP.py --mode conda --conda-env LASSI`.

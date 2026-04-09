@@ -11,7 +11,7 @@ echo "Building Docker image ${IMAGE_NAME} from Dockerfile.mcp"
 docker build -f Dockerfile.mcp -t "${IMAGE_NAME}" .
 
 echo "Writing Roo MCP configuration"
-python3 configure_MCP.py
+python3 configure_MCP.py --mode docker --image-name "${IMAGE_NAME}"
 
 echo "Done."
 echo "Image: ${IMAGE_NAME}"
