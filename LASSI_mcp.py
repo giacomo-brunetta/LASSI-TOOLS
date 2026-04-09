@@ -20,6 +20,12 @@ from lassi.profiler import MultiProfiler, CPUProfiler, GPUProfiler, ArmPowerProb
 from lassi.gprof import GProf
 from lassi.export_pt_tool import export_model_to_pt_impl
 from lassi.torch_to_mlir_tool import compile_torch_to_mlir_impl
+from lassi.toolchain_info import get_toolchain_info_impl
+from lassi.csv_tools import (
+    summarize_csv_impl,
+    compare_csv_outputs_impl,
+    diff_csv_outputs_impl,
+)
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
@@ -108,6 +114,7 @@ async def compile_to_mlir(
     except Exception as e:
         return f"MLIR generation failed: {str(e)}"
 
+"""
 @mcp.tool()
 async def compile_with_libtorch(
     path: Annotated[Union[str, List[str]], Field(description="The absolute path or list of paths to the source file(s) to compile.")],
@@ -116,9 +123,9 @@ async def compile_with_libtorch(
     libraries: Annotated[Union[str, List[str]], Field(description="The absolute path(s) to the library directory(ies).")] = None,
     output: Annotated[str, Field(description="The output file name.")] = None,
 ) -> str:
-    """
+    "
     Compiles C++ file(s). Automatically finds libtorch include and lib paths and adds them to the compilation command.
-    """
+    "
     print(f"DEBUG: Received path={path}", file=sys.stderr)
     if isinstance(path, str):
         target_paths = [Path(path).resolve()]
@@ -194,6 +201,7 @@ async def compile_with_libtorch(
     
     except Exception as e:
         return f"Compilation failed: {str(e)}"
+"""
 
 @mcp.tool()
 async def gprof_profiling(
@@ -537,6 +545,59 @@ async def get_gpu_info() -> str:
         return f"Intel GPU Detected:\n{output}"
 
     return "No dedicated GPU management tools (nvidia-smi, rocm-smi, xpu-smi) were found."
+
+@mcp.tool()
+async def get_toolchain_info() -> str:
+    """
+    Return the effective Python, torch, torch-mlir, and LLVM-related toolchain
+    information from the MCP server runtime environment.
+    """
+    return await get_toolchain_info_impl()
+
+@mcp.tool()
+async def summarize_csv(
+    path: Annotated[str, Field(description="Path to the CSV file to summarize.")]
+) -> str:
+    """
+    Summarize a numeric CSV file: shape, size, range, mean/std, and NaN/Inf presence.
+    """
+    return await summarize_csv_impl(path)
+
+@mcp.tool()
+async def compare_csv_outputs(
+    golden_csv: Annotated[str, Field(description="Path to the golden/oracle CSV file.")],
+    candidate_csv: Annotated[str, Field(description="Path to the candidate CSV file.")],
+    rtol: Annotated[float, Field(description="Relative tolerance for numeric comparison.")] = 1e-6,
+    atol: Annotated[float, Field(description="Absolute tolerance for numeric comparison.")] = 1e-6,
+    expected_shape: Annotated[Union[List[int], None], Field(description="Optional expected CSV array shape.")] = None,
+) -> str:
+    """
+    Compare two numeric CSV outputs and return exact/tolerant match status plus error metrics.
+    """
+    return await compare_csv_outputs_impl(
+        golden_csv=golden_csv,
+        candidate_csv=candidate_csv,
+        rtol=rtol,
+        atol=atol,
+        expected_shape=expected_shape,
+    )
+
+@mcp.tool()
+async def diff_csv_outputs(
+    golden_csv: Annotated[str, Field(description="Path to the golden/oracle CSV file.")],
+    candidate_csv: Annotated[str, Field(description="Path to the candidate CSV file.")],
+    output_path: Annotated[Union[str, None], Field(description="Optional path to save the mismatch report as JSON.")] = None,
+    max_rows: Annotated[int, Field(description="Maximum number of mismatches to report.")] = 20,
+) -> str:
+    """
+    Report element-wise CSV mismatches, optionally writing the mismatch report to disk.
+    """
+    return await diff_csv_outputs_impl(
+        golden_csv=golden_csv,
+        candidate_csv=candidate_csv,
+        output_path=output_path,
+        max_rows=max_rows,
+    )
 
 @mcp.tool()
 async def export_model_to_pt(
