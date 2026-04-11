@@ -3,16 +3,31 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 import importlib.util
+import sys
 
 import torch
 
 
+def _build_trace_input(input_shape: list):
+    # Single input: [d0, d1, ...]
+    # Multi-input: [[...], [...], ...]
+    if len(input_shape) > 0 and isinstance(input_shape[0], (list, tuple)):
+        return tuple(torch.randn(*shape) for shape in input_shape)
+    return torch.randn(*input_shape)
+
+
 def _load_module_from_file(path: Path):
-    spec = importlib.util.spec_from_file_location("user_model", str(path))
+    module_name = path.stem
+    spec = importlib.util.spec_from_file_location(module_name, str(path))
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to load module from {path}")
 
+    parent = str(path.parent)
+    if parent not in sys.path:
+        sys.path.insert(0, parent)
+
     module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -63,14 +78,16 @@ async def export_model_to_pt_impl(
         elif export_type == "full":
             torch.save(model, str(target_path))
         elif export_type == "torchscript":
-            try:
-                scripted = torch.jit.script(model)
-            except Exception:
-                if input_shape is None:
-                    return "[Error] input_shape required for tracing fallback"
-
-                example_input = torch.randn(*input_shape)
+            # If input_shape is provided, prefer tracing to preserve concrete
+            # argument structure/ranks for downstream lowering.
+            if input_shape is not None:
+                example_input = _build_trace_input(input_shape)
                 scripted = torch.jit.trace(model, example_input)
+            else:
+                try:
+                    scripted = torch.jit.script(model)
+                except Exception:
+                    return "[Error] input_shape required for tracing fallback"
 
             torch.jit.save(scripted, str(target_path))
         else:

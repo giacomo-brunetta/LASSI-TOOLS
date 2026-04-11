@@ -1,38 +1,68 @@
 # LASSI-Agentic Flow
 
-This repository implements an agentic workflow focused on code performance and efficiency optimization.
+This repository implements an agentic workflow focused on code performance optimization, C/C++ to PyTorch translation, verification, profiling, and model artifact generation.
 
 ## Key Components
 
 ### LASSI MCP Server
-- Portable toolset for performance engineering capable of:
-  - Reading machine information (CPU, GPU, memory)
-  - Compiling and executing code
-  - Measuring execution latency plus power/energy consumption
-  - Running gprof profiling (flat and callgraph)
-- Tool specifications:
-  <details>
-    <summary>Available Tools</summary>
+- FastMCP server entrypoint: `LASSI_mcp.py`
+- Server name: `LASSI`
+- Provides tools for:
+  - gprof-based profiling
+  - executable latency and power/energy profiling
+  - CPU, RAM, GPU, and toolchain inspection
+  - numeric CSV summarization, comparison, and mismatch reports
+  - PyTorch model export to `.pt`
+  - PyTorch `.pt` lowering to MLIR through `torch-mlir`
+- Provides resources for:
+  - compiler flag cheat sheets at `compiler://{name}/flags`
 
-    | Tool | Description | Parameters |
-    |------|-------------|------------|
-    | `compile_source` | Compiles a source file using a specific compiler. | `path`, `compiler`, `kwds` (optional), `output` (optional) |
-    | `compile_to_mlir` | Compiles a C/C++ source file to MLIR using cgeist. | `path`, `kwds` (optional), `output` (optional) |
-    | `gprof_profiling` | Compiles with gprof and returns the callgraph info. | `path`, `compiler`, `kwds` (optional), `args` (optional) |
-    | `execute_with_latency` | Runs executables and returns output plus execution time. | `path`, `args` (optional) |
-    | `execute_with_profile` | Runs executables and returns output plus power profiling report. | `path`, `args` (optional) |
-    | `push_callgraph_to_memory` | Pushes gprof callgraph to the Memory MCP server. | `path`, `compiler` (optional), `kwds` (optional), `args` (optional) |
-    | `get_machine_info` | Reads CPU and RAM information. | None |
-    | `get_gpu_info` | Retrieves GPU information using SMI tools. | None |
-  </details>
+<details>
+  <summary>Available MCP Tools</summary>
 
-### Workflow (RooCode Optimized)
-1. **Analyst Agent** – maps the codebase and produces a technical specification.
-2. **Initial Profiler** – establishes a performance baseline (latency, energy, callgraph).
-3. **Planning Agent** – creates an optimization plan, strategies, and expected outcomes.
-4. **Coding Agent** – applies optimizations via a non-destructive Git workflow (branches + PRs).
-5. **QA Verifier** – guarantees functional equivalence versus the "Golden Master" output.
-6. **Post-Optimization Profiler** – re-runs profiling to confirm improvements versus baseline.
+  | Tool | Description | Parameters |
+  |------|-------------|------------|
+  | `gprof_profiling` | Compiles source file(s) with gprof instrumentation and returns callgraph information. | `path`, `compiler` (optional), `kwds` (optional), `includes` (optional), `libraries` (optional), `args` (optional) |
+  | `execute_with_latency` | Runs an executable and returns stdout/stderr plus execution timing. | `path`, `args` (optional), `dump_output` (optional), `expected_output` (optional) |
+  | `execute_with_profile` | Runs an executable and returns stdout/stderr plus multi-profiler timing, CPU power, and GPU power reporting when probes are available. | `path`, `args` (optional), `dump_output` (optional), `expected_output` (optional) |
+  | `get_machine_info` | Returns CPU and RAM information from the MCP runtime environment. | None |
+  | `get_gpu_info` | Returns GPU information using available `nvidia-smi`, `rocm-smi`, or `xpu-smi` tooling. | None |
+  | `get_toolchain_info` | Returns Python, torch, torch-mlir, and LLVM-related toolchain information from the MCP runtime environment. | None |
+  | `summarize_csv` | Summarizes a numeric CSV file, including shape, size, range, mean/std, and NaN/Inf checks. | `path` |
+  | `compare_csv_outputs` | Compares golden and candidate numeric CSV outputs with exact and tolerant match status plus error metrics. | `golden_csv`, `candidate_csv`, `rtol` (optional), `atol` (optional), `expected_shape` (optional) |
+  | `diff_csv_outputs` | Reports element-wise CSV mismatches and can write the mismatch report as JSON. | `golden_csv`, `candidate_csv`, `output_path` (optional), `max_rows` (optional) |
+  | `export_model_to_pt` | Loads a PyTorch model class from a Python file and exports a `.pt` artifact. | `model_file`, `class_name`, `output_path`, `init_args` (optional), `weights_path` (optional), `export_type` (optional), `input_shape` (optional) |
+  | `compile_torch_to_mlir` | Compiles a PyTorch `.pt` model into MLIR using `torch-mlir`. | `model_path`, `inputs`, `target` (optional), `frontend` (optional), `validate` (optional), `output_path` (optional) |
+</details>
+
+### Workflow Sessions (RooCode Optimized)
+
+The `.roo/rules-*` folders define the behavior for the LASSI workflow sessions. Copy these rule folders into Roo's global `.roo` directory along with `custom_modes.yaml`.
+
+#### General Optimization Workflow
+Defined by `.roo/rules-lassi-orchestrator/rules.md`:
+
+1. **Workspace Setup** - confirm the project directory, constraints, and `LASSI/` artifact folder.
+2. **Analysis** - `LASSI Analyst` maps the project and writes `LASSI/phase1_analysis.md`.
+3. **Baseline Profiling** - `LASSI Profiler` establishes latency, energy, and hotspot baselines in `LASSI/phase2_baseline.md`.
+4. **Planning** - `LASSI Planner` writes `LASSI/refactor-plan.md` with measurable targets.
+5. **Implementation** - `LASSI Coder` applies scoped changes and writes `LASSI/changes.md`.
+6. **Verification** - `LASSI Verifier` checks functional equivalence and writes `LASSI/verification_report.md`.
+7. **Final Profiling** - `LASSI Post Profiler` compares optimized metrics against baseline in `LASSI/comparison.md`.
+8. **Finalization** - the orchestrator writes `LASSI/final_summary.md` with metrics, correctness status, and unresolved risks.
+
+#### C/C++ to PyTorch Translation Workflow
+Defined by `.roo/rules-translator-orchestrator/rules.md`:
+
+1. **Environment Setup** - confirm the source entrypoint, build/run command, input shapes/dtypes, constraints, and toolchain details from `get_toolchain_info`.
+2. **Analysis** - `LASSI Analyst` reads the source and project docs, then writes or updates `LASSI/phase1_analysis.md`.
+3. **Translation Implementation** - `LASSI Translator` writes export-friendly PyTorch candidate variants and `LASSI/translation_notes.md`.
+4. **Verification** - `LASSI Verifier` compares every candidate against the original C/C++ oracle, preferring CSV artifacts and the MCP CSV tools.
+5. **Variant Selection** - `LASSI Profiler` benchmarks multiple verified variants when needed and records the selected export candidate.
+6. **Model Generation** - `LASSI Model Generator` uses `get_toolchain_info`, `export_model_to_pt`, and `compile_torch_to_mlir` to produce `.pt` and MLIR artifacts, then writes `LASSI/model_generation.md`.
+7. **Finalization** - the orchestrator writes `LASSI/translation_final_summary.md` with equivalence, variants, selected artifacts, fallback paths, and risks.
+
+The rules require LASSI MCP tools for compile/export/lowering tasks whenever a matching MCP tool exists. File authoring and edits still happen in the workspace files.
 
 <details>
   <summary>Workflow Diagram</summary>
@@ -68,7 +98,7 @@ cd ~/LASSI-TOOLS
    cp -R .roo/rules-* "$HOME/.roo/"
    ```
 
-   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. The rule directory names must match the mode slugs. For example, the `model-generator` mode uses `.roo/rules-model-generator/`.
+   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. Copy the bundled `.roo/rules-*` folders as-is so each workflow session can load its matching rules.
 
 3. **Configure the LASSI MCP server**
 
@@ -103,21 +133,3 @@ cd ~/LASSI-TOOLS
    - `LASSI Verifier`
    - `LASSI Model Generator`
    - `LASSI Post Profiler`
-
-5. **Verify MCP availability**
-
-   In Roo Code, open the MCP servers view and confirm the `lassi` server is enabled. If it is not, inspect:
-
-   ```bash
-   sed -n '1,220p' "$ROO_SETTINGS/mcp_settings.json"
-   ```
-
-## Example Usage
-
-> "Optimize the performance of my `@~/TEST/matmul.c` script. Make it as fast as possible."
-
-## Tips
-
-- Use Roo context mentions to pass files, such as `@TEST/file.c`.
-- If custom modes do not appear, confirm `custom_modes.yaml` is in Roo's `settings` directory and the rule folders are directly under `~/.roo/` as `rules-{slug}` directories.
-- If MCP tools do not appear, rerun `python configure_MCP.py --mode docker --image-name lassi-soda-mcp:latest` or `python configure_MCP.py --mode conda --conda-env LASSI`.
