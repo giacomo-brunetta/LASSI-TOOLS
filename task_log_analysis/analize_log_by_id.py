@@ -13,7 +13,7 @@ from typing import Any
 from json_metrics import load_history_item, summarize_task_directory
 
 
-TASKS_ROOT = Path("/home/gbrun/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks")
+TASKS_ROOT = Path("$HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks")
 
 
 def iso_from_ms(ts: int | None) -> str | None:
