@@ -10,10 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from find_last_task import DEFAULT_TASKS_ROOT, find_last_task
 from json_metrics import load_history_item, summarize_task_directory
-
-
-TASKS_ROOT = Path("$HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/tasks")
 
 
 def iso_from_ms(ts: int | None) -> str | None:
@@ -146,19 +144,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Analyze a task family: parent task plus all subtasks that share that parent."
     )
-    parser.add_argument("task_id", help="Task id to analyze")
-    parser.add_argument("--tasks-root", type=Path, default=TASKS_ROOT, help="Root directory that contains task folders")
+    parser.add_argument("task_id", nargs="?", help="Task id to analyze. Defaults to the most recent task.")
+    parser.add_argument("--tasks-root", type=Path, default=DEFAULT_TASKS_ROOT, help="Root directory that contains task folders")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output")
     args = parser.parse_args()
 
-    input_history, parent_history, task_summaries = build_task_family(args.task_id, args.tasks_root)
+    task_id = args.task_id or find_last_task(args.tasks_root).name
+
+    input_history, parent_history, task_summaries = build_task_family(task_id, args.tasks_root)
     parent_id = str(parent_history["id"])
     parent_summary = next(summary for summary in task_summaries if summary.get("task_id") == parent_id)
     per_subtask_metrics = extract_subtask_metrics(task_summaries, parent_id)
     subtask_timeline = build_subtask_timeline(task_summaries, parent_id)
 
     output = {
-        "input_task_id": args.task_id,
+        "input_task_id": task_id,
         "parent_task_id": parent_id,
         "related_task_ids": [summary.get("task_id") for summary in task_summaries],
         "related_task_count": len(task_summaries),
