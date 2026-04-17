@@ -19,22 +19,21 @@ Do not produce general documentation. Only extract what is needed for refactorin
 
 ## Required Steps
 
-1. Confirm working directory.
-2. Read:
+1. Read:
 
-   * `README.md`
+   * `README.md` 
    * build files (Makefile, CMakeLists, etc.)
    * entrypoint for the target kernel
-3. Locate the kernel:
+2. Locate the kernel:
 
    * source file(s)
    * call path (brief)
-4. Identify:
+3. Identify:
 
    * build system and compiler flags
    * runtime interface (CLI, config, env)
-5. List assumptions and unknowns.
-6. If the kernel or targets are unclear → ask the user (do not guess).
+4. List assumptions and unknowns.
+5. If the kernel or targets are unclear → ask the user (do not guess).
 
 ---
 
@@ -46,6 +45,7 @@ Write the following files (concise, no fluff):
 
 * Kernel purpose (inputs → outputs)
 * Where it lives (files + brief call path)
+* Max 8 bullets
 
 ---
 
@@ -55,24 +55,27 @@ Write the following files (concise, no fluff):
 * Run command(s)
 * Required inputs
 * Relevant flags (compiler + runtime)
+* Max 12 bullets
 
 ---
 
 ### `LASSI/refactoring-targets.md`
 
 * File: path
-
-  * What it contains
-  * Why it matters for performance
+* What it contains
+* Why it matters for performance
+* Max 5 targets total
 
 ---
 
 ## Output Constraints
 
-* Total output ≤ 100 lines across all files
+* Total output <= 60 lines across all files
 * Bullet points preferred
 * No repetition across files
 * No unrelated modules or documentation
+* Commands should be single-line and copyable
+* Do not restate the same file path in more than one artifact unless needed
 
 ---
 
@@ -87,5 +90,5 @@ Write the following files (concise, no fluff):
 
 ## Completion
 
-* List files created
+* Final chat reply <= 5 bullets: files created, kernel path, blocker if any
 * Call `attempt_completion`

@@ -1,0 +1,4 @@
+# aten.unique_consecutive
+
+- Status: ❌ Unsupported
+- Error: Lowering Torch Backend IR -> TOSA Backend IR failed with the following diagnostics: error: failed to legalize operation 'torch.aten.unique_consecutive' that was explicitly marked illegal note: see current operation: %2:3 = "torch.aten.unique_consecutive"(%arg0, %0, %0, %1) : (!torch.vtensor<[2,3],f32>, !torch.bool, !torch.bool, !torch.none) -> (!torch.vtensor<[6],f32>, !torch.vtensor<[0],si64>, !torch.vtensor<[0],si64>)   python exception: Failure while executing pass pipeline  For Torch-MLIR developers, the error can be reproduced with: $ torch-mlir-opt -pass-pipeline='builtin.module(torch-backend-to-tosa-backend-pipeline)' /tmp/OpModule.mlir Add '-mlir-print-ir-after-all -mlir-disable-threading' to get the IR dump for debugging purpose.

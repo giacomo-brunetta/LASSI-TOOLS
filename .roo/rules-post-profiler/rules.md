@@ -65,6 +65,7 @@ Create or update:
 * classification
 * concise evidence
 * next owner if failed
+* methodology match: `exact` or one-line deviation
 
 If profiling or comparability fails after retry, update `LASSI/failure_log.md` with command, error, and required next step.
 
@@ -72,8 +73,9 @@ If profiling or comparability fails after retry, update `LASSI/failure_log.md` w
 
 ## Output Constraints
 
-* Keep `comparison.md` <= 80 lines.
+* Keep `comparison.md` <= 40 lines.
 * Do not repeat implementation details already in `changes.md`.
+* Prefer a compact table plus 3 bullets max.
 
 ---
 
@@ -87,6 +89,5 @@ If profiling or comparability fails after retry, update `LASSI/failure_log.md` w
 
 ## Completion
 
-* List files created or updated.
-* State classification and next owner.
+* Final chat reply <= 5 bullets: classification, speedup/regression, next owner.
 * Call `attempt_completion`.

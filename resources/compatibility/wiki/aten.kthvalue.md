@@ -1,0 +1,4 @@
+# aten.kthvalue
+
+- Status: ❌ Unsupported
+- Error: Overloaded torch operator invoked from Python failed to match any schema: aten::kthvalue() is missing value for argument 'k'. Declaration: aten::kthvalue(Tensor self, int k, int dim=-1, bool keepdim=False) -> (Tensor values, Tensor indices)  aten::kthvalue() is missing value for argument 'k'. Declaration: aten::kthvalue.dimname(Tensor self, int k, str dim, bool keepdim=False) -> (Tensor values, Tensor indices)  aten::kthvalue() is missing value for argument 'k'. Declaration: aten::kthvalue.dimname_out(Tensor self, int k, str dim, bool keepdim=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)  aten::kthvalue() is missing value for argument 'k'. Declaration: aten::kthvalue.values(Tensor self, int k, int dim=-1, bool keepdim=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)

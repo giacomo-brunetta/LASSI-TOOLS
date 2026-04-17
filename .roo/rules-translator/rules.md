@@ -28,7 +28,8 @@ Read before editing:
 1. Implement one or more semantically equivalent PyTorch translation candidates.
 2. Keep candidates compatible with graph export where feasible.
 3. Preserve distinct viable formulations until verification/profiling selects a winner.
-4. Leave a concise handoff for the Verifier and Model Generator.
+4. Check the compatibility wiki for every function/op each translation variant is expected to call during export/lowering.
+5. Leave a concise handoff for the Verifier and Model Generator.
 
 ---
 
@@ -39,12 +40,19 @@ Read before editing:
 3. Identify source kernel inputs, outputs, dtypes, shapes, and tolerances from prior artifacts.
 4. If `failure_log.md` exists, address the recorded translation/export blocker first.
 5. Call `get_toolchain_info` when available and record Python, torch, torch-mlir, and LLVM versions.
-6. For uncertain high-risk ops, check current PyTorch and torch-mlir compatibility references before finalizing operator choices.
-7. Implement translation candidates using tensor-first PyTorch patterns.
-8. Avoid `.item()`-driven control/data flow and input-dependent state frozen in `__init__`.
-9. Prefer static-shape examples unless dynamic behavior is explicitly required.
-10. Add or update a lightweight validation entrypoint only if needed for the Verifier to run candidates reproducibly.
-11. Run at least a smoke check on two distinct inputs when feasible and record whether outputs change as expected.
+6. Enumerate every material PyTorch function/op for each candidate variant in `forward` or equivalent execution paths, including helper functions that affect export/lowering.
+7. Check compatibility for each variant-specific op set with the wiki MCP resources before finalizing operator choices:
+
+   * use `wiki://compatibility/index` to confirm the resource set is available
+   * use `wiki://compatibility/search/{pattern}` when PyTorch naming and ATen op naming differ
+   * use `wiki://compatibility/op/{name}` for each relevant op
+
+8. Treat wiki entries marked unsupported, missing, or ambiguous as blockers for that variant until resolved or explicitly documented as accepted risk by the orchestrator/user.
+9. Implement translation candidates using tensor-first PyTorch patterns.
+10. Avoid `.item()`-driven control/data flow and input-dependent state frozen in `__init__`.
+11. Prefer static-shape examples unless dynamic behavior is explicitly required.
+12. Add or update a lightweight validation entrypoint only if needed for the Verifier to run candidates reproducibly.
+13. Run at least a smoke check on two distinct inputs when feasible and record whether outputs change as expected.
 
 ---
 
@@ -60,9 +68,12 @@ Create or update:
 * translation files changed
 * semantic assumptions
 * toolchain versions from `get_toolchain_info`, or why unavailable
+* per-variant function/op inventory checked against the compatibility wiki
+* exact compatibility wiki URIs consulted and their status for each variant
 * high-risk ops used or avoided
 * smoke checks run
 * unresolved risks
+* verifier focus: exact inputs/tolerances or blocker
 
 ### `LASSI/translation_variants.json`
 
@@ -75,17 +86,20 @@ Structured list of candidates for downstream agents:
 * expected output
 * preferred export candidate boolean
 * exportability risks
+* verification priority
+* wiki_status
 
-If translation fails after retry, update `LASSI/failure_log.md` with the blocker, first useful error, attempted fix, and next owner.
+If a variant remains blocked after one targeted retry, update `LASSI/failure_log.md` with the variant ID, blocker, first useful error, attempted fix, and next owner.
 
 ---
 
 ## Output Constraints
 
-* Keep `translation_notes.md` <= 100 lines.
+* Keep `translation_notes.md` <= 60 lines.
 * Keep `translation_variants.json` minimal and machine-readable.
 * Do not include long code examples in reports.
 * Do not duplicate analysis content.
+* Keep each variant entry <= 10 fields.
 
 ---
 
@@ -94,12 +108,13 @@ If translation fails after retry, update `LASSI/failure_log.md` with the blocker
 * Do not generate `.pt` or `.mlir` artifacts.
 * Preserve input/output semantics and expected dtypes.
 * Do not discard a materially distinct viable variant before verification.
+* The compatibility wiki check is mandatory for the functions/ops each candidate variant calls.
 * Treat unsupported/illegal op warnings as blockers until triaged.
+* Do not spend more than one targeted retry on a blocked variant before handing off concrete evidence.
 
 ---
 
 ## Completion
 
-* List translation files and LASSI artifacts created or updated.
-* State which variants should be verified.
+* Final chat reply <= 6 bullets: variant IDs, files changed, wiki status, blocker if any.
 * Call `attempt_completion`.

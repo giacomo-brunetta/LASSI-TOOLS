@@ -66,15 +66,17 @@ For each strategy:
 * Planned changes (concrete, not abstract)
 * Expected benefit (% or qualitative)
 * Risk level (low/medium/high)
+* Verification focus (one line)
 
 ---
 
 ## Output Constraints
 
-* Max 3 strategies
-* ≤ 100 lines total
+* Max 2 strategies unless the orchestrator explicitly asks for more
+* <= 60 lines total
 * No generic advice (e.g., “optimize memory”)
 * No repetition of analysis content
+* Each strategy must fit on 6 lines or fewer
 
 ---
 
@@ -89,5 +91,5 @@ For each strategy:
 
 ## Completion
 
-* List strategies briefly
+* Final chat reply <= 5 bullets: strategy IDs, target files, blocker if any
 * Call `attempt_completion`

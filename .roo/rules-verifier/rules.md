@@ -89,6 +89,7 @@ Create or update:
 * warning summary
 * final classification
 * variants eligible for profiling/export, if any
+* one-line recommended next owner
 
 If verification fails or is blocked after retry, update:
 
@@ -104,9 +105,10 @@ If verification fails or is blocked after retry, update:
 
 ## Output Constraints
 
-* Keep `verification_report.md` <= 120 lines.
+* Keep `verification_report.md` <= 70 lines.
 * Do not paste long logs; store artifact paths and first useful error.
 * Do not repeat analysis, plan, or implementation summaries.
+* Prefer compact tables and single-line bullets.
 
 ---
 
@@ -120,6 +122,5 @@ If verification fails or is blocked after retry, update:
 
 ## Completion
 
-* State final classification and eligible variants.
-* List files created or updated.
+* Final chat reply <= 6 bullets: classification, passing variants, artifact paths, blocker if any.
 * Call `attempt_completion`.

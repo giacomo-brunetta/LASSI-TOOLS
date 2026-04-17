@@ -1,0 +1,4 @@
+# aten.bernoulli
+
+- Status: ❌ Unsupported
+- Error: Expected p_in >= 0 && p_in <= 1 to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)

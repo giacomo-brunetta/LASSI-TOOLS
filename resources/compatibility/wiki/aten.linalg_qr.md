@@ -1,0 +1,4 @@
+# aten.linalg_qr
+
+- Status: ❌ Unsupported
+- Error: Lowering Torch Backend IR -> TOSA Backend IR failed with the following diagnostics: error: failed to legalize operation 'torch.aten.linalg_qr' that was explicitly marked illegal note: see current operation: %1:2 = "torch.aten.linalg_qr"(%arg0, %0) : (!torch.vtensor<[2,3],f32>, !torch.str) -> (!torch.vtensor<[2,2],f32>, !torch.vtensor<[2,3],f32>)   python exception: Failure while executing pass pipeline  For Torch-MLIR developers, the error can be reproduced with: $ torch-mlir-opt -pass-pipeline='builtin.module(torch-backend-to-tosa-backend-pipeline)' /tmp/OpModule.mlir Add '-mlir-print-ir-after-all -mlir-disable-threading' to get the IR dump for debugging purpose.

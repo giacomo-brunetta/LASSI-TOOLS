@@ -68,6 +68,7 @@ Concise human summary:
 * metric table
 * recommended variant, if comparing verified variants
 * deviations or noise concerns
+* one-line recommended next owner
 
 ### `LASSI/variant_selection.md`
 
@@ -84,9 +85,10 @@ If profiling fails after retry, update `LASSI/failure_log.md` with the command, 
 
 ## Output Constraints
 
-* Keep `profile_summary.md` <= 80 lines.
+* Keep `profile_summary.md` <= 50 lines.
 * Do not repeat analysis or run instructions except for exact commands used.
 * Record raw logs as separate artifact files only when useful.
+* Prefer a single metric table over narrative paragraphs.
 
 ---
 
@@ -100,6 +102,5 @@ If profiling fails after retry, update `LASSI/failure_log.md` with the command, 
 
 ## Completion
 
-* List files created or updated.
-* State the recommended next phase.
+* Final chat reply <= 5 bullets: measured targets, recommendation, blocker if any.
 * Call `attempt_completion`.
