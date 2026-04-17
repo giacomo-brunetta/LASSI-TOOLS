@@ -46,40 +46,33 @@ Read before generating artifacts:
    * otherwise use verified variants explicitly marked in `translation_variants.json`
 
 4. Stop and update `failure_log.md` if the verified variant set is ambiguous or empty.
-5. Call `get_toolchain_info` first when available and record Python, torch, torch-mlir, and LLVM versions.
-6. Run the validation entrypoint before export unless an upstream exception is explicit.
-7. For each verified variant in scope, confirm input sensitivity before export when outputs should depend on inputs.
-8. Use LASSI MCP tools for artifact generation when available for each verified variant:
+5. Run the validation entrypoint before export unless an upstream exception is explicit.
+6. For each verified variant in scope, confirm input sensitivity before export when outputs should depend on inputs.
+7. Use LASSI MCP tools for artifact generation when available for each verified variant:
 
    * call `export_model_to_pt`
    * verify the `.pt` file exists and is non-empty
    * call `compile_torch_to_mlir` with the generated `.pt`
    * verify the `.mlir` file exists and is non-empty
 
-9. Use shell/Docker export or lowering only after a concrete MCP failure is recorded.
-10. Probe runtime APIs before choosing fallbacks when needed:
-
-   * `hasattr(torch_mlir, "fx")`
-   * `hasattr(torch_mlir, "OutputType")`
-
-11. Scan export/lowering logs for warnings that mention unsupported ops, illegal ops, tracing freezes, constants, or deprecated behavior.
-12. Check MLIR:
+8. Scan export/lowering logs for warnings that mention unsupported ops, illegal ops, tracing freezes, constants, or deprecated behavior.
+9. Check MLIR:
 
    * contains a function header
    * references runtime arguments
    * contains TOSA ops unless an alternative target was explicitly intended
    * is not only constants plus return
 
-13. If lowering fails, capture the first failing op or exception for that variant.
-14. If every verified variant in scope fails, classify each failure before stopping:
+10. If lowering fails, capture the first failing op or exception for that variant.
+11. If every verified variant in scope fails, classify each failure before stopping:
 
    * local export/lowering issue: perform one targeted retry for that variant inside this phase
    * translation/operator issue: record the concrete blocker and return it to the orchestrator for Translator follow-up
    * verification/input-contract issue: record the concrete blocker and return it to the orchestrator for Verifier follow-up
    * external hard blocker: record exactly why the pipeline cannot proceed
 
-15. Do not declare completion while all verified variants have failed and no external hard blocker has been documented.
-16. If at least one verified variant produces both `.pt` and `.mlir` and at least one verified variant fails, stop after recording the per-variant results and ask the user whether to keep only the successful variants or start a repair pass for failed ones.
+12. Do not declare completion while all verified variants have failed and no external hard blocker has been documented.
+13. If at least one verified variant produces both `.pt` and `.mlir` and at least one verified variant fails, stop after recording the per-variant results and ask the user whether to keep only the successful variants or start a repair pass for failed ones.
 
 ---
 
