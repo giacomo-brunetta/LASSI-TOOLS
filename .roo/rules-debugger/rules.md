@@ -51,11 +51,13 @@ If any gate is not satisfied, stop, update `LASSI/failure_log.md` with the missi
 1. Confirm working directory.
 2. Read all input files listed above that exist.
 3. Extract the failing step, the expected behavior, and the relevant ops from `failure_log.md` and prior reports.
-4. Re-check the relevant compatibility wiki entries before debugging:
+4. Re-check the relevant compatibility wiki entries on the `lassi` MCP server before debugging:
 
-   * `wiki://compatibility/index`
-   * `wiki://compatibility/search/{pattern}` when op naming is ambiguous
-   * `wiki://compatibility/op/{name}` for each relevant operation
+   * do not treat `wiki` as the MCP server name; the server name is `lassi` and `wiki://...` is only the resource URI
+   * start with `wiki://help` on server `lassi`, or list the `lassi` MCP resources/templates, if resource availability is uncertain
+   * `wiki://compatibility/index` on server `lassi`
+   * `wiki://compatibility/search/{pattern}` on server `lassi` when op naming is ambiguous
+   * `wiki://compatibility/op/{name}` on server `lassi` for each relevant operation
 
 5. Record the exact wiki URIs consulted and the support status in your notes.
 6. Reproduce the failure using the same MCP tool or command path that failed upstream before introducing any fallback.

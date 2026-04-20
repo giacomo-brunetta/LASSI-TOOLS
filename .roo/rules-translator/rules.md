@@ -41,11 +41,13 @@ Read before editing:
 4. If `failure_log.md` exists, address the recorded translation/export blocker first.
 5. Call `get_toolchain_info` when available and record Python, torch, torch-mlir, and LLVM versions.
 6. Enumerate every material PyTorch function/op for each candidate variant in `forward` or equivalent execution paths, including helper functions that affect export/lowering.
-7. Check compatibility for each variant-specific op set with the wiki MCP resources before finalizing operator choices:
+7. Check compatibility for each variant-specific op set with the wiki MCP resources on the `lassi` MCP server before finalizing operator choices:
 
-   * use `wiki://compatibility/index` to confirm the resource set is available
-   * use `wiki://compatibility/search/{pattern}` when PyTorch naming and ATen op naming differ
-   * use `wiki://compatibility/op/{name}` for each relevant op
+   * do not treat `wiki` as the MCP server name; the server name is `lassi` and `wiki://...` is only the resource URI
+   * first query `wiki://help` on server `lassi`, or list the `lassi` MCP resources/templates, to confirm the resource set is available
+   * use `wiki://compatibility/index` on server `lassi` for the compatibility index
+   * use `wiki://compatibility/search/{pattern}` on server `lassi` when PyTorch naming and ATen op naming differ
+   * use `wiki://compatibility/op/{name}` on server `lassi` for each relevant op
 
 8. Treat wiki entries marked unsupported, missing, or ambiguous as blockers for that variant until resolved or explicitly documented as accepted risk by the orchestrator/user.
 9. Implement translation candidates using tensor-first PyTorch patterns.

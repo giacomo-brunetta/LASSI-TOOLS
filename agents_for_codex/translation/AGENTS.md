@@ -28,7 +28,8 @@ If any input is missing, ask for it before proceeding.
      - `LASSI/refactoring-targets.md`
 3. Translation implementation
    - Implement all materially distinct PyTorch candidates that appear semantically equivalent.
-   - Before finalizing each candidate, enumerate every material function/op in its execution path and check compatibility wiki support for those ops.
+   - Before finalizing each candidate, enumerate every material function/op in its execution path and check compatibility wiki support for those ops on the `LASSI` MCP server.
+   - Treat `wiki://...` as the resource URI, not the server name. If discovery is needed, start with `wiki://help` on server `LASSI` or list that server's resources/templates first.
    - Treat unsupported, missing, or ambiguous compatibility results as blockers for that variant until resolved or explicitly accepted by the user.
    - Do not generate `.pt` or `.mlir` artifacts in this step.
    - Write:
@@ -112,4 +113,3 @@ If any input is missing, ask for it before proceeding.
 - `verification_report.md` should include commands, artifact paths, tolerance, verdict table, warning summary, final classification, and next owner.
 - `variant_selection.md` should include compared variants, metrics, selected variant, and rationale.
 - `model_generation.md` should include attempted variants, validation result, toolchain summary, tool calls, artifact paths, warning summary, successful variants, failed variants, and whether user direction is needed.
-
