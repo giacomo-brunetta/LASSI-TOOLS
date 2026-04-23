@@ -7,6 +7,7 @@ import sys
 import shutil
 import re
 import asyncio
+import subprocess
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -396,6 +397,110 @@ async def compile_torch_to_mlir(
         frontend=frontend,
         validate=validate,
         output_path=output_path,
+    )
+
+@mcp.tool()
+async def synthesize_tosa_with_soda(
+    output_dir: Annotated[
+        str,
+        Field(description="Path to the output folder containing 01_tosa.mlir")
+    ],
+    stage: Annotated[
+        str,
+        Field(description="Makefile STOP_STAGE value, e.g. linalg, llvm-mode-ll, bambu-verilog, or bambu-sim")
+    ] = "bambu-verilog",
+    build_mode: Annotated[
+        str,
+        Field(description="SODA build mode: baseline or transformed")
+    ] = "transformed",
+) -> str:
+    """
+    Run the shared soda-tools Makefile from an output folder that already contains 01_tosa.mlir.
+    The command log is always written to <output_dir>/log.txt.
+    """
+    resolved_output_dir = Path(output_dir).resolve()
+    tosa_path = resolved_output_dir / "01_tosa.mlir"
+    log_path = resolved_output_dir / "log.txt"
+    makefile_path = Path("/home/gbrun/LASSI-TOOLS/soda-tools/Makefile")
+
+    valid_stages = {
+        "tosa",
+        "linalg",
+        "llvm-mlir",
+        "llvm-ll",
+        "llvm-mode-mlir",
+        "llvm-mode-ll",
+        "bambu-verilog",
+        "bambu-sim",
+    }
+    valid_modes = {"baseline", "transformed"}
+
+    if not resolved_output_dir.is_dir():
+        return f"Synthesis failed: output directory not found at {resolved_output_dir}"
+
+    if not tosa_path.exists():
+        return f"Synthesis failed: expected TOSA MLIR at {tosa_path}"
+
+    if stage not in valid_stages:
+        return f"Synthesis failed: unsupported stage '{stage}'. Valid values: {', '.join(sorted(valid_stages))}"
+
+    if build_mode not in valid_modes:
+        return f"Synthesis failed: unsupported build_mode '{build_mode}'. Valid values: baseline, transformed"
+
+    if not makefile_path.exists():
+        return f"Synthesis failed: soda-tools Makefile not found at {makefile_path}"
+
+    transform_path = resolved_output_dir.parent / "transform.mlir"
+    if build_mode == "transformed" and not transform_path.exists():
+        alternate_transform_path = resolved_output_dir / "transform.mlir"
+        if alternate_transform_path.exists():
+            transform_path = alternate_transform_path
+        else:
+            return (
+                "Synthesis failed: transformed mode requires transform.mlir. "
+                f"Tried {transform_path} and {alternate_transform_path}"
+            )
+
+    cmd = [
+        "make",
+        "-f",
+        str(makefile_path),
+        f"ODIR={resolved_output_dir}",
+        f"STOP_STAGE={stage}",
+        f"BUILD_MODE={build_mode}",
+    ]
+    if build_mode == "transformed":
+        cmd.append(f"TRANSFORM_PATH={transform_path}")
+
+    def _run_make() -> subprocess.CompletedProcess:
+        resolved_output_dir.mkdir(parents=True, exist_ok=True)
+        completed = subprocess.run(
+            cmd,
+            cwd=str(resolved_output_dir),
+            capture_output=True,
+            text=True,
+        )
+        combined_output = []
+        combined_output.append(f"$ {' '.join(cmd)}")
+        if completed.stdout:
+            combined_output.append(completed.stdout)
+        if completed.stderr:
+            combined_output.append(completed.stderr)
+        log_path.write_text("\n".join(combined_output), encoding="utf-8")
+        return completed
+
+    try:
+        completed = await asyncio.to_thread(_run_make)
+    except Exception as e:
+        return f"Synthesis failed with internal error: {str(e)}"
+
+    status = "Success" if completed.returncode == 0 else f"Failed (Code {completed.returncode})"
+    return (
+        f"--- Synthesis {status} ---\n"
+        f"output_dir: {resolved_output_dir}\n"
+        f"stage: {stage}\n"
+        f"build_mode: {build_mode}\n"
+        f"log_path: {log_path}"
     )
 
 #============================================================================
