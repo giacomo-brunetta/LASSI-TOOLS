@@ -6,7 +6,8 @@ This repository implements an agentic workflow focused on code performance optim
 
 ### LASSI MCP Server
 - FastMCP server entrypoint: `LASSI_mcp.py`
-- Server name: `LASSI`
+- FastMCP display name: `LASSI`
+- Recommended MCP config entry name: `lassi`
 - Provides tools for:
   - gprof-based profiling
   - executable latency and power/energy profiling
@@ -16,6 +17,7 @@ This repository implements an agentic workflow focused on code performance optim
   - PyTorch `.pt` lowering to MLIR through `torch-mlir`
 - Provides resources for:
   - compiler flag cheat sheets at `compiler://{name}/flags`
+  - Torch-MLIR/TOSA compatibility wiki resources at `wiki://compatibility/*`, backed by `resources/compatibility/`
 
 <details>
   <summary>Available MCP Tools</summary>
@@ -35,12 +37,16 @@ This repository implements an agentic workflow focused on code performance optim
   | `compile_torch_to_mlir` | Compiles a PyTorch `.pt` model into MLIR using `torch-mlir`. | `model_path`, `inputs`, `target` (optional), `frontend` (optional), `validate` (optional), `output_path` (optional) |
 </details>
 
-### Workflow Sessions (RooCode Optimized)
+### Workflow Sessions
 
-The `.roo/rules-*` folders define the behavior for the LASSI workflow sessions. Copy these rule folders into Roo's global `.roo` directory along with `custom_modes.yaml`.
+The `setup/` directory contains client-specific workflow setup:
+
+- Roo Code modes and rules: `setup/roo/custom_modes.yaml` and `setup/roo/rules-*`
+- Claude Code subagents: `setup/claude/agents/*.md`
+- MCP client configuration helper: `setup/configure_MCP.py`
 
 #### General Optimization Workflow
-Defined by `.roo/rules-lassi-orchestrator/rules.md`:
+Defined by `setup/roo/rules-lassi-orchestrator/rules.md` and `setup/claude/agents/lassi-orchestrator.md`:
 
 1. **Workspace Setup** - confirm the project directory, constraints, and `LASSI/` artifact folder.
 2. **Analysis** - `LASSI Analyst` maps the project and writes `LASSI/phase1_analysis.md`.
@@ -52,7 +58,7 @@ Defined by `.roo/rules-lassi-orchestrator/rules.md`:
 8. **Finalization** - the orchestrator writes `LASSI/final_summary.md` with metrics, correctness status, and unresolved risks.
 
 #### C/C++ to PyTorch Translation Workflow
-Defined by `.roo/rules-translator-orchestrator/rules.md`:
+Defined by `setup/roo/rules-translator-orchestrator/rules.md` and `setup/claude/agents/translator-orchestrator.md`:
 
 1. **Environment Setup** - confirm the source entrypoint, build/run command, input shapes/dtypes, constraints, and toolchain details from `get_toolchain_info`.
 2. **Analysis** - `LASSI Analyst` reads the source and project docs, then writes or updates `LASSI/phase1_analysis.md`.
@@ -78,13 +84,18 @@ Run these commands from the repository root:
 cd ~/LASSI-TOOLS
 ```
 
-1. **Install Roo Code**
+1. **Install the client you want to use**
 
-   Follow the Roo Code install guide: https://docs.roocode.com/getting-started/installing
+   LASSI can configure MCP for Claude Code, Codex, or Roo Code. Install the client first:
 
-2. **Install the LASSI Roo modes and rules**
+   - Claude Code
+   - Codex
+   - Roo Code: https://docs.roocode.com/getting-started/installing
 
-   Roo loads global custom modes from `settings/custom_modes.yaml`. For a VS Code Remote server, that settings directory is:
+2. **Install optional workflow agents or modes**
+
+   Roo Code loads global custom modes from `settings/custom_modes.yaml`. For a VS Code Remote server, that settings directory is:
+
 
    ```bash
    ROO_SETTINGS="$HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/settings"
@@ -94,34 +105,45 @@ cd ~/LASSI-TOOLS
 
    ```bash
    mkdir -p "$ROO_SETTINGS" "$HOME/.roo"
-   cp custom_modes.yaml "$ROO_SETTINGS/custom_modes.yaml"
-   cp -R .roo/rules-* "$HOME/.roo/"
+   cp setup/roo/custom_modes.yaml "$ROO_SETTINGS/custom_modes.yaml"
+   cp -R setup/roo/rules-* "$HOME/.roo/"
    ```
 
-   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. Copy the bundled `.roo/rules-*` folders as-is so each workflow session can load its matching rules.
+   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. Copy the bundled `setup/roo/rules-*` folders as-is so each workflow session can load its matching rules.
+
+   Claude Code can use the bundled specialist agents:
+
+   ```bash
+   mkdir -p "$HOME/.claude/agents"
+   cp setup/claude/agents/*.md "$HOME/.claude/agents/"
+   ```
+
+   Codex does not need extra workflow files for MCP tool access; configure the MCP server in the next step.
 
 3. **Configure the LASSI MCP server**
 
    Use Docker when you want the MCP server and its Python dependencies to run in a container:
 
    ```bash
-   ./setup_mcp_docker.sh
+   CLIENT=claude ./setup/setup_mcp_docker.sh
    ```
+
+   Set `CLIENT=roo` or `CLIENT=codex` to write the MCP configuration for a different client.
 
    Use Conda when you want the MCP server to run directly on the host:
 
    ```bash
    conda create --name LASSI python=3.12
    conda activate LASSI
-   pip install -r requirements.txt
-   python configure_MCP.py --mode conda --conda-env LASSI
+   pip install -r requirements/requirements.txt
+   python setup/configure_MCP.py --client claude --mode conda --conda-env LASSI --server-name lassi
    ```
 
-   Docker mode writes a Roo MCP entry that launches `LASSI_mcp.py` through `docker run`. Conda mode writes a Roo MCP entry that launches `LASSI_mcp.py` through `conda run`.
+   The setup defaults to Claude and Docker. Use `--client roo` for Roo Code or `--client codex` for Codex. Use `--server-name` to choose the MCP server entry name; the bundled rules and agents refer to `lassi`. Docker mode writes an MCP entry that launches `LASSI_mcp.py` through `docker run`. Conda mode writes an MCP entry that launches `LASSI_mcp.py` through `conda run`.
 
-4. **Reload Roo Code**
+4. **Reload your client**
 
-   Reload the VS Code window or restart the Roo Code extension. The mode dropdown should include:
+   Reload Claude Code, Codex, or the VS Code window running Roo Code so the MCP configuration is picked up. Roo Code's mode dropdown should include:
 
    - `LASSI Optimizer`
    - `LASSI Torch Translator`
