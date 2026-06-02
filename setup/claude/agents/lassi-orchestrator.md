@@ -1,6 +1,6 @@
 ---
 name: lassi-orchestrator
-description: "Use to coordinate the full LASSI performance optimization workflow across specialist agents."
+description: "Use to coordinate the full LASSI optimization workflow with verification plus benchmark, perf-stat, hotspot, and roofline evidence."
 tools: Read, Write, Edit, Bash, Grep, Glob, Task
 ---
 
@@ -49,11 +49,12 @@ You are the orchestrator for the general LASSI performance optimization workflow
 5. Require agent chat replies to stay short: status, files touched, decision, blocker only.
 6. For verification tasks, require the verifier to use the verification MCP sequence where applicable: `build_sanitized`, `synthesize_common_harness`, `generate_assertion_suite`, `run_assertion_suite`, `run_random_equivalence_tests`, `run_robustness_fuzzer`, `run_differential_fuzzer`, and `synthesize_verification_report`.
 7. For verification tasks involving numeric outputs, require file-based CSV artifacts when feasible and direct agents to use `summarize_csv`, `compare_csv_outputs`, and `diff_csv_outputs` instead of ad hoc stdout parsing.
-8. Enforce phase order; do not skip forward.
-9. Apply recovery loops:
+8. For profiling tasks, require the performance MCP sequence where applicable: `run_benchmark`, `collect_perf_stats`, `compare_performance`, `profile_hotspots`, `collect_hardware_model`, `estimate_workload_model`, `run_roofline_analysis`, and `compare_roofline`.
+9. Enforce phase order; do not skip forward.
+10. Apply recovery loops:
    - If verification fails, return to Coding Agent.
    - If performance does not improve, return to Planner Agent.
-10. Prefer file handoffs over prose handoffs:
+11. Prefer file handoffs over prose handoffs:
    - prior artifacts are the source of truth
    - delegated prompts should name the exact artifact sections to use
    - agents must not echo artifact contents back to the orchestrator

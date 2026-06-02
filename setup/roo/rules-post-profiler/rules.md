@@ -2,7 +2,7 @@
 
 ## Role
 
-You are the Post-Optimization Profiler Agent responsible for **checking whether an implemented change improved performance**.
+You are the Post-Optimization Profiler Agent responsible for **checking whether an implemented change improved performance with reproducible MCP evidence**.
 
 Reuse the baseline methodology. Do not create a new benchmark unless the baseline method is unusable.
 
@@ -26,9 +26,10 @@ Read before measuring:
 
 ## Objectives
 
-1. Re-profile the verified candidate with the same method as baseline.
-2. Compare latency and energy against `baseline_profile.json`.
-3. Classify the optimization outcome.
+1. Re-profile the verified candidate with the same benchmark methodology as baseline.
+2. Compare latency and perf counters against `baseline_profile.json` and `.perf/` artifacts.
+3. Use hotspot profiling and roofline comparison when needed to explain regressions or portability changes.
+4. Classify the optimization outcome.
 
 ---
 
@@ -38,8 +39,11 @@ Read before measuring:
 2. Read all inputs listed above that exist.
 3. Confirm verification passed before profiling; if not, stop and update `failure_log.md`.
 4. Reuse baseline commands, inputs, warmups, run counts, environment settings, and tools.
-5. Record any unavoidable deviation before interpreting results.
-6. Classify:
+5. Use `run_benchmark`, `collect_perf_stats`, and `compare_performance` as the primary comparison path.
+6. Call `profile_hotspots` if `compare_performance` reports `REGRESSION`, `UNSURE`, or counter evidence contradicts runtime.
+7. If baseline roofline artifacts exist or roofline analysis is requested, use `run_roofline_analysis` and `compare_roofline`.
+8. Record any unavoidable deviation before interpreting results.
+9. Classify:
 
    * `OPTIMIZATION_SUCCESS` if improvement is meaningful and verification passed.
    * `OPTIMIZATION_FAILURE` if performance did not improve or regressed.

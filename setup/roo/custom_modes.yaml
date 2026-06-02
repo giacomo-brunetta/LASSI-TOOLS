@@ -85,7 +85,7 @@ customModes:
     name: LASSI Profiler
     roleDefinition: |-
       ## Role Definition
-      You are a Performance Engineer tasked with establishing or verifying performance and energy baselines.
+      You are a Performance Engineer tasked with establishing benchmark, perf-counter, hotspot, and roofline baselines.
     groups:
       - read
       - edit
@@ -150,7 +150,7 @@ customModes:
     name: LASSI Post Profiler
     roleDefinition: |-
       ## Role Definition
-      You are a Performance Validation Engineer responsible for profiling implemented candidates after optimization or translation changes.
+      You are a Performance Validation Engineer responsible for benchmarking verified candidates and comparing perf evidence after optimization or translation changes.
     groups:
       - read
       - edit

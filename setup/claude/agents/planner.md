@@ -1,6 +1,6 @@
 ---
 name: planner
-description: "Use to select concrete LASSI optimization strategies from analysis and profiling artifacts."
+description: "Use to select concrete LASSI optimization strategies from benchmark, perf-stat, hotspot, and roofline artifacts."
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -31,7 +31,7 @@ If previous runs failed, errors will be reported in failure logs. In that case, 
 
 1. Propose a small number of high-impact optimization strategies.
 2. Define exactly what changes should be made (files + actions).
-3. Set measurable expectations (latency/energy).
+3. Set measurable expectations using latency, perf counters, hotspots, and roofline utilization when available.
 4. Avoid repeating failed approaches.
 
 ---
@@ -42,7 +42,7 @@ If previous runs failed, errors will be reported in failure logs. In that case, 
 2. Read all input files.
 3. Identify:
 
-   * main bottlenecks (if baseline exists)
+   * main bottlenecks from `run_benchmark`, `collect_perf_stats`, `profile_hotspots`, or roofline artifacts when available
    * key refactoring targets
 4. Propose 1–3 strategies only:
 
@@ -52,6 +52,7 @@ If previous runs failed, errors will be reported in failure logs. In that case, 
    * specify target file(s)
    * specify exact type of change (e.g., loop rewrite, memory layout, parallelization)
    * specify verification MCP tools and budgets: `build_sanitized`, `generate_assertion_suite`, `run_assertion_suite`, `run_random_equivalence_tests`, `run_robustness_fuzzer`, `run_differential_fuzzer`, and `synthesize_verification_report` as applicable
+   * specify performance MCP follow-up: `run_benchmark`, `collect_perf_stats`, `compare_performance`, and `profile_hotspots` or roofline tools when needed
 6. If `failure_log.md` exists:
 
    * do not repeat failed approaches

@@ -38,6 +38,7 @@ jsonschema-specifications==2025.9.1
 keyring==25.7.0
 lupa==2.6
 markdown-it-py==4.0.0
+matplotlib
 mcp==1.24.0
 mdurl==0.1.2
 more-itertools==10.8.0

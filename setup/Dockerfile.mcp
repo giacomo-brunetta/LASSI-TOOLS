@@ -7,6 +7,8 @@ USER root
 # Verification tooling:
 # - clang/clang++/LLVM/lld for sanitizer and libFuzzer builds
 # - build-essential/cmake/ninja/pkg-config for common native projects
+# - hyperfine/perf/numactl for reproducible performance benchmarking,
+#   CPU counter collection, hotspot profiling, and affinity/NUMA reporting
 # - snapd is installed for environments that need snap-packaged verification tools,
 #   but snap services are not started inside this container by default.
 RUN apt-get update && \
@@ -19,16 +21,21 @@ RUN apt-get update && \
       diffutils \
       findutils \
       git \
+      hyperfine \
       libc++-dev \
       libc++abi-dev \
       libclang-rt-dev \
+      linux-perf \
       lld \
       llvm \
       make \
       ninja-build \
+      numactl \
       pkg-config \
+      procps \
       python3-dev \
-      snapd && \
+      snapd \
+      util-linux && \
     rm -rf /var/lib/apt/lists/*
 
 # Install MCP server runtime dependencies into the container Python

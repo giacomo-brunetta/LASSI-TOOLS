@@ -37,6 +37,16 @@ from lassi.csv_tools import (
     compare_csv_outputs_impl,
     diff_csv_outputs_impl,
 )
+from lassi.performance_tools import (
+    run_benchmark_impl,
+    collect_perf_stats_impl,
+    profile_hotspots_impl,
+    compare_performance_impl,
+    collect_hardware_model_impl,
+    estimate_workload_model_impl,
+    run_roofline_analysis_impl,
+    compare_roofline_impl,
+)
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
@@ -275,6 +285,186 @@ async def get_gpu_info() -> str:
         return f"Intel GPU Detected:\n{output}"
 
     return "No dedicated GPU management tools (nvidia-smi, rocm-smi, xpu-smi) were found."
+
+@mcp.tool()
+async def run_benchmark(
+    benchmark_cases: Annotated[List[dict], Field(description="Benchmark cases with case_id, command/command_a/command_b, working_dir, environment, and metadata.")],
+    mode: Annotated[str, Field(description="single or differential. Differential compares command_a against command_b.")] = "differential",
+    warmup: Annotated[int, Field(description="Number of hyperfine warmup runs.")] = 3,
+    min_runs: Annotated[int, Field(description="Minimum measured hyperfine runs.")] = 10,
+    max_runs: Annotated[int, Field(description="Maximum measured hyperfine runs.")] = 100,
+    timeout_s: Annotated[int, Field(description="Whole benchmark command timeout in seconds per case.")] = 600,
+    shell: Annotated[str, Field(description="Shell executable passed to hyperfine, usually bash.")] = "bash",
+    export_json: Annotated[bool, Field(description="Export raw hyperfine JSON artifacts.")] = True,
+    prepare_command: Annotated[Union[str, None], Field(description="Optional hyperfine prepare command.")] = None,
+    cleanup_command: Annotated[Union[str, None], Field(description="Optional hyperfine cleanup command.")] = None,
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for .perf benchmark artifacts.")] = None,
+    thresholds: Annotated[Union[dict, None], Field(description="Optional thresholds: min_effect_size_pct and max_cv_pct.")] = None,
+) -> str:
+    """
+    Run stable timing benchmarks with hyperfine and return the common performance JSON schema.
+    """
+    return await run_benchmark_impl(
+        benchmark_cases=benchmark_cases,
+        mode=mode,
+        warmup=warmup,
+        min_runs=min_runs,
+        max_runs=max_runs,
+        timeout_s=timeout_s,
+        shell=shell,
+        export_json=export_json,
+        prepare_command=prepare_command,
+        cleanup_command=cleanup_command,
+        artifact_dir=artifact_dir,
+        thresholds=thresholds,
+    )
+
+@mcp.tool()
+async def collect_perf_stats(
+    cases: Annotated[List[dict], Field(description="Perf stat cases with case_id, command/command_a/command_b, working_dir, environment, and metadata.")],
+    mode: Annotated[str, Field(description="single or differential. Differential compares command_a against command_b.")] = "differential",
+    events: Annotated[Union[List[str], None], Field(description="perf stat event names. Defaults include cycles, instructions, cache and branch events.")] = None,
+    repeat: Annotated[int, Field(description="perf stat -r repeat count.")] = 5,
+    timeout_s: Annotated[int, Field(description="Timeout in seconds per perf stat run.")] = 600,
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for .perf perf_stats artifacts.")] = None,
+    use_json_output_if_available: Annotated[bool, Field(description="Reserved for future perf JSON output support.")] = True,
+    shell: Annotated[str, Field(description="Shell executable used for benchmark commands.")] = "bash",
+) -> str:
+    """
+    Collect CPU performance counters with perf stat and derive IPC/cache/branch metrics.
+    """
+    return await collect_perf_stats_impl(
+        cases=cases,
+        mode=mode,
+        events=events,
+        repeat=repeat,
+        timeout_s=timeout_s,
+        artifact_dir=artifact_dir,
+        use_json_output_if_available=use_json_output_if_available,
+        shell=shell,
+    )
+
+@mcp.tool()
+async def profile_hotspots(
+    cases: Annotated[List[dict], Field(description="Hotspot cases with case_id, command/command_a/command_b, working_dir, environment, and metadata.")],
+    mode: Annotated[str, Field(description="single or differential. Differential compares command_a against command_b.")] = "differential",
+    callgraph: Annotated[bool, Field(description="Collect callgraph samples with perf record -g.")] = True,
+    frequency: Annotated[int, Field(description="perf record sample frequency.")] = 999,
+    timeout_s: Annotated[int, Field(description="Timeout in seconds per perf record run.")] = 600,
+    generate_flamegraph: Annotated[bool, Field(description="Generate FlameGraph SVG when stackcollapse-perf.pl and flamegraph.pl are available.")] = False,
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for .perf profile artifacts.")] = None,
+    shell: Annotated[str, Field(description="Shell executable used for profiled commands.")] = "bash",
+) -> str:
+    """
+    Locate runtime hotspots with perf record/report/script and compare hotspot shifts.
+    """
+    return await profile_hotspots_impl(
+        cases=cases,
+        mode=mode,
+        callgraph=callgraph,
+        frequency=frequency,
+        timeout_s=timeout_s,
+        generate_flamegraph=generate_flamegraph,
+        artifact_dir=artifact_dir,
+        shell=shell,
+    )
+
+@mcp.tool()
+async def compare_performance(
+    benchmark_result_path: Annotated[Union[str, None], Field(description="Path to run_benchmark result.json.")] = None,
+    perf_stats_result_path: Annotated[Union[str, None], Field(description="Path to collect_perf_stats result.json.")] = None,
+    profile_result_path: Annotated[Union[str, None], Field(description="Path to profile_hotspots result.json.")] = None,
+    policy: Annotated[Union[dict, None], Field(description="Comparison policy thresholds.")] = None,
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for final .perf report artifacts.")] = None,
+) -> str:
+    """
+    Aggregate benchmark, perf-stat, and hotspot evidence into a differential performance verdict.
+    """
+    return await compare_performance_impl(
+        benchmark_result_path=benchmark_result_path,
+        perf_stats_result_path=perf_stats_result_path,
+        profile_result_path=profile_result_path,
+        policy=policy,
+        artifact_dir=artifact_dir,
+    )
+
+@mcp.tool()
+async def collect_hardware_model(
+    device_selector: Annotated[Union[dict, None], Field(description="Device selector, e.g. {'type':'CPU'} or {'type':'auto'}.")] = None,
+    precision_modes: Annotated[Union[List[str], None], Field(description="Precision modes such as ['fp32','fp64'].")] = None,
+    bandwidth_levels: Annotated[Union[List[str], None], Field(description="Bandwidth levels such as ['dram'].")] = None,
+    manual_overrides: Annotated[Union[dict, None], Field(description="Manual peak_flops and peak_bandwidth_Bps overrides for roofline analysis.")] = None,
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for hardware model artifacts.")] = None,
+) -> str:
+    """
+    Collect a hardware model for roofline analysis, using manual peak overrides when supplied.
+    """
+    return await collect_hardware_model_impl(
+        device_selector=device_selector,
+        precision_modes=precision_modes,
+        bandwidth_levels=bandwidth_levels,
+        manual_overrides=manual_overrides,
+        artifact_dir=artifact_dir,
+    )
+
+@mcp.tool()
+async def estimate_workload_model(
+    benchmark_cases: Annotated[List[dict], Field(description="Cases with case_id, operation, metadata, and optional manual_flops/manual_bytes.")],
+    source_a: Annotated[Union[str, None], Field(description="Optional reference source path.")] = None,
+    source_b: Annotated[Union[str, None], Field(description="Optional candidate source path.")] = None,
+    estimation_mode: Annotated[str, Field(description="manual, formula, static_analysis, or agent_assisted. Formula is implemented for common kernels.")] = "formula",
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for workload model artifacts.")] = None,
+) -> str:
+    """
+    Estimate FLOPs, bytes moved, and arithmetic intensity for roofline analysis.
+    """
+    return await estimate_workload_model_impl(
+        benchmark_cases=benchmark_cases,
+        source_a=source_a,
+        source_b=source_b,
+        estimation_mode=estimation_mode,
+        artifact_dir=artifact_dir,
+    )
+
+@mcp.tool()
+async def run_roofline_analysis(
+    benchmark_result_path: Annotated[str, Field(description="Path to run_benchmark result.json.")],
+    workload_model_path: Annotated[str, Field(description="Path to workload model JSON from estimate_workload_model artifact.")],
+    hardware_model_path: Annotated[str, Field(description="Path to hardware_model.json or collect_hardware_model result JSON.")],
+    precision: Annotated[str, Field(description="Precision mode key in hardware peak_flops, e.g. fp32.")] = "fp32",
+    memory_level: Annotated[str, Field(description="Bandwidth level key in peak_bandwidth_Bps, e.g. dram.")] = "dram",
+    mode: Annotated[str, Field(description="single or differential.")] = "differential",
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for roofline artifacts.")] = None,
+    policy: Annotated[Union[dict, None], Field(description="Optional differential roofline policy thresholds.")] = None,
+) -> str:
+    """
+    Run roofline analysis from benchmark timing, workload, and hardware model artifacts.
+    """
+    return await run_roofline_analysis_impl(
+        benchmark_result_path=benchmark_result_path,
+        workload_model_path=workload_model_path,
+        hardware_model_path=hardware_model_path,
+        precision=precision,
+        memory_level=memory_level,
+        mode=mode,
+        artifact_dir=artifact_dir,
+        policy=policy,
+    )
+
+@mcp.tool()
+async def compare_roofline(
+    roofline_result_path: Annotated[str, Field(description="Path to roofline_report.json.")],
+    policy: Annotated[Union[dict, None], Field(description="Roofline comparison policy thresholds.")] = None,
+    artifact_dir: Annotated[Union[str, None], Field(description="Directory for roofline comparison artifacts.")] = None,
+) -> str:
+    """
+    Compare reference and candidate roofline positions and utilization.
+    """
+    return await compare_roofline_impl(
+        roofline_result_path=roofline_result_path,
+        policy=policy,
+        artifact_dir=artifact_dir,
+    )
 
 @mcp.tool()
 async def get_toolchain_info() -> str:

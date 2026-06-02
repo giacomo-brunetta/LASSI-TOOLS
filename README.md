@@ -11,6 +11,7 @@ This repository implements an agentic workflow focused on code performance optim
 - Provides tools for:
   - gprof-based profiling
   - executable latency and power/energy profiling
+  - hyperfine benchmarking, perf-stat counter collection, perf hotspot profiling, and roofline analysis
   - CPU, RAM, GPU, and toolchain inspection
   - C/C++ sanitizer builds, shared assertion harnesses, randomized equivalence testing, libFuzzer execution, and verification report aggregation
   - numeric CSV summarization, comparison, and mismatch reports
@@ -31,6 +32,14 @@ This repository implements an agentic workflow focused on code performance optim
   | `get_machine_info` | Returns CPU and RAM information from the MCP runtime environment. | None |
   | `get_gpu_info` | Returns GPU information using available `nvidia-smi`, `rocm-smi`, or `xpu-smi` tooling. | None |
   | `get_toolchain_info` | Returns Python, torch, torch-mlir, and LLVM-related toolchain information from the MCP runtime environment. | None |
+  | `run_benchmark` | Runs stable timing benchmarks with `hyperfine`, writes `.perf/benchmarks/*` artifacts, and classifies runtime improvement/regression. | `benchmark_cases`, `mode` (optional), `warmup` (optional), `min_runs` (optional), `max_runs` (optional), `timeout_s` (optional), `artifact_dir` (optional), `thresholds` (optional) |
+  | `collect_perf_stats` | Collects CPU counters with `perf stat` and derives IPC, cache miss, branch miss, and per-input metrics. | `cases`, `mode` (optional), `events` (optional), `repeat` (optional), `timeout_s` (optional), `artifact_dir` (optional) |
+  | `profile_hotspots` | Uses `perf record/report/script` to identify top functions and differential hotspot shifts. | `cases`, `mode` (optional), `callgraph` (optional), `frequency` (optional), `timeout_s` (optional), `generate_flamegraph` (optional), `artifact_dir` (optional) |
+  | `compare_performance` | Aggregates benchmark, perf-stat, and hotspot evidence into a top-level performance verdict. | `benchmark_result_path`, `perf_stats_result_path` (optional), `profile_result_path` (optional), `policy` (optional), `artifact_dir` (optional) |
+  | `collect_hardware_model` | Creates a hardware model for roofline analysis, accepting manual peak FLOP/s and bandwidth overrides. | `device_selector` (optional), `precision_modes` (optional), `bandwidth_levels` (optional), `manual_overrides` (optional), `artifact_dir` (optional) |
+  | `estimate_workload_model` | Estimates FLOPs, bytes moved, and arithmetic intensity for common workloads or manual annotations. | `benchmark_cases`, `source_a` (optional), `source_b` (optional), `estimation_mode` (optional), `artifact_dir` (optional) |
+  | `run_roofline_analysis` | Combines benchmark timing, workload model, and hardware model artifacts into roofline utilization and bound classification. | `benchmark_result_path`, `workload_model_path`, `hardware_model_path`, `precision` (optional), `memory_level` (optional), `mode` (optional), `artifact_dir` (optional) |
+  | `compare_roofline` | Compares reference and candidate roofline positions and utilization. | `roofline_result_path`, `policy` (optional), `artifact_dir` (optional) |
   | `summarize_csv` | Summarizes a numeric CSV file, including shape, size, range, mean/std, and NaN/Inf checks. | `path` |
   | `compare_csv_outputs` | Compares golden and candidate numeric CSV outputs with exact and tolerant match status plus error metrics. | `golden_csv`, `candidate_csv`, `rtol` (optional), `atol` (optional), `expected_shape` (optional) |
   | `diff_csv_outputs` | Reports element-wise CSV mismatches and can write the mismatch report as JSON. | `golden_csv`, `candidate_csv`, `output_path` (optional), `max_rows` (optional) |
@@ -59,7 +68,7 @@ Defined by `setup/roo/rules-lassi-orchestrator/rules.md` and `setup/claude/agent
 
 1. **Workspace Setup** - confirm the project directory, constraints, and `LASSI/` artifact folder.
 2. **Analysis** - `LASSI Analyst` maps the project and writes `LASSI/phase1_analysis.md`.
-3. **Baseline Profiling** - `LASSI Profiler` establishes latency, energy, and hotspot baselines in `LASSI/phase2_baseline.md`.
+3. **Baseline Profiling** - `LASSI Profiler` establishes latency, perf-counter, hotspot, and optional roofline baselines in `LASSI/baseline_profile.json` and `LASSI/profile_summary.md`.
 4. **Planning** - `LASSI Planner` writes `LASSI/refactor-plan.md` with measurable targets.
 5. **Implementation** - `LASSI Coder` applies scoped changes and writes `LASSI/changes.md`.
 6. **Verification** - `LASSI Verifier` checks functional equivalence with sanitizer, assertion, equivalence, fuzzing, and CSV MCP tools where applicable, then writes `LASSI/verification_report.md`.
@@ -73,11 +82,11 @@ Defined by `setup/roo/rules-translator-orchestrator/rules.md` and `setup/claude/
 2. **Analysis** - `LASSI Analyst` reads the source and project docs, then writes or updates `LASSI/phase1_analysis.md`.
 3. **Translation Implementation** - `LASSI Translator` writes export-friendly PyTorch candidate variants and `LASSI/translation_notes.md`.
 4. **Verification** - `LASSI Verifier` compares every candidate against the original C/C++ oracle, using sanitizer, assertion, equivalence, fuzzing, and CSV MCP tools where applicable.
-5. **Variant Selection** - `LASSI Profiler` benchmarks multiple verified variants when needed and records the selected export candidate.
+5. **Variant Selection** - `LASSI Profiler` benchmarks multiple verified variants with the performance MCP tools when needed and records the selected export candidate.
 6. **Model Generation** - `LASSI Model Generator` uses `get_toolchain_info`, `export_model_to_pt`, and `compile_torch_to_mlir` to produce `.pt` and MLIR artifacts, then writes `LASSI/model_generation.md`.
 7. **Finalization** - the orchestrator writes `LASSI/translation_final_summary.md` with equivalence, variants, selected artifacts, fallback paths, and risks.
 
-The rules require LASSI MCP tools for compile/export/lowering tasks whenever a matching MCP tool exists. File authoring and edits still happen in the workspace files.
+The rules require LASSI MCP tools for compile/export/lowering/performance tasks whenever a matching MCP tool exists. File authoring and edits still happen in the workspace files.
 
 <details>
   <summary>Workflow Diagram</summary>
