@@ -41,6 +41,14 @@ always_allow = [
     "push_callgraph_to_memory",
     "export_model_to_pt",
     "compile_torch_to_mlir",
+    "build_sanitized",
+    "synthesize_common_harness",
+    "generate_assertion_suite",
+    "run_assertion_suite",
+    "run_random_equivalence_tests",
+    "run_robustness_fuzzer",
+    "run_differential_fuzzer",
+    "synthesize_verification_report",
 ]
 
 
