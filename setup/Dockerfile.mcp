@@ -1,0 +1,38 @@
+FROM agostini01/soda:latest
+
+WORKDIR /opt/lassi
+
+USER root
+
+# Verification tooling:
+# - clang/clang++/LLVM/lld for sanitizer and libFuzzer builds
+# - build-essential/cmake/ninja/pkg-config for common native projects
+# - snapd is installed for environments that need snap-packaged verification tools,
+#   but snap services are not started inside this container by default.
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      clang \
+      cmake \
+      coreutils \
+      diffutils \
+      findutils \
+      git \
+      libc++-dev \
+      libc++abi-dev \
+      libclang-rt-dev \
+      lld \
+      llvm \
+      make \
+      ninja-build \
+      pkg-config \
+      python3-dev \
+      snapd && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install MCP server runtime dependencies into the container Python
+# on top of the base image's torch/LLVM/torch-mlir environment.
+COPY requirements/requirements.txt /opt/lassi/requirements.txt
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install -r /opt/lassi/requirements.txt

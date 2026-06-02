@@ -6,16 +6,19 @@ This repository implements an agentic workflow focused on code performance optim
 
 ### LASSI MCP Server
 - FastMCP server entrypoint: `LASSI_mcp.py`
-- Server name: `LASSI`
+- FastMCP display name: `LASSI`
+- Recommended MCP config entry name: `lassi`
 - Provides tools for:
   - gprof-based profiling
   - executable latency and power/energy profiling
   - CPU, RAM, GPU, and toolchain inspection
+  - C/C++ sanitizer builds, shared assertion harnesses, randomized equivalence testing, libFuzzer execution, and verification report aggregation
   - numeric CSV summarization, comparison, and mismatch reports
   - PyTorch model export to `.pt`
   - PyTorch `.pt` lowering to MLIR through `torch-mlir`
 - Provides resources for:
   - compiler flag cheat sheets at `compiler://{name}/flags`
+  - Torch-MLIR/TOSA compatibility wiki resources at `wiki://compatibility/*`, backed by `resources/compatibility/`
 
 <details>
   <summary>Available MCP Tools</summary>
@@ -33,31 +36,43 @@ This repository implements an agentic workflow focused on code performance optim
   | `diff_csv_outputs` | Reports element-wise CSV mismatches and can write the mismatch report as JSON. | `golden_csv`, `candidate_csv`, `output_path` (optional), `max_rows` (optional) |
   | `export_model_to_pt` | Loads a PyTorch model class from a Python file and exports a `.pt` artifact. | `model_file`, `class_name`, `output_path`, `init_args` (optional), `weights_path` (optional), `export_type` (optional), `input_shape` (optional) |
   | `compile_torch_to_mlir` | Compiles a PyTorch `.pt` model into MLIR using `torch-mlir`. | `model_path`, `inputs`, `target` (optional), `frontend` (optional), `validate` (optional), `output_path` (optional) |
+  | `build_sanitized` | Compiles C/C++ code with strict warnings and sanitizer instrumentation across optimization levels. | `source_path`, `language` (optional), `entrypoint_hint` (optional), `build_mode` (optional), `optimization_levels` (optional), `sanitizers` (optional), `warnings_as_errors` (optional), `timeout_s` (optional), `extra_compile_flags` (optional), `extra_link_flags` (optional) |
+  | `synthesize_common_harness` | Generates an inspectable common Python harness for Python callables and scalar shared-library entrypoints. | `source_a`, `source_b`, `task_type`, `entrypoints` (optional), `input_schema` (optional), `output_schema` (optional) |
+  | `generate_assertion_suite` | Generates shared semantic assertion checks and harness metadata for two implementations. | `source_a`, `source_b`, `task_type`, `entrypoints` (optional), `existing_tests` (optional), `semantic_hints` (optional), `numeric_tolerance` (optional), `timeout_s` (optional) |
+  | `run_assertion_suite` | Executes a generated shared assertion suite against two artifacts. | `assertion_suite_path`, `implementation_a_artifact`, `implementation_b_artifact`, `task_type`, `timeout_s` (optional) |
+  | `run_random_equivalence_tests` | Runs randomized differential tests for Python callables or scalar shared-library entrypoints and persists counterexamples. | `source_a`, `source_b`, `artifact_a` (optional), `artifact_b` (optional), `task_type` (optional), `entrypoints` (optional), `input_schema` (optional), `comparison` (optional), `budget` (optional), `corpus_dir` (optional) |
+  | `run_robustness_fuzzer` | Runs or builds a libFuzzer target, persists corpus/crashes, and reports sanitizer findings. | `source_path`, `artifact` (optional), `entrypoint` (optional), `input_schema` (optional), `sanitizers` (optional), `corpus_dir` (optional), `seed_corpus_dir` (optional), `budget` (optional), `max_len` (optional) |
+  | `run_differential_fuzzer` | Runs an existing differential libFuzzer target and preserves mismatch/crash evidence. | `source_a`, `source_b`, `artifact` (optional), `task_type` (optional), `comparison` (optional), `corpus_dir` (optional), `seed_corpus_dir` (optional), `budget` (optional), `max_len` (optional) |
+  | `synthesize_verification_report` | Aggregates verification MCP result objects into `.verify/reports/*.json` and `.md`. | `task_id` (optional), `task_type` (optional), `tool_results` (optional), `output_dir` (optional) |
 </details>
 
-### Workflow Sessions (RooCode Optimized)
+### Workflow Sessions
 
-The `.roo/rules-*` folders define the behavior for the LASSI workflow sessions. Copy these rule folders into Roo's global `.roo` directory along with `custom_modes.yaml`.
+The `setup/` directory contains client-specific workflow setup:
+
+- Roo Code modes and rules: `setup/roo/custom_modes.yaml` and `setup/roo/rules-*`
+- Claude Code subagents: `setup/claude/agents/*.md`
+- MCP client configuration helper: `setup/configure_MCP.py`
 
 #### General Optimization Workflow
-Defined by `.roo/rules-lassi-orchestrator/rules.md`:
+Defined by `setup/roo/rules-lassi-orchestrator/rules.md` and `setup/claude/agents/lassi-orchestrator.md`:
 
 1. **Workspace Setup** - confirm the project directory, constraints, and `LASSI/` artifact folder.
 2. **Analysis** - `LASSI Analyst` maps the project and writes `LASSI/phase1_analysis.md`.
 3. **Baseline Profiling** - `LASSI Profiler` establishes latency, energy, and hotspot baselines in `LASSI/phase2_baseline.md`.
 4. **Planning** - `LASSI Planner` writes `LASSI/refactor-plan.md` with measurable targets.
 5. **Implementation** - `LASSI Coder` applies scoped changes and writes `LASSI/changes.md`.
-6. **Verification** - `LASSI Verifier` checks functional equivalence and writes `LASSI/verification_report.md`.
+6. **Verification** - `LASSI Verifier` checks functional equivalence with sanitizer, assertion, equivalence, fuzzing, and CSV MCP tools where applicable, then writes `LASSI/verification_report.md`.
 7. **Final Profiling** - `LASSI Post Profiler` compares optimized metrics against baseline in `LASSI/comparison.md`.
 8. **Finalization** - the orchestrator writes `LASSI/final_summary.md` with metrics, correctness status, and unresolved risks.
 
 #### C/C++ to PyTorch Translation Workflow
-Defined by `.roo/rules-translator-orchestrator/rules.md`:
+Defined by `setup/roo/rules-translator-orchestrator/rules.md` and `setup/claude/agents/translator-orchestrator.md`:
 
 1. **Environment Setup** - confirm the source entrypoint, build/run command, input shapes/dtypes, constraints, and toolchain details from `get_toolchain_info`.
 2. **Analysis** - `LASSI Analyst` reads the source and project docs, then writes or updates `LASSI/phase1_analysis.md`.
 3. **Translation Implementation** - `LASSI Translator` writes export-friendly PyTorch candidate variants and `LASSI/translation_notes.md`.
-4. **Verification** - `LASSI Verifier` compares every candidate against the original C/C++ oracle, preferring CSV artifacts and the MCP CSV tools.
+4. **Verification** - `LASSI Verifier` compares every candidate against the original C/C++ oracle, using sanitizer, assertion, equivalence, fuzzing, and CSV MCP tools where applicable.
 5. **Variant Selection** - `LASSI Profiler` benchmarks multiple verified variants when needed and records the selected export candidate.
 6. **Model Generation** - `LASSI Model Generator` uses `get_toolchain_info`, `export_model_to_pt`, and `compile_torch_to_mlir` to produce `.pt` and MLIR artifacts, then writes `LASSI/model_generation.md`.
 7. **Finalization** - the orchestrator writes `LASSI/translation_final_summary.md` with equivalence, variants, selected artifacts, fallback paths, and risks.
@@ -78,13 +93,18 @@ Run these commands from the repository root:
 cd ~/LASSI-TOOLS
 ```
 
-1. **Install Roo Code**
+1. **Install the client you want to use**
 
-   Follow the Roo Code install guide: https://docs.roocode.com/getting-started/installing
+   LASSI can configure MCP for Claude Code, Codex, or Roo Code. Install the client first:
 
-2. **Install the LASSI Roo modes and rules**
+   - Claude Code
+   - Codex
+   - Roo Code: https://docs.roocode.com/getting-started/installing
 
-   Roo loads global custom modes from `settings/custom_modes.yaml`. For a VS Code Remote server, that settings directory is:
+2. **Install optional workflow agents or modes**
+
+   Roo Code loads global custom modes from `settings/custom_modes.yaml`. For a VS Code Remote server, that settings directory is:
+
 
    ```bash
    ROO_SETTINGS="$HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/settings"
@@ -94,34 +114,45 @@ cd ~/LASSI-TOOLS
 
    ```bash
    mkdir -p "$ROO_SETTINGS" "$HOME/.roo"
-   cp custom_modes.yaml "$ROO_SETTINGS/custom_modes.yaml"
-   cp -R .roo/rules-* "$HOME/.roo/"
+   cp setup/roo/custom_modes.yaml "$ROO_SETTINGS/custom_modes.yaml"
+   cp -R setup/roo/rules-* "$HOME/.roo/"
    ```
 
-   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. Copy the bundled `.roo/rules-*` folders as-is so each workflow session can load its matching rules.
+   This overwrites Roo's global `custom_modes.yaml`. If you already have other custom modes, merge this file into the existing one instead of copying it over. Copy the bundled `setup/roo/rules-*` folders as-is so each workflow session can load its matching rules.
+
+   Claude Code can use the bundled specialist agents:
+
+   ```bash
+   mkdir -p "$HOME/.claude/agents"
+   cp setup/claude/agents/*.md "$HOME/.claude/agents/"
+   ```
+
+   Codex does not need extra workflow files for MCP tool access; configure the MCP server in the next step.
 
 3. **Configure the LASSI MCP server**
 
    Use Docker when you want the MCP server and its Python dependencies to run in a container:
 
    ```bash
-   ./setup_mcp_docker.sh
+   CLIENT=claude ./setup/setup_mcp_docker.sh
    ```
+
+   Set `CLIENT=roo` or `CLIENT=codex` to write the MCP configuration for a different client.
 
    Use Conda when you want the MCP server to run directly on the host:
 
    ```bash
    conda create --name LASSI python=3.12
    conda activate LASSI
-   pip install -r requirements.txt
-   python configure_MCP.py --mode conda --conda-env LASSI
+   pip install -r requirements/requirements.txt
+   python setup/configure_MCP.py --client claude --mode conda --conda-env LASSI --server-name lassi
    ```
 
-   Docker mode writes a Roo MCP entry that launches `LASSI_mcp.py` through `docker run`. Conda mode writes a Roo MCP entry that launches `LASSI_mcp.py` through `conda run`.
+   The setup defaults to Claude and Docker. Use `--client roo` for Roo Code or `--client codex` for Codex. Use `--server-name` to choose the MCP server entry name; the bundled rules and agents refer to `lassi`. Docker mode writes an MCP entry that launches `LASSI_mcp.py` through `docker run`. Conda mode writes an MCP entry that launches `LASSI_mcp.py` through `conda run`.
 
-4. **Reload Roo Code**
+4. **Reload your client**
 
-   Reload the VS Code window or restart the Roo Code extension. The mode dropdown should include:
+   Reload Claude Code, Codex, or the VS Code window running Roo Code so the MCP configuration is picked up. Roo Code's mode dropdown should include:
 
    - `LASSI Optimizer`
    - `LASSI Torch Translator`

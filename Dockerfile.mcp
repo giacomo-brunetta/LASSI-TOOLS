@@ -1,9 +1,0 @@
-FROM agostini01/soda:latest
-
-WORKDIR /opt/lassi
-
-# Install MCP server runtime dependencies into the container Python
-# on top of the base image's torch/LLVM/torch-mlir environment.
-COPY requirements.txt /opt/lassi/requirements.txt
-RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install -r /opt/lassi/requirements.txt
