@@ -1,0 +1,26 @@
+{
+  "artifact_a": "/tmp/matmul_naive_lib.so",
+  "artifact_b": "/tmp/matmul_omp_lib.so",
+  "budget": {
+    "max_examples": 200,
+    "timeout_s": 30
+  },
+  "comparison": {
+    "atol": 1e-09,
+    "mode": "allclose",
+    "rtol": 1e-09
+  },
+  "corpus_dir": ".verify/corpus/equivalence",
+  "entrypoints": [
+    {
+      "name": "kernel",
+      "signature": "double(double)"
+    }
+  ],
+  "input_schema": {
+    "dtype": "float64",
+    "kind": "scalar"
+  },
+  "source_a": "/Users/giacomobrunetta/Projects/matmul_naive_lib.c",
+  "source_b": "/Users/giacomobrunetta/Projects/matmul_omp_lib.c"
+}

@@ -1,0 +1,312 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 800  of event 'cpu-clock:pppH'
+# Event count (approx.): 800800800
+#
+# Children      Self  Command       Shared Object     Symbol                
+# ........  ........  ............  ................  ......................
+#
+    35.75%    35.75%  matmul_naive  [JIT] tid 507     [.] 0x0000effff803f38c
+            |
+            ---0xeffff803f38c
+
+    23.88%    23.75%  matmul_naive  [JIT] tid 507     [.] 0x0000effff803f378
+            |
+            ---0xeffff803f378
+
+    17.75%    17.75%  matmul_naive  [JIT] tid 507     [.] 0x0000effff803f388
+            |
+            ---0xeffff803f388
+
+    16.75%    16.75%  matmul_naive  [JIT] tid 507     [.] 0x0000effff803f374
+            |
+            ---0xeffff803f374
+
+     2.12%     0.00%  bash          [JIT] tid 507     [.] 0x0000effff7ff98c0
+            |
+            ---0xeffff7ff98c0
+               0x8000000338c4
+               |          
+                --1.38%--0x800000035014
+                          |          
+                           --0.50%--0x80000003e6c0
+
+     2.12%     0.00%  bash          rosetta           [.] 0x00008000000338c4
+            |
+            ---0x8000000338c4
+               |          
+                --1.38%--0x800000035014
+                          |          
+                           --0.50%--0x80000003e6c0
+
+     1.38%     0.00%  bash          rosetta           [.] 0x0000800000035014
+            |
+            ---0x800000035014
+               |          
+                --0.50%--0x80000003e6c0
+
+     0.75%     0.00%  matmul_naive  [JIT] tid 507     [.] 0x0000effff7ff98c0
+            |
+            ---0xeffff7ff98c0
+               0x8000000338c4
+               |          
+                --0.50%--0x800000035014
+
+     0.75%     0.00%  matmul_naive  rosetta           [.] 0x00008000000338c4
+            |
+            ---0x8000000338c4
+               |          
+                --0.50%--0x800000035014
+
+     0.50%     0.00%  bash          rosetta           [.] 0x0000800000035744
+            |
+            ---0x800000035744
+
+     0.50%     0.00%  matmul_naive  rosetta           [.] 0x0000800000035014
+            |
+            ---0x800000035014
+
+     0.50%     0.00%  bash          rosetta           [.] 0x000080000003e6c0
+            |
+            ---0x80000003e6c0
+
+     0.50%     0.00%  bash          rosetta           [.] 0x000080000008dd64
+            |
+            ---0x80000008dd64
+
+     0.50%     0.50%  matmul_naive  [JIT] tid 507     [.] 0x0000effff803f384
+            |
+            ---0xeffff803f384
+
+     0.50%     0.00%  id            [JIT] tid 509     [.] 0x0000effff7ff98c0
+            |
+            ---0xeffff7ff98c0
+               0x8000000338c4
+
+     0.50%     0.00%  id            rosetta           [.] 0x00008000000338c4
+            |
+            ---0x8000000338c4
+
+     0.50%     0.00%  id            rosetta           [.] 0x0000800000035014
+            |
+            ---0x800000035014
+
+     0.50%     0.00%  mesg          [JIT] tid 510     [.] 0x0000effff7ff98c0
+            |
+            ---0xeffff7ff98c0
+               0x8000000338c4
+
+     0.50%     0.00%  mesg          rosetta           [.] 0x00008000000338c4
+            |
+            ---0x8000000338c4
+
+     0.50%     0.00%  mesg          rosetta           [.] 0x0000800000035014
+            |
+            ---0x800000035014
+
+     0.38%     0.00%  bash          rosetta           [.] 0x00008000000384fc
+     0.38%     0.00%  id            rosetta           [.] 0x00008000000384fc
+     0.38%     0.00%  id            rosetta           [.] 0x000080000003f040
+     0.25%     0.25%  id            rosetta           [.] 0x000000000008d9b8
+     0.25%     0.00%  bash          [JIT] tid 507     [.] 0x0000effff7ff987c
+     0.25%     0.00%  matmul_naive  rosetta           [.] 0x000080000003e6c0
+     0.25%     0.00%  bash          rosetta           [.] 0x000080000003f040
+     0.25%     0.00%  matmul_naive  rosetta           [.] 0x000080000008dd64
+     0.25%     0.00%  bash          rosetta           [.] 0x00008000000398dc
+     0.25%     0.00%  bash          rosetta           [.] 0x000080000008ac28
+     0.25%     0.00%  bash          rosetta           [.] 0x000080000008e3f4
+     0.25%     0.00%  bash          [unknown]         [.] 0xffff8000800114d0
+     0.25%     0.00%  bash          [unknown]         [.] 0xffff800081339008
+     0.25%     0.00%  bash          [unknown]         [.] 0xffff800081338140
+     0.25%     0.00%  bash          [unknown]         [.] 0xffff800080022d6c
+     0.25%     0.00%  bash          [unknown]         [.] 0xffff800080022c98
+     0.25%     0.00%  id            rosetta           [.] 0x0000800000036c8c
+     0.25%     0.00%  id            [JIT] tid 509     [.] 0x0000effff7ff989c
+     0.25%     0.00%  id            rosetta           [.] 0x000080000008d9b8
+     0.25%     0.00%  mesg          [JIT] tid 510     [.] 0x0000effff7ff989c
+     0.25%     0.00%  mesg          rosetta           [.] 0x00008000000384fc
+     0.25%     0.00%  mesg          rosetta           [.] 0x0000800000035744
+     0.12%     0.12%  matmul_naive  [unknown]         [k] 0xffff80008108f410
+     0.12%     0.12%  mesg          rosetta           [.] 0x00000000000269f0
+     0.12%     0.12%  mesg          rosetta           [.] 0x000000000005530c
+     0.12%     0.12%  mesg          rosetta           [.] 0x000000000002bd3c
+     0.12%     0.12%  mesg          rosetta           [.] 0x0000000000055d14
+     0.12%     0.12%  mesg          rosetta           [.] 0x000000000008d9b8
+     0.12%     0.12%  mesg          rosetta           [.] 0x00000000000858d0
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080011668
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800081339030
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800081337e58
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800081337dc8
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff80008005881c
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff80008001607c
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080015fe0
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080016040
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff8000800101a4
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080058384
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080e9d4a0
+     0.12%     0.12%  bash          [unknown]         [k] 0xffff8000802bff88
+     0.12%     0.00%  bash          [JIT] tid 507     [.] 0x0000effff7ff9a6c
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080e9ce2c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000026c08
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080e9c610
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080e9c3d8
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800080e9c348
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff80008106306c
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff8000810626ec
+     0.12%     0.12%  bash          rosetta           [.] 0x0000000000056b60
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008e8f0
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008ed4c
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x000000000008ed98
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800081062f74
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000002b580
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008e4e4
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008e4ec
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x000000000008e210
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004f4cc
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800081062e14
+     0.12%     0.12%  bash          rosetta           [.] 0x00000000000269d0
+     0.12%     0.12%  bash          rosetta           [.] 0x0000000000026a30
+     0.12%     0.12%  bash          rosetta           [.] 0x0000000000038b1c
+     0.12%     0.12%  bash          rosetta           [.] 0x0000000000058e38
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000005b154
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008a77c
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008a850
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008de58
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000008e08c
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x0000000000038b20
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x000000000008a754
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004f458
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff800081062bf0
+     0.12%     0.12%  bash          rosetta           [.] 0x0000000000026a14
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000002be0c
+     0.12%     0.12%  bash          rosetta           [.] 0x0000000000039420
+     0.12%     0.12%  bash          rosetta           [.] 0x000000000004006c
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x0000000000026770
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x000000000002be00
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000039840
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004f008
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x0000800000026040
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff80008109cad0
+     0.12%     0.12%  bash          rosetta           [.] 0x00000000000369dc
+     0.12%     0.12%  bash          [unknown]         [k] 0xffff80008034bacc
+     0.12%     0.12%  id            [unknown]         [k] 0xffff80008034a404
+     0.12%     0.12%  id            rosetta           [.] 0x00000000000269c4
+     0.12%     0.12%  id            rosetta           [.] 0x000000000002a834
+     0.12%     0.12%  id            rosetta           [.] 0x000000000008a754
+     0.12%     0.12%  id            rosetta           [.] 0x000000000008d988
+     0.12%     0.12%  matmul_naive  rosetta           [.] 0x000000000004c73c
+     0.12%     0.00%  bash          [JIT] tid 507     [.] 0x0000effff7ff989c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000035920
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000036c7c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000036c8c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000036f10
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000003fab4
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000070704
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004edfc
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000003079c
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x0000800000036c7c
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff80008109a550
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000002b41c
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000003f16c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000055cfc
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000086dfc
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000089370
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004c938
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000003f16c
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000008abf8
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000008e3f4
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x0000800000090490
+     0.12%     0.00%  matmul_naive  [unknown]         [.] 0xffff80008108bda0
+     0.12%     0.12%  matmul_naive  [JIT] tid 507     [.] 0x0000effff803f36c
+     0.12%     0.00%  bash          rosetta           [.] 0x00008000000269d0
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000026a14
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000026a30
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000026d3c
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000002b580
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000002be0c
+     0.12%     0.00%  bash          rosetta           [.] 0x00008000000369dc
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000038b1c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000039420
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000004006c
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000056b60
+     0.12%     0.00%  bash          rosetta           [.] 0x0000800000058e38
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000005b154
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008a77c
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008a850
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008de58
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008e08c
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008e4e4
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008e4ec
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008e8f0
+     0.12%     0.00%  bash          rosetta           [.] 0x000080000008ed4c
+     0.12%     0.00%  id            [JIT] tid 509     [.] 0x0000effff7ff987c
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff800080367174
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff800080367100
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff800080366b78
+     0.12%     0.00%  id            rosetta           [.] 0x000080000008ac28
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff8000803e9a5c
+     0.12%     0.00%  id            rosetta           [.] 0x000080000008a7f4
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff800080367a68
+     0.12%     0.00%  id            [unknown]         [.] 0xffff8000800114d0
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004be20
+     0.12%     0.00%  id            [unknown]         [.] 0xffff800081338f9c
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008004bc38
+     0.12%     0.00%  id            [unknown]         [.] 0xffff800081338714
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff8000802cf314
+     0.12%     0.00%  id            [unknown]         [.] 0xffff80008002a2f0
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff8000802d2b54
+     0.12%     0.00%  id            rosetta           [.] 0x0000800000035744
+     0.12%     0.00%  id            [unknown]         [.] 0xffff8000813474a0
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff8000802d2008
+     0.12%     0.00%  id            rosetta           [.] 0x000080000003a764
+     0.12%     0.00%  id            [unknown]         [.] 0xffff800081347048
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff800080308a84
+     0.12%     0.00%  id            rosetta           [.] 0x000080000003bb18
+     0.12%     0.00%  id            [unknown]         [.] 0xffff8000802c9940
+     0.12%     0.00%  bash          [unknown]         [.] 0xffff80008027b938
+     0.12%     0.00%  id            rosetta           [.] 0x000080000003c178
+     0.12%     0.00%  id            rosetta           [.] 0x000080000003ea88
+     0.12%     0.00%  id            rosetta           [.] 0x000080000008abf8
+     0.12%     0.00%  id            [unknown]         [.] 0xffff8000802c919c
+     0.12%     0.00%  id            rosetta           [.] 0x00008000000269c4
+     0.12%     0.00%  id            rosetta           [.] 0x000080000002a834
+     0.12%     0.00%  id            rosetta           [.] 0x000080000008a754
+     0.12%     0.00%  id            rosetta           [.] 0x000080000008d988
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x0000800000026770
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000002be00
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x0000800000038b20
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000004c73c
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000008a754
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000008e210
+     0.12%     0.00%  matmul_naive  rosetta           [.] 0x000080000008ed98
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000003f85c
+     0.12%     0.00%  mesg          rosetta           [.] 0x0000800000040430
+     0.12%     0.00%  mesg          rosetta           [.] 0x0000800000038744
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000003a210
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000003e314
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000003e6c0
+     0.12%     0.00%  mesg          rosetta           [.] 0x00008000000401fc
+     0.12%     0.00%  mesg          rosetta           [.] 0x00008000000269f0
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000002bd3c
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000005530c
+     0.12%     0.00%  mesg          rosetta           [.] 0x0000800000055d14
+     0.12%     0.00%  mesg          rosetta           [.] 0x00008000000858d0
+     0.12%     0.00%  mesg          rosetta           [.] 0x000080000008d9b8
+
+
+#
+# (Tip: Boolean options have negative forms, e.g.: perf report --no-children)
+#
+Warning:
+Kernel address maps (/proc/{kallsyms,modules}) were restricted.
+
+Check /proc/sys/kernel/kptr_restrict before running 'perf record'.
+
+As no suitable kallsyms nor vmlinux was found, kernel samples
+can't be resolved.
+
+Samples in kernel modules can't be resolved as well.
+

@@ -1,0 +1,1323 @@
+bash   514 12312.558547:    1001001 cpu-clock:pppH: 
+	           886cc [unknown] (/run/rosetta/rosetta)
+	           39840 [unknown] (/run/rosetta/rosetta)
+	           35744 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.559547:    1001001 cpu-clock:pppH: 
+	           38b30 [unknown] (/run/rosetta/rosetta)
+	           3f16c [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.560547:    1001001 cpu-clock:pppH: 
+	           2685c [unknown] (/run/rosetta/rosetta)
+	           34fb0 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.561547:    1001001 cpu-clock:pppH: 
+	           370ac [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.562547:    1001001 cpu-clock:pppH: 
+	           8dc68 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.563549:    1001001 cpu-clock:pppH: 
+	           278d4 [unknown] (/run/rosetta/rosetta)
+	           35944 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.564547:    1001001 cpu-clock:pppH: 
+	           8e748 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.565549:    1001001 cpu-clock:pppH: 
+	           39410 [unknown] (/run/rosetta/rosetta)
+	           399ac [unknown] (/run/rosetta/rosetta)
+	           35744 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.566546:    1001001 cpu-clock:pppH: 
+	           89b68 [unknown] (/run/rosetta/rosetta)
+	           3f3cc [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.567552:    1001001 cpu-clock:pppH: 
+	           8e724 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3f040 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.568547:    1001001 cpu-clock:pppH: 
+	           389dc [unknown] (/run/rosetta/rosetta)
+	           3f490 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.569547:    1001001 cpu-clock:pppH: 
+	           8ac00 [unknown] (/run/rosetta/rosetta)
+	           36c8c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.570549:    1001001 cpu-clock:pppH: 
+	           2b590 [unknown] (/run/rosetta/rosetta)
+	           2b330 [unknown] (/run/rosetta/rosetta)
+	           3fab4 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.571547:    1001001 cpu-clock:pppH: 
+	           26770 [unknown] (/run/rosetta/rosetta)
+	           34fb0 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.572548:    1001001 cpu-clock:pppH: 
+	ffff8000802d87d0 [unknown] ([unknown])
+	ffff8000803317f8 [unknown] ([unknown])
+	ffff800080331f90 [unknown] ([unknown])
+	ffff800080332a58 [unknown] ([unknown])
+	ffff8000802c8d78 [unknown] ([unknown])
+	ffff8000802c9940 [unknown] ([unknown])
+	ffff800081347048 [unknown] ([unknown])
+	ffff80008002a2f0 [unknown] ([unknown])
+	ffff800081338714 [unknown] ([unknown])
+	ffff800081338f9c [unknown] ([unknown])
+	ffff8000800114d0 [unknown] ([unknown])
+	           269c0 [unknown] (/run/rosetta/rosetta)
+	           36dc0 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   516 12312.573547:    1001001 cpu-clock:pppH: 
+	ffff8000812f12d8 [unknown] ([unknown])
+	ffff80008002ae4c [unknown] ([unknown])
+	ffff8000802c19a8 [unknown] ([unknown])
+	ffff8000802c8d44 [unknown] ([unknown])
+	ffff8000802c9940 [unknown] ([unknown])
+	ffff800081347048 [unknown] ([unknown])
+	ffff80008002a2f0 [unknown] ([unknown])
+	ffff800081338714 [unknown] ([unknown])
+	ffff800081338f9c [unknown] ([unknown])
+	ffff8000800114d0 [unknown] ([unknown])
+	           269d0 [unknown] (/run/rosetta/rosetta)
+	           36dc0 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+id   516 12312.575547:    1001001 cpu-clock:pppH: 
+	           8e724 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-516.map)
+
+id   516 12312.576549:    1001001 cpu-clock:pppH: 
+	           8dbc4 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-516.map)
+
+id   516 12312.577547:    1001001 cpu-clock:pppH: 
+	           8dc68 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-516.map)
+
+id   516 12312.578547:    1001001 cpu-clock:pppH: 
+	           8d8a4 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-516.map)
+
+id   516 12312.579547:    1001001 cpu-clock:pppH: 
+	           26774 [unknown] (/run/rosetta/rosetta)
+	           34fb0 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-516.map)
+
+id   516 12312.580549:    1001001 cpu-clock:pppH: 
+	           8a854 [unknown] (/run/rosetta/rosetta)
+	           36c7c [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-516.map)
+
+id   516 12312.581547:    1001001 cpu-clock:pppH: 
+	           8e4e0 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-516.map)
+
+bash   514 12312.583547:    1001001 cpu-clock:pppH: 
+	           38bac [unknown] (/run/rosetta/rosetta)
+	           3f16c [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.584547:    1001001 cpu-clock:pppH: 
+	           393e8 [unknown] (/run/rosetta/rosetta)
+	           3b518 [unknown] (/run/rosetta/rosetta)
+	           35744 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.585549:    1001001 cpu-clock:pppH: 
+	           40044 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.586549:    1001001 cpu-clock:pppH: 
+	ffff80008133870c [unknown] ([unknown])
+	ffff800081338f9c [unknown] ([unknown])
+	ffff8000800114d0 [unknown] ([unknown])
+	           269d0 [unknown] (/run/rosetta/rosetta)
+	           3bde4 [unknown] (/run/rosetta/rosetta)
+	           368f0 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.587547:    1001001 cpu-clock:pppH: 
+	           2b580 [unknown] (/run/rosetta/rosetta)
+	           3fab4 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+bash   514 12312.588547:    1001001 cpu-clock:pppH: 
+	           3f460 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+mesg   517 12312.590547:    1001001 cpu-clock:pppH: 
+	           35a5c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-517.map)
+
+mesg   517 12312.591549:    1001001 cpu-clock:pppH: 
+	           3f4a8 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-517.map)
+
+mesg   517 12312.592546:    1001001 cpu-clock:pppH: 
+	           8d540 [unknown] (/run/rosetta/rosetta)
+	           8ec0c [unknown] (/run/rosetta/rosetta)
+	           8e3f4 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-517.map)
+
+mesg   517 12312.593549:    1001001 cpu-clock:pppH: 
+	           8e7d0 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-517.map)
+
+mesg   517 12312.594546:    1001001 cpu-clock:pppH: 
+	           40230 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-517.map)
+
+mesg   517 12312.595546:    1001001 cpu-clock:pppH: 
+	           5b148 [unknown] (/run/rosetta/rosetta)
+	           398dc [unknown] (/run/rosetta/rosetta)
+	           35744 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-517.map)
+
+matmul_omp   514 12312.598547:    1001001 cpu-clock:pppH: 
+	           8abe8 [unknown] (/run/rosetta/rosetta)
+	           36c7c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.599546:    1001001 cpu-clock:pppH: 
+	           86afc [unknown] (/run/rosetta/rosetta)
+	           71858 [unknown] (/run/rosetta/rosetta)
+	           39840 [unknown] (/run/rosetta/rosetta)
+	           35744 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.600550:    1001001 cpu-clock:pppH: 
+	           8dd60 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.601546:    1001001 cpu-clock:pppH: 
+	           2bd98 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.602549:    1001001 cpu-clock:pppH: 
+	           8abe8 [unknown] (/run/rosetta/rosetta)
+	           36c7c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.603546:    1001001 cpu-clock:pppH: 
+	           8e8bc [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.604547:    1001001 cpu-clock:pppH: 
+	           858b4 [unknown] (/run/rosetta/rosetta)
+	           78308 [unknown] (/run/rosetta/rosetta)
+	           398dc [unknown] (/run/rosetta/rosetta)
+	           35744 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.605549:    1001001 cpu-clock:pppH: 
+	           8ddc0 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.606552:    1001001 cpu-clock:pppH: 
+	           8e084 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           384fc [unknown] (/run/rosetta/rosetta)
+	    effff7ff989c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.607547:    1001001 cpu-clock:pppH: 
+	           3795c [unknown] (/run/rosetta/rosetta)
+	           3c8b8 [unknown] (/run/rosetta/rosetta)
+	           36d80 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.608547:    1001001 cpu-clock:pppH: 
+	           8dae8 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.609547:    1001001 cpu-clock:pppH: 
+	           8e720 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.610550:    1001001 cpu-clock:pppH: 
+	           3f0a4 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.612550:    1001001 cpu-clock:pppH: 
+	           8d9b8 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.613548:    1001001 cpu-clock:pppH: 
+	           2a538 [unknown] (/run/rosetta/rosetta)
+	           36ed4 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.617547:    1001001 cpu-clock:pppH: 
+	           36e1c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.627546:    1001001 cpu-clock:pppH: 
+	           8e724 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3f040 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.628547:    1001001 cpu-clock:pppH: 
+	    effff81a1ff4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.628547:    1001001 cpu-clock:pppH: 
+	    effff819a180 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.629549:    1001001 cpu-clock:pppH: 
+	ffff800080098bc0 [unknown] ([unknown])
+	ffff8000800993d0 [unknown] ([unknown])
+	ffff800081343eec [unknown] ([unknown])
+	ffff800080126c54 [unknown] ([unknown])
+	ffff800080124d1c [unknown] ([unknown])
+	ffff800080124e8c [unknown] ([unknown])
+	ffff800080022c98 [unknown] ([unknown])
+	ffff800080022d6c [unknown] ([unknown])
+	ffff800081338140 [unknown] ([unknown])
+	ffff800081339008 [unknown] ([unknown])
+	ffff8000800114d0 [unknown] ([unknown])
+	           26ef4 [unknown] (/run/rosetta/rosetta)
+	           3727c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.630548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.630548:    1001001 cpu-clock:pppH: 
+	    effff81a7d80 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.630549:    1001001 cpu-clock:pppH: 
+	    effff8199ce8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.631548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.631548:    1001001 cpu-clock:pppH: 
+	    effff815ad0c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.631548:    1001001 cpu-clock:pppH: 
+	    effff8199b1c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.631548:    1001001 cpu-clock:pppH: 
+	    effff81a7824 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.631556:    1001001 cpu-clock:pppH: 
+	    effff81a7d28 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.631593:    1001001 cpu-clock:pppH: 
+	    effff81a77ac [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.631670:    1001001 cpu-clock:pppH: 
+	    effff8199c30 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.632547:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.632548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.632549:    1001001 cpu-clock:pppH: 
+	    effff815a984 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.632549:    1001001 cpu-clock:pppH: 
+	    effff819a17c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.632555:    1001001 cpu-clock:pppH: 
+	    effff81a76e8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.632555:    1001001 cpu-clock:pppH: 
+	    effff81a1ff0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.632556:    1001001 cpu-clock:pppH: 
+	    effff81af450 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.632741:    1001001 cpu-clock:pppH: 
+	           8e730 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3f040 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.633549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.633549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.633550:    1001001 cpu-clock:pppH: 
+	    effff815ac3c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.633550:    1001001 cpu-clock:pppH: 
+	    effff819a0f8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.633553:    1001001 cpu-clock:pppH: 
+	    effff81a2040 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.633553:    1001001 cpu-clock:pppH: 
+	    effff81a7df0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.633554:    1001001 cpu-clock:pppH: 
+	    effff81a777c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.633555:    1001001 cpu-clock:pppH: 
+	    effff81a7b00 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.633555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.633557:    1001001 cpu-clock:pppH: 
+	    effff81a2044 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.634549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.634549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.634551:    1001001 cpu-clock:pppH: 
+	    effff81af5b4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.634552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.634554:    1001001 cpu-clock:pppH: 
+	ffff800081338138 [unknown] ([unknown])
+	ffff800081339008 [unknown] ([unknown])
+	ffff8000800114d0 [unknown] ([unknown])
+	    effff7ffb4f0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.634554:    1001001 cpu-clock:pppH: 
+	    effff819a170 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.634554:    1001001 cpu-clock:pppH: 
+	    effff818b960 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.634554:    1001001 cpu-clock:pppH: 
+	    effff81af5b4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.634555:    1001001 cpu-clock:pppH: 
+	    effff81b5734 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.634556:    1001001 cpu-clock:pppH: 
+	    effff8199fa4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.635549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.635549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.635551:    1001001 cpu-clock:pppH: 
+	    effff818be9c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.635551:    1001001 cpu-clock:pppH: 
+	    effff81a7cfc [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.635552:    1001001 cpu-clock:pppH: 
+	    effff818b924 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.635552:    1001001 cpu-clock:pppH: 
+	    effff81b5860 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.635553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.635553:    1001001 cpu-clock:pppH: 
+	    effff81931e8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.635553:    1001001 cpu-clock:pppH: 
+	    effff815add4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.635554:    1001001 cpu-clock:pppH: 
+	    effff81a7d50 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.636549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.636549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.636552:    1001001 cpu-clock:pppH: 
+	    effff818bd40 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.636552:    1001001 cpu-clock:pppH: 
+	    effff81af5a4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.636554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.636554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.636554:    1001001 cpu-clock:pppH: 
+	    effff81603e0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.636554:    1001001 cpu-clock:pppH: 
+	    effff8193180 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.636558:    1001001 cpu-clock:pppH: 
+	    effff818b980 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.636577:    1001001 cpu-clock:pppH: 
+	    effff81af3a8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.637548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.637549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.637549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.637549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.637552:    1001001 cpu-clock:pppH: 
+	    effff815a95c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.637552:    1001001 cpu-clock:pppH: 
+	    effff81603e0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.637552:    1001001 cpu-clock:pppH: 
+	    effff818b8c8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.637554:    1001001 cpu-clock:pppH: 
+	    effff81603e0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.637554:    1001001 cpu-clock:pppH: 
+	    effff81a2024 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.638549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.638549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.638550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.638550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.638552:    1001001 cpu-clock:pppH: 
+	    effff815ac38 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.638553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.638553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.638553:    1001001 cpu-clock:pppH: 
+	    effff81a1fd4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.638555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.638863:    1001001 cpu-clock:pppH: 
+	    effff81a1ff0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.639548:    1001001 cpu-clock:pppH: 
+	    effff818b9a8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.639549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.639550:    1001001 cpu-clock:pppH: 
+	    effff8193228 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.639556:    1001001 cpu-clock:pppH: 
+	    effff8161304 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.639556:    1001001 cpu-clock:pppH: 
+	    effff81612ec [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.639556:    1001001 cpu-clock:pppH: 
+	    effff816126c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.639556:    1001001 cpu-clock:pppH: 
+	    effff8161204 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.639557:    1001001 cpu-clock:pppH: 
+	    effff81611dc [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.639759:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.640549:    1001001 cpu-clock:pppH: 
+	    effff81af3f8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.640550:    1001001 cpu-clock:pppH: 
+	    effff81af5f8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.640552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.640552:    1001001 cpu-clock:pppH: 
+	    effff81af3c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.640554:    1001001 cpu-clock:pppH: 
+	    effff81a77ac [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.640554:    1001001 cpu-clock:pppH: 
+	    effff81a7804 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.640557:    1001001 cpu-clock:pppH: 
+	    effff81a7b30 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.640558:    1001001 cpu-clock:pppH: 
+	    effff81af514 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.640584:    1001001 cpu-clock:pppH: 
+	    effff8199abc [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.641549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.641549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.641549:    1001001 cpu-clock:pppH: 
+	    effff81a7c74 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.641552:    1001001 cpu-clock:pppH: 
+	    effff819323c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.641553:    1001001 cpu-clock:pppH: 
+	    effff819a210 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.641553:    1001001 cpu-clock:pppH: 
+	    effff819a210 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.641554:    1001001 cpu-clock:pppH: 
+	    effff8193228 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.641554:    1001001 cpu-clock:pppH: 
+	    effff81af544 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.641555:    1001001 cpu-clock:pppH: 
+	    effff81a7d5c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.641556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.642548:    1001001 cpu-clock:pppH: 
+	    effff815ac3c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.642548:    1001001 cpu-clock:pppH: 
+	    effff819323c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.642548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.642549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.642551:    1001001 cpu-clock:pppH: 
+	    effff815a974 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.642553:    1001001 cpu-clock:pppH: 
+	    effff81a7b10 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.642553:    1001001 cpu-clock:pppH: 
+	    effff81a76b8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.642553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.642554:    1001001 cpu-clock:pppH: 
+	    effff818be6c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.642557:    1001001 cpu-clock:pppH: 
+	    effff818b890 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.643549:    1001001 cpu-clock:pppH: 
+	    effff81b646c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.643550:    1001001 cpu-clock:pppH: 
+	    effff81a5220 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.643551:    1001001 cpu-clock:pppH: 
+	    effff818b910 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.643551:    1001001 cpu-clock:pppH: 
+	    effff81a1f10 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.643551:    1001001 cpu-clock:pppH: 
+	    effff818be40 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.643552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.643552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.643552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.643553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.643553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.644548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.644550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.644552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.644552:    1001001 cpu-clock:pppH: 
+	    effff815ad84 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.644552:    1001001 cpu-clock:pppH: 
+	    effff815ac1c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.644553:    1001001 cpu-clock:pppH: 
+	    effff818be9c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.644554:    1001001 cpu-clock:pppH: 
+	    effff815acb8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.644555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.644556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.644556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.645548:    1001001 cpu-clock:pppH: 
+	    effff7ff8340 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.645548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.645551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.645551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.645552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.645553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.645554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.645555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.645556:    1001001 cpu-clock:pppH: 
+	    effff81a2018 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.645556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.646548:    1001001 cpu-clock:pppH: 
+	    effff815ad8c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.646549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.646549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.646549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.646550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.646551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.646551:    1001001 cpu-clock:pppH: 
+	    effff815ac1c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.646551:    1001001 cpu-clock:pppH: 
+	    effff8199c40 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.646552:    1001001 cpu-clock:pppH: 
+	    effff815ad0c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.646552:    1001001 cpu-clock:pppH: 
+	    effff815a95c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.647548:    1001001 cpu-clock:pppH: 
+	    effff818bd64 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.647550:    1001001 cpu-clock:pppH: 
+	    effff818bdd4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.647550:    1001001 cpu-clock:pppH: 
+	    effff818bd08 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.647551:    1001001 cpu-clock:pppH: 
+	    effff818bf18 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.647551:    1001001 cpu-clock:pppH: 
+	    effff819a1e4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.647553:    1001001 cpu-clock:pppH: 
+	    effff809e138 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.647554:    1001001 cpu-clock:pppH: 
+	    effff815a918 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.647556:    1001001 cpu-clock:pppH: 
+	    effff819a140 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.647556:    1001001 cpu-clock:pppH: 
+	    effff819a0d4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.647558:    1001001 cpu-clock:pppH: 
+	    effff819a0ec [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.648548:    1001001 cpu-clock:pppH: 
+	    effff818b908 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.648549:    1001001 cpu-clock:pppH: 
+	    effff819329c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.648549:    1001001 cpu-clock:pppH: 
+	    effff819320c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.648549:    1001001 cpu-clock:pppH: 
+	    effff81af600 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.648551:    1001001 cpu-clock:pppH: 
+	    effff81a77c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.648555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.648555:    1001001 cpu-clock:pppH: 
+	    effff81a784c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.648555:    1001001 cpu-clock:pppH: 
+	    effff81a7838 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.648555:    1001001 cpu-clock:pppH: 
+	    effff81a784c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.648555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.649548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.649548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.649550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.649550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.649553:    1001001 cpu-clock:pppH: 
+	    effff81a7b68 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.649553:    1001001 cpu-clock:pppH: 
+	    effff81a7d68 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.649553:    1001001 cpu-clock:pppH: 
+	    effff81a777c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.649563:    1001001 cpu-clock:pppH: 
+	    effff8199d0c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.649799:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.650312:    1001001 cpu-clock:pppH: 
+	    effff815ad20 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.650550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.650550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.650550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.650551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.650552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.650553:    1001001 cpu-clock:pppH: 
+	    effff8199af4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.650553:    1001001 cpu-clock:pppH: 
+	    effff81af5b4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.650553:    1001001 cpu-clock:pppH: 
+	    effff81a1f08 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.650554:    1001001 cpu-clock:pppH: 
+	    effff81a7a8c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.651549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.651549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.651549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.651550:    1001001 cpu-clock:pppH: 
+	    effff818b910 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.651550:    1001001 cpu-clock:pppH: 
+	    effff8199c98 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.651551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.651551:    1001001 cpu-clock:pppH: 
+	    effff81af580 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.651551:    1001001 cpu-clock:pppH: 
+	    effff809e164 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.651551:    1001001 cpu-clock:pppH: 
+	    effff8199cc0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.651552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.652548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.652549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.652551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.652552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.652553:    1001001 cpu-clock:pppH: 
+	    effff8199fcc [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.652553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.652554:    1001001 cpu-clock:pppH: 
+	    effff81b5740 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.652557:    1001001 cpu-clock:pppH: 
+	    effff81931b8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.652557:    1001001 cpu-clock:pppH: 
+	    effff81af3a8 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.652698:    1001001 cpu-clock:pppH: 
+	    effff81a1e30 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.653549:    1001001 cpu-clock:pppH: 
+	    effff81a77fc [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.653550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.653551:    1001001 cpu-clock:pppH: 
+	    effff815ad8c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.653552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.653554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.653555:    1001001 cpu-clock:pppH: 
+	    effff815a918 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.653556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.653556:    1001001 cpu-clock:pppH: 
+	    effff81a7820 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.653557:    1001001 cpu-clock:pppH: 
+	    effff8160408 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.653708:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.654548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.654549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.654549:    1001001 cpu-clock:pppH: 
+	    effff815ad0c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.654550:    1001001 cpu-clock:pppH: 
+	    effff815ad0c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.654551:    1001001 cpu-clock:pppH: 
+	    effff81b5878 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.654551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.654553:    1001001 cpu-clock:pppH: 
+	    effff815add4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.654661:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.654949:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.655548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.655549:    1001001 cpu-clock:pppH: 
+	    effff81603ec [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.655549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.655549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.655555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.655555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.655555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.655555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.655555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.656548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.656548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.656549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.656549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.656553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.656554:    1001001 cpu-clock:pppH: 
+	    effff815a920 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.656555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.656555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.656555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.657549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.657549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.657550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.657550:    1001001 cpu-clock:pppH: 
+	    effff81603e0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.657550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.657551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.657551:    1001001 cpu-clock:pppH: 
+	    effff815ab48 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.657551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.657551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.658549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.658549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.658549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.658551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.658553:    1001001 cpu-clock:pppH: 
+	    effff815ada0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.658554:    1001001 cpu-clock:pppH: 
+	    effff815ac00 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.658556:    1001001 cpu-clock:pppH: 
+	    effff81b65d4 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.658556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.658745:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.659099:    1001001 cpu-clock:pppH: 
+	    effff818bdf0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.659548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.659549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.659550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.659551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.659552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.659552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.659553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.659554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.659554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.660549:    1001001 cpu-clock:pppH: 
+	    effff815ac3c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.660549:    1001001 cpu-clock:pppH: 
+	    effff815ad8c [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.660550:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.660551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.660553:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.660555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.660555:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.660556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.660556:    1001001 cpu-clock:pppH: 
+	           8e788 [unknown] (/run/rosetta/rosetta)
+	           8dd64 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.660556:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   520 12312.661548:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   519 12312.661549:    1001001 cpu-clock:pppH: 
+	    effff809e164 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   522 12312.661549:    1001001 cpu-clock:pppH: 
+	    effff7ffb4f0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   518 12312.661549:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   525 12312.661551:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.661551:    1001001 cpu-clock:pppH: 
+	    effff815a918 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   524 12312.661552:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   514 12312.661553:    1001001 cpu-clock:pppH: 
+	           8d940 [unknown] (/run/rosetta/rosetta)
+	           3e6c0 [unknown] (/run/rosetta/rosetta)
+	           35014 [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   523 12312.661554:    1001001 cpu-clock:pppH: 
+	    effff7ff8344 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   526 12312.661665:    1001001 cpu-clock:pppH: 
+	    effff815a950 [unknown] (/tmp/perf-514.map)
+
+matmul_omp   521 12312.662547:    1001001 cpu-clock:pppH: 
+	           26ef0 [unknown] (/run/rosetta/rosetta)
+	           3727c [unknown] (/run/rosetta/rosetta)
+	           338c4 [unknown] (/run/rosetta/rosetta)
+	    effff7ff98c0 [unknown] (/tmp/perf-514.map)
+

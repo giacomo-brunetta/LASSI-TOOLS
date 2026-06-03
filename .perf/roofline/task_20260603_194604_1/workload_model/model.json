@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "arithmetic_intensity": null,
+      "bytes_moved": null,
+      "bytes_source": "unknown",
+      "case_id": "matmul_naive_vs_omp",
+      "flops": null,
+      "flops_source": "unknown",
+      "operation": "gemm"
+    }
+  ],
+  "estimation_mode": "formula",
+  "source_a": "/Users/giacomobrunetta/Projects/matmul_naive.c",
+  "source_b": "/Users/giacomobrunetta/Projects/matmul_omp.c"
+}

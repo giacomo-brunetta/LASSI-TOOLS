@@ -1,0 +1,39 @@
+{
+  "artifacts": [
+    {
+      "kind": "roofline_comparison_json",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/roofline/comparison/task_20260603_194623_1/report.json"
+    },
+    {
+      "kind": "roofline_comparison_md",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/roofline/comparison/task_20260603_194623_1/report.md"
+    }
+  ],
+  "confidence": 0.82,
+  "logs": {
+    "stderr": "",
+    "stdout": ""
+  },
+  "metrics": {
+    "cases": [
+      {
+        "a_bound": "compute",
+        "a_utilization": 0.010375989624243328,
+        "achieved_flops_speedup": 12.114333769776124,
+        "b_bound": "compute",
+        "b_utilization": 0.1256982014998176,
+        "bound_changed": false,
+        "case_id": "matmul_naive_vs_omp",
+        "utilization_delta": 0.11532221187557429,
+        "verdict": "IMPROVEMENT"
+      }
+    ],
+    "improvement_count": 1,
+    "neutral_count": 0,
+    "regression_count": 0,
+    "unsure_count": 0
+  },
+  "summary": "IMPROVEMENT: average utilization delta is 0.115.",
+  "verdict": "IMPROVEMENT",
+  "warnings": []
+}

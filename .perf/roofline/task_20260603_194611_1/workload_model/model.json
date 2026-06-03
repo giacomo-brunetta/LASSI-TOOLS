@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "arithmetic_intensity": 42.666666666666664,
+      "bytes_moved": 18874368.0,
+      "bytes_source": "manual",
+      "case_id": "matmul_naive_vs_omp",
+      "flops": 805306368.0,
+      "flops_source": "manual",
+      "operation": "matmul"
+    }
+  ],
+  "estimation_mode": "manual",
+  "source_a": null,
+  "source_b": null
+}

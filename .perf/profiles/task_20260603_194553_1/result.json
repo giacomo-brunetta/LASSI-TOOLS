@@ -1,0 +1,210 @@
+{
+  "artifacts": [
+    {
+      "kind": "perf_data",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_a.perf.data"
+    },
+    {
+      "kind": "perf_report",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_a.report.txt"
+    },
+    {
+      "kind": "perf_script",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_a.perf.script"
+    },
+    {
+      "kind": "perf_data",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_b.perf.data"
+    },
+    {
+      "kind": "perf_report",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_b.report.txt"
+    },
+    {
+      "kind": "perf_script",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_b.perf.script"
+    },
+    {
+      "kind": "profile_result_json",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/result.json"
+    },
+    {
+      "kind": "profile_report",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/report.md"
+    }
+  ],
+  "confidence": 0.82,
+  "logs": {
+    "stderr": "WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,\ncheck /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.\n\nSamples in kernel functions may not be resolved if a suitable vmlinux\nfile is not found in the buildid cache or in the vmlinux path.\n\nSamples in kernel modules won't be resolved at all.\n\nIf some relocation was applied (e.g. kexec) symbols may be misresolved\neven with a suitable vmlinux or kallsyms file.\n\nCouldn't record kernel reference relocation symbol\nSymbol resolution may be skewed if relocation was used (e.g. kexec).\nCheck /proc/kallsyms permission or run as root.\nCouldn't synthesize bpf events.\n[ perf record: Woken up 1 times to write data ]\n[ perf record: Captured and wrote 0.057 MB /Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_a.perf.data (800 samples) ]\n\nWARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,\ncheck /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.\n\nSamples in kernel functions may not be resolved if a suitable vmlinux\nfile is not found in the buildid cache or in the vmlinux path.\n\nSamples in kernel modules won't be resolved at all.\n\nIf some relocation was applied (e.g. kexec) symbols may be misresolved\neven with a suitable vmlinux or kallsyms file.\n\nCouldn't record kernel reference relocation symbol\nSymbol resolution may be skewed if relocation was used (e.g. kexec).\nCheck /proc/kallsyms permission or run as root.\nCouldn't synthesize bpf events.\n[ perf record: Woken up 1 times to write data ]\n[ perf record: Captured and wrote 0.030 MB /Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/profiles/task_20260603_194553_1/matmul_hotspot_diff_b.perf.data (355 samples) ]\n",
+    "stdout": "N=512 iters=3 checksum=5738.250000\n\nN=512 iters=3 threads=10 checksum=5738.250000\n"
+  },
+  "metrics": {
+    "cases": [
+      {
+        "case_id": "matmul_hotspot_diff",
+        "hotspot_shift": [
+          {
+            "delta_percent": 40.28,
+            "interpretation": "new overhead in candidate",
+            "symbol": "tid 514 [.] 0x0000effff7ff8344"
+          },
+          {
+            "delta_percent": 5.63,
+            "interpretation": "new overhead in candidate",
+            "symbol": "tid 514 [.] 0x0000effff7ff98c0"
+          }
+        ],
+        "top_functions_a": [
+          {
+            "percent": 35.75,
+            "symbol": "tid 507 [.] 0x0000effff803f38c"
+          },
+          {
+            "percent": 23.88,
+            "symbol": "tid 507 [.] 0x0000effff803f378"
+          },
+          {
+            "percent": 17.75,
+            "symbol": "tid 507 [.] 0x0000effff803f388"
+          },
+          {
+            "percent": 16.75,
+            "symbol": "tid 507 [.] 0x0000effff803f374"
+          },
+          {
+            "percent": 2.12,
+            "symbol": "tid 507 [.] 0x0000effff7ff98c0"
+          },
+          {
+            "percent": 2.12,
+            "symbol": "0x00008000000338c4"
+          },
+          {
+            "percent": 1.38,
+            "symbol": "0x0000800000035014"
+          },
+          {
+            "percent": 0.75,
+            "symbol": "tid 507 [.] 0x0000effff7ff98c0"
+          },
+          {
+            "percent": 0.75,
+            "symbol": "0x00008000000338c4"
+          },
+          {
+            "percent": 0.5,
+            "symbol": "0x0000800000035744"
+          },
+          {
+            "percent": 0.5,
+            "symbol": "0x0000800000035014"
+          },
+          {
+            "percent": 0.5,
+            "symbol": "0x000080000003e6c0"
+          },
+          {
+            "percent": 0.5,
+            "symbol": "0x000080000008dd64"
+          },
+          {
+            "percent": 0.5,
+            "symbol": "tid 507 [.] 0x0000effff803f384"
+          },
+          {
+            "percent": 0.5,
+            "symbol": "tid 509 [.] 0x0000effff7ff98c0"
+          }
+        ],
+        "top_functions_b": [
+          {
+            "percent": 40.28,
+            "symbol": "tid 514 [.] 0x0000effff7ff8344"
+          },
+          {
+            "percent": 5.63,
+            "symbol": "tid 514 [.] 0x0000effff7ff98c0"
+          },
+          {
+            "percent": 5.63,
+            "symbol": "tid 514 [.] 0x0000effff7ff98c0"
+          },
+          {
+            "percent": 5.63,
+            "symbol": "0x00008000000338c4"
+          },
+          {
+            "percent": 5.63,
+            "symbol": "0x00008000000338c4"
+          },
+          {
+            "percent": 3.66,
+            "symbol": "0x0000800000035014"
+          },
+          {
+            "percent": 3.1,
+            "symbol": "0x0000800000035014"
+          },
+          {
+            "percent": 2.54,
+            "symbol": "0x000080000003e6c0"
+          },
+          {
+            "percent": 1.41,
+            "symbol": "0x0000800000035014"
+          },
+          {
+            "percent": 1.41,
+            "symbol": "0x000080000003e6c0"
+          },
+          {
+            "percent": 1.41,
+            "symbol": "0x000080000008dd64"
+          },
+          {
+            "percent": 1.13,
+            "symbol": "tid 514 [.] 0x0000effff815ad0c"
+          },
+          {
+            "percent": 1.13,
+            "symbol": "tid 514 [.] 0x0000effff81603e0"
+          },
+          {
+            "percent": 1.13,
+            "symbol": "tid 516 [.] 0x0000effff7ff98c0"
+          },
+          {
+            "percent": 1.13,
+            "symbol": "0x00008000000338c4"
+          }
+        ]
+      }
+    ],
+    "context": {
+      "host": {
+        "cpu_model": "VirtualApple @ 2.50GHz",
+        "hostname": "3a92cb1d52f9",
+        "kernel": "6.12.76-linuxkit",
+        "num_cores": 10,
+        "num_threads": 10
+      },
+      "runtime_context": {
+        "cpu_affinity": "0,1,2,3,4,5,6,7,8,9",
+        "governor": "unknown",
+        "load_1m": 1.06005859375,
+        "numa_policy": "unknown",
+        "thermal_warning": false,
+        "timestamp": "2026-06-03T19:45:53+0000"
+      },
+      "software": {
+        "compiler": "/usr/bin/cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "python_version": "3.11.13",
+        "torch_version": "2.4.0.dev20240604+cpu"
+      }
+    }
+  },
+  "summary": "Collected hotspot profiles for 1 case(s); detected 2 notable hotspot shift(s).",
+  "verdict": "PASS",
+  "warnings": []
+}

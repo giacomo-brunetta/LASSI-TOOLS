@@ -160,14 +160,18 @@ async def execute_with_profile(
     if not target_path.exists():
         return f"Execution failed: Executable not found at {target_path}"
 
-    executer = ExecTool(
-        executable=target_path,
-        profiler=MultiProfiler([
-                    Timer(),
-                    CPUProfiler(ArmPowerProbe()),
-                    GPUProfiler(NvidiaPowerProbe())]
-            )
-        )
+    profilers: list = [Timer()]
+    probe_warnings: list[str] = []
+    try:
+        profilers.append(CPUProfiler(ArmPowerProbe()))
+    except (FileNotFoundError, RuntimeError, OSError) as e:
+        probe_warnings.append(f"CPU power probe unavailable: {e}")
+    try:
+        profilers.append(GPUProfiler(NvidiaPowerProbe()))
+    except (FileNotFoundError, RuntimeError, OSError) as e:
+        probe_warnings.append(f"GPU power probe unavailable: {e}")
+
+    executer = ExecTool(executable=target_path, profiler=MultiProfiler(profilers))
 
     validator = FunctionalValidator(golden_output=expected_output) if expected_output else None
 
@@ -188,15 +192,20 @@ async def execute_with_profile(
         # Header
         status = "Success" if process_result.returncode == 0 else f"Failed (Code {process_result.returncode})"
         output_parts.append(f"--- Execution {status} ---")
-        
+
+        if probe_warnings:
+            output_parts.append("--- Probe Warnings ---")
+            for warning in probe_warnings:
+                output_parts.append(f"  - {warning}")
+
         # The Report (Timing)
-        output_parts.append(f"Profile Report: {report}") 
+        output_parts.append(f"Profile Report: {report}")
 
         # Standard Output (truncated if too long, optional safety measure)
         if process_result.stdout:
             output_parts.append("\n--- Stdout ---")
             output_parts.append(process_result.stdout.strip())
-            
+
         # Standard Error (important for debugging)
         if process_result.stderr:
             output_parts.append("\n--- Stderr ---")

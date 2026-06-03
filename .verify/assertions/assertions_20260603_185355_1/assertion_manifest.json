@@ -1,0 +1,13 @@
+{
+  "assertion_suite": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.verify/assertions/assertions_20260603_185355_1/assertion_suite.py",
+  "entrypoint": {
+    "name": "kernel",
+    "signature": "double(double)"
+  },
+  "existing_tests": [],
+  "harness": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.verify/harnesses/harness_20260603_185355_1/common_harness.py",
+  "numeric_tolerance": {
+    "atol": 1e-09,
+    "rtol": 1e-09
+  }
+}

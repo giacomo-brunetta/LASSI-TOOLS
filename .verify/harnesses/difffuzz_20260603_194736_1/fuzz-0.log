@@ -1,0 +1,12 @@
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 92189097
+INFO: Loaded 1 modules   (32 inline 8-bit counters): 32 [0x5555556b3450, 0x5555556b3470), 
+INFO: Loaded 1 PC tables (32 PCs): 32 [0x5555556b3470,0x5555556b3670), 
+INFO:        3 files found in /Users/giacomobrunetta/Projects/LASSI-TOOLS/.verify/corpus/fuzz/differential
+INFO: seed corpus: files: 3 min: 1b max: 8b total: 17b rss: 43Mb
+#4	INITED cov: 8 ft: 8 corp: 3/17b exec/s: 0 rss: 44Mb
+#65536	pulse  cov: 8 ft: 8 corp: 3/17b lim: 652 exec/s: 32768 rss: 49Mb
+#131072	pulse  cov: 8 ft: 8 corp: 3/17b lim: 1310 exec/s: 32768 rss: 54Mb
+#262144	pulse  cov: 8 ft: 8 corp: 3/17b lim: 2611 exec/s: 32768 rss: 64Mb
+#345284	DONE   cov: 8 ft: 8 corp: 3/17b lim: 3436 exec/s: 31389 rss: 70Mb
+Done 345284 runs in 11 second(s)

@@ -1,0 +1,13 @@
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 106235358
+INFO: Loaded 1 modules   (94 inline 8-bit counters): 94 [0x5555556b5360, 0x5555556b53be), 
+INFO: Loaded 1 PC tables (94 PCs): 94 [0x5555556b53c0,0x5555556b59a0), 
+INFO:        3 files found in /Users/giacomobrunetta/Projects/LASSI-TOOLS/.verify/corpus/fuzz/source
+INFO: seed corpus: files: 3 min: 1b max: 8b total: 17b rss: 43Mb
+/Users/giacomobrunetta/Projects/matmul_omp_lib.c:44:28: runtime error: 1.3336e+247 is outside the range of representable values of type 'long'
+SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior /Users/giacomobrunetta/Projects/matmul_omp_lib.c:44:28 in 
+#4	INITED cov: 35 ft: 36 corp: 3/17b exec/s: 0 rss: 45Mb
+#2048	pulse  cov: 35 ft: 36 corp: 3/17b lim: 25 exec/s: 682 rss: 45Mb
+#4096	pulse  cov: 35 ft: 36 corp: 3/17b lim: 48 exec/s: 682 rss: 45Mb
+#6634	DONE   cov: 35 ft: 36 corp: 3/17b lim: 68 exec/s: 603 rss: 45Mb
+Done 6634 runs in 11 second(s)

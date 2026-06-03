@@ -1,0 +1,78 @@
+{
+  "artifacts": [
+    {
+      "kind": "hyperfine_json",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/benchmarks/task_20260603_194534_1/matmul_naive_vs_omp_hyperfine.json"
+    },
+    {
+      "kind": "benchmark_result_json",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/benchmarks/task_20260603_194534_1/result.json"
+    },
+    {
+      "kind": "benchmark_report",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/benchmarks/task_20260603_194534_1/report.md"
+    }
+  ],
+  "confidence": 0.8561,
+  "logs": {
+    "stderr": "",
+    "stdout": "Benchmark 1: /tmp/matmul_naive 3\n  Time (mean \u00b1 \u03c3):     776.1 ms \u00b1   6.9 ms    [User: 775.0 ms, System: 0.9 ms]\n  Range (min \u2026 max):   769.8 ms \u2026 787.8 ms    5 runs\n \nBenchmark 2: /tmp/matmul_omp 3\n  Time (mean \u00b1 \u03c3):      64.1 ms \u00b1   2.8 ms    [User: 276.5 ms, System: 7.6 ms]\n  Range (min \u2026 max):    61.5 ms \u2026  71.3 ms    15 runs\n \nSummary\n  '/tmp/matmul_omp 3' ran\n   12.11 \u00b1 0.54 times faster than '/tmp/matmul_naive 3'\n"
+  },
+  "metrics": {
+    "cases": [
+      {
+        "case_id": "matmul_naive_vs_omp",
+        "command_a": "/tmp/matmul_naive 3",
+        "command_b": "/tmp/matmul_omp 3",
+        "cv_a_pct": 0.8911932959894214,
+        "cv_b_pct": 4.348293561701389,
+        "max_a_s": 0.7878141444800001,
+        "max_b_s": 0.07126681048,
+        "mean_a_s": 0.7761248778800001,
+        "mean_b_s": 0.06406665794666667,
+        "median_a_s": 0.7752120194800001,
+        "median_b_s": 0.06323693548,
+        "min_a_s": 0.7698053944800001,
+        "min_b_s": 0.061518268480000006,
+        "relative_change_pct": -91.74531576391857,
+        "reproduce": "hyperfine --warmup 2 --min-runs 5 --max-runs 15 --shell bash --export-json /Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/benchmarks/task_20260603_194534_1/matmul_naive_vs_omp_hyperfine.json '/tmp/matmul_naive 3' '/tmp/matmul_omp 3'",
+        "runs_a": 5,
+        "runs_b": 15,
+        "speedup": 12.114333769776126,
+        "stddev_a_s": 0.006916772880172645,
+        "stddev_b_s": 0.0027858063626921585,
+        "verdict": "IMPROVEMENT"
+      }
+    ],
+    "context": {
+      "host": {
+        "cpu_model": "VirtualApple @ 2.50GHz",
+        "hostname": "3a92cb1d52f9",
+        "kernel": "6.12.76-linuxkit",
+        "num_cores": 10,
+        "num_threads": 10
+      },
+      "runtime_context": {
+        "cpu_affinity": "0,1,2,3,4,5,6,7,8,9",
+        "governor": "unknown",
+        "load_1m": 1.1728515625,
+        "numa_policy": "unknown",
+        "thermal_warning": false,
+        "timestamp": "2026-06-03T19:45:34+0000"
+      },
+      "software": {
+        "compiler": "/usr/bin/cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "python_version": "3.11.13",
+        "torch_version": "2.4.0.dev20240604+cpu"
+      }
+    },
+    "geomean_speedup": 12.114333769776128,
+    "improvement_count": 1,
+    "neutral_count": 0,
+    "regression_count": 0
+  },
+  "summary": "IMPROVEMENT: candidate geomean speedup is 12.1x across 1 case(s).",
+  "verdict": "IMPROVEMENT",
+  "warnings": []
+}

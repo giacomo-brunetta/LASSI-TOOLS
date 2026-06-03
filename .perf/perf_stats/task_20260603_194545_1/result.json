@@ -1,0 +1,77 @@
+{
+  "artifacts": [
+    {
+      "kind": "perf_stat_raw",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/perf_stats/task_20260603_194545_1/matmul_perf_diff_a.csv"
+    },
+    {
+      "kind": "perf_stat_raw",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/perf_stats/task_20260603_194545_1/matmul_perf_diff_b.csv"
+    },
+    {
+      "kind": "perf_stats_result_json",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/perf_stats/task_20260603_194545_1/result.json"
+    },
+    {
+      "kind": "perf_stats_report",
+      "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/perf_stats/task_20260603_194545_1/report.md"
+    }
+  ],
+  "confidence": 0.45,
+  "logs": {
+    "stderr": "\n",
+    "stdout": "N=512 iters=3 checksum=5738.250000\nN=512 iters=3 checksum=5738.250000\nN=512 iters=3 checksum=5738.250000\n\nN=512 iters=3 threads=10 checksum=5738.250000\nN=512 iters=3 threads=10 checksum=5738.250000\nN=512 iters=3 threads=10 checksum=5738.250000\n"
+  },
+  "metrics": {
+    "cases": [
+      {
+        "a": {
+          "context_switches": 83.0,
+          "cpu_migrations": 3.0,
+          "page_faults": 2833.0,
+          "task_clock": 828.42
+        },
+        "b": {
+          "context_switches": 1446.0,
+          "cpu_migrations": 17.0,
+          "page_faults": 3097.0,
+          "task_clock": 371.78
+        },
+        "case_id": "matmul_perf_diff",
+        "delta": {},
+        "reproduce": {
+          "a": "perf stat -r 3 -e cycles,instructions,branches,branch-misses,cache-references,cache-misses,task-clock,context-switches,cpu-migrations,page-faults -x , -o /Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/perf_stats/task_20260603_194545_1/matmul_perf_diff_a.csv -- bash -lc '/tmp/matmul_naive 3'",
+          "b": "perf stat -r 3 -e cycles,instructions,branches,branch-misses,cache-references,cache-misses,task-clock,context-switches,cpu-migrations,page-faults -x , -o /Users/giacomobrunetta/Projects/LASSI-TOOLS/.perf/perf_stats/task_20260603_194545_1/matmul_perf_diff_b.csv -- bash -lc '/tmp/matmul_omp 3'"
+        }
+      }
+    ],
+    "context": {
+      "host": {
+        "cpu_model": "VirtualApple @ 2.50GHz",
+        "hostname": "3a92cb1d52f9",
+        "kernel": "6.12.76-linuxkit",
+        "num_cores": 10,
+        "num_threads": 10
+      },
+      "runtime_context": {
+        "cpu_affinity": "0,1,2,3,4,5,6,7,8,9",
+        "governor": "unknown",
+        "load_1m": 1.0654296875,
+        "numa_policy": "unknown",
+        "thermal_warning": false,
+        "timestamp": "2026-06-03T19:45:45+0000"
+      },
+      "software": {
+        "compiler": "/usr/bin/cc",
+        "compiler_version": "cc (Debian 12.2.0-14+deb12u1) 12.2.0",
+        "python_version": "3.11.13",
+        "torch_version": "2.4.0.dev20240604+cpu"
+      }
+    }
+  },
+  "summary": "Collected perf counters for 1 case(s).",
+  "verdict": "UNSURE",
+  "warnings": [
+    "Some requested perf events were unavailable: branch_misses, branches, cache_misses, cache_references, cycles, instructions"
+  ]
+}

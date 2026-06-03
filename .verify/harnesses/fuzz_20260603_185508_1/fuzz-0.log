@@ -1,0 +1,17 @@
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 3093311203
+INFO: Loaded 1 modules   (47 inline 8-bit counters): 47 [0x5555556b31f0, 0x5555556b321f), 
+INFO: Loaded 1 PC tables (47 PCs): 47 [0x5555556b3220,0x5555556b3510), 
+INFO:        0 files found in /Users/giacomobrunetta/Projects/LASSI-TOOLS/.verify/corpus/fuzz/source
+INFO: A corpus is not provided, starting from an empty corpus
+#2	INITED cov: 2 ft: 2 corp: 1/1b exec/s: 0 rss: 44Mb
+/Users/giacomobrunetta/Projects/matmul_naive_lib.c:23:37: runtime error: 1.3336e+247 is outside the range of representable values of type 'long'
+SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior /Users/giacomobrunetta/Projects/matmul_naive_lib.c:23:37 in 
+	NEW_FUNC[1/2]: 0x555555670f50 in matmul_kernel /Users/giacomobrunetta/Projects/matmul_naive_lib.c:6
+	NEW_FUNC[2/2]: 0x555555671510 in kernel /Users/giacomobrunetta/Projects/matmul_naive_lib.c:18
+#425	NEW    cov: 14 ft: 15 corp: 2/9b lim: 8 exec/s: 0 rss: 45Mb L: 8/8 MS: 3 ChangeByte-ChangeBit-InsertRepeatedBytes-
+#436	NEW    cov: 15 ft: 16 corp: 3/17b lim: 8 exec/s: 0 rss: 45Mb L: 8/8 MS: 1 ChangeByte-
+#2048	pulse  cov: 15 ft: 16 corp: 3/17b lim: 8 exec/s: 1024 rss: 45Mb
+#4096	pulse  cov: 15 ft: 16 corp: 3/17b lim: 8 exec/s: 819 rss: 45Mb
+#7816	DONE   cov: 15 ft: 16 corp: 3/17b lim: 8 exec/s: 710 rss: 45Mb
+Done 7816 runs in 11 second(s)

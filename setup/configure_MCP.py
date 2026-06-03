@@ -82,6 +82,27 @@ def parse_args() -> argparse.Namespace:
         help="Docker image to use when --mode docker is selected.",
     )
     parser.add_argument(
+        "--container-server-path",
+        default=os.environ.get("LASSI_CONTAINER_SERVER_PATH"),
+        help=(
+            "Absolute path to LASSI_mcp.py inside the container. "
+            "Defaults to the host repo path (works when the host repo is bind-mounted)."
+        ),
+    )
+    parser.add_argument(
+        "--container-workdir",
+        default=os.environ.get("LASSI_CONTAINER_WORKDIR"),
+        help=(
+            "Working directory inside the container. "
+            "Defaults to the host repo path (works when the host repo is bind-mounted)."
+        ),
+    )
+    parser.add_argument(
+        "--container-python",
+        default=os.environ.get("LASSI_CONTAINER_PYTHON", "python3"),
+        help="Python executable inside the container. Defaults to python3.",
+    )
+    parser.add_argument(
         "--conda-prefix",
         default=os.environ.get("CONDA_PREFIX"),
         help="Absolute path to the Conda environment to use when --mode conda is selected.",
@@ -115,7 +136,14 @@ def default_settings_path(client: str) -> pathlib.Path:
     raise SystemExit(f"Unsupported client: {client}")
 
 
-def build_docker_launch_config(image_name: str) -> dict:
+def build_docker_launch_config(
+    image_name: str,
+    container_workdir: Optional[str] = None,
+    container_server_path: Optional[str] = None,
+    container_python: str = "python3",
+) -> dict:
+    workdir = container_workdir or str(repo_root)
+    server_path = container_server_path or str(mcp_server_path)
     return {
         "command": "docker",
         "args": [
@@ -125,12 +153,21 @@ def build_docker_launch_config(image_name: str) -> dict:
             "-v",
             f"{home}:{home}",
             "--workdir",
-            str(repo_root),
+            workdir,
+            # perf_event_open requires SYS_ADMIN (or PERFMON on newer kernels) and
+            # the default Docker seccomp profile blocks it. These flags unlock perf
+            # stat/record on Linux hosts; on Docker-for-Mac the LinuxKit kernel
+            # still gates with perf_event_paranoid, in which case the tools fall
+            # back to software-only events and return UNSURE rather than ERROR.
+            "--cap-add=SYS_ADMIN",
+            "--cap-add=PERFMON",
+            "--security-opt",
+            "seccomp=unconfined",
             "-e",
             "PYTHONUNBUFFERED=1",
             image_name,
-            "python3",
-            str(mcp_server_path),
+            container_python,
+            server_path,
         ],
         "env": {
             "PYTHONUNBUFFERED": "1",
@@ -266,7 +303,12 @@ def main() -> int:
     settings_path = args.settings_path or default_settings_path(args.client)
 
     if args.mode == "docker":
-        launch_config = build_docker_launch_config(args.image_name)
+        launch_config = build_docker_launch_config(
+            args.image_name,
+            container_workdir=args.container_workdir,
+            container_server_path=args.container_server_path,
+            container_python=args.container_python,
+        )
         summary = f"Docker image: {args.image_name}"
     else:
         launch_config = build_conda_launch_config(args.conda_prefix, args.conda_env)

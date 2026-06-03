@@ -1,0 +1,15 @@
+{
+  "entrypoints": [
+    {
+      "name": "main",
+      "signature": "double(double)"
+    }
+  ],
+  "source_a": "/Users/giacomobrunetta/Projects/matmul_naive.c",
+  "source_b": "/Users/giacomobrunetta/Projects/matmul_opt.c",
+  "supported_interfaces": [
+    "python_module_callable",
+    "ctypes_scalar_shared_library"
+  ],
+  "task_type": "C_TO_C_OPTIMIZATION"
+}

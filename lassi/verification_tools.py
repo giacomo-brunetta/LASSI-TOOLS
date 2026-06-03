@@ -388,6 +388,8 @@ from __future__ import annotations
 import ctypes
 import importlib.util
 import math
+import re
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -396,6 +398,9 @@ try:
     import torch
 except Exception:
     torch = None
+
+
+_NUMBER_RE = re.compile(r"[\-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][\-+]?\d+)?")
 
 
 def _load_python_callable(path, entrypoint):
@@ -432,11 +437,47 @@ def _load_shared_scalar(path, entrypoint, signature):
     return fn
 
 
+def _parse_number_from_stdout(stdout):
+    for line in reversed(stdout.splitlines()):
+        for token in line.split():
+            if "=" in token:
+                val = token.rsplit("=", 1)[1]
+                m = _NUMBER_RE.fullmatch(val)
+                if m:
+                    return float(m.group(0))
+        for token in line.split():
+            m = _NUMBER_RE.fullmatch(token)
+            if m:
+                return float(m.group(0))
+    raise RuntimeError(f"binary produced no numeric stdout token:\n{stdout!r}")
+
+
+def _load_binary_subprocess(path):
+    path = str(path)
+
+    def fn(case):
+        cmd = [path]
+        if isinstance(case, (list, tuple)):
+            cmd.extend(str(c) for c in case)
+        else:
+            cmd.append(str(case))
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"binary {path} exited {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}"
+            )
+        return _parse_number_from_stdout(proc.stdout)
+
+    return fn
+
+
 def _load_callable(path, entrypoint, signature=None):
-    suffix = Path(path).suffix
+    suffix = Path(path).suffix.lower()
     if suffix == ".py":
         return _load_python_callable(path, entrypoint)
-    return _load_shared_scalar(path, entrypoint, signature)
+    if suffix in {".so", ".dylib", ".dll"}:
+        return _load_shared_scalar(path, entrypoint, signature)
+    return _load_binary_subprocess(path)
 
 
 def _call(fn, input_case):
@@ -723,22 +764,117 @@ def _load_python_callable(path: str, entrypoint: str):
     raise AttributeError(f"Entrypoint {entrypoint!r} not found in {path}")
 
 
-def _parse_ctypes_signature(signature: str | None) -> tuple[Any, list[Any]]:
-    names = {
-        "double": ctypes.c_double,
-        "float": ctypes.c_float,
-        "int": ctypes.c_int,
-        "long": ctypes.c_long,
+_SCALAR_CTYPES = {
+    "double": ctypes.c_double,
+    "float": ctypes.c_float,
+    "int": ctypes.c_int,
+    "long": ctypes.c_long,
+    "void": None,
+}
+
+_POINTER_BASE_DTYPE = {
+    "double": np.float64,
+    "float": np.float32,
+    "int": np.int32,
+    "long": np.int64,
+}
+
+
+def _parse_arg_token(token: str) -> dict[str, Any]:
+    """Parse a single C-ish argument token into a structured spec.
+
+    Recognises: optional `const`, base scalar type, optional `*` for pointer,
+    optional identifier name. Examples:
+      "double"                -> {kind: scalar, base: double, ctype: c_double}
+      "int n"                 -> {kind: scalar, base: int, name: "n", ctype: c_int}
+      "double*"               -> {kind: pointer, base: double, const: False}
+      "const double* A"       -> {kind: pointer, base: double, const: True, name: "A"}
+    """
+    raw = token.strip()
+    is_const = False
+    if raw.startswith("const "):
+        is_const = True
+        raw = raw[len("const "):].strip()
+    parts = raw.split()
+    if not parts:
+        raise ValueError(f"Empty argument token in signature")
+    name: str | None = None
+    last = parts[-1]
+    if last.isidentifier() and last not in _SCALAR_CTYPES:
+        name = last
+        parts = parts[:-1]
+    type_text = " ".join(parts).replace(" ", "")
+    is_pointer = type_text.endswith("*")
+    if is_pointer:
+        base = type_text.rstrip("*")
+    else:
+        base = type_text
+    if base not in _SCALAR_CTYPES or base == "void":
+        if not (base == "void" and is_pointer is False and name is None):
+            raise ValueError(f"Unsupported argument base type: {base!r} in token {token!r}")
+    if is_pointer:
+        if base not in _POINTER_BASE_DTYPE:
+            raise ValueError(f"Pointer base type not supported: {base!r}")
+        return {
+            "kind": "pointer",
+            "base": base,
+            "const": is_const,
+            "name": name,
+            "ctype": ctypes.POINTER(_SCALAR_CTYPES[base]),
+            "numpy_dtype": _POINTER_BASE_DTYPE[base],
+        }
+    return {
+        "kind": "scalar",
+        "base": base,
+        "name": name,
+        "ctype": _SCALAR_CTYPES[base],
     }
+
+
+def _parse_ctypes_signature(signature: str | None) -> tuple[Any, list[Any]]:
+    """Backwards-compatible scalar-only parser (kept for the in-template harness)."""
     signature = signature or "double(double)"
     match = re.fullmatch(r"\s*(\w+)\s*\((.*?)\)\s*", signature)
     if not match:
         raise ValueError(f"Unsupported signature format: {signature}")
     ret_name, args_text = match.groups()
     arg_names = [part.strip() for part in args_text.split(",") if part.strip()]
-    if ret_name not in names or any(arg not in names for arg in arg_names):
+    if ret_name not in _SCALAR_CTYPES or any(arg not in _SCALAR_CTYPES for arg in arg_names):
         raise ValueError(f"Only scalar ctypes signatures are supported initially: {signature}")
-    return names[ret_name], [names[arg] for arg in arg_names]
+    return _SCALAR_CTYPES[ret_name], [_SCALAR_CTYPES[arg] for arg in arg_names]
+
+
+def _parse_extended_signature(signature: str | None) -> dict[str, Any]:
+    """Parse a signature that may contain pointer and named args.
+
+    Returns: {return: {base, ctype, is_pointer}, args: [arg_spec, ...]}
+    """
+    signature = signature or "double(double)"
+    match = re.fullmatch(r"\s*([\w\s\*]+?)\s*\((.*?)\)\s*", signature)
+    if not match:
+        raise ValueError(f"Unsupported signature format: {signature}")
+    ret_text, args_text = match.groups()
+    ret_text = ret_text.strip()
+    ret_pointer = ret_text.endswith("*")
+    ret_base = ret_text.rstrip("*").strip()
+    if ret_base not in _SCALAR_CTYPES:
+        raise ValueError(f"Unsupported return base type: {ret_base!r}")
+    ret_ctype = (
+        ctypes.POINTER(_SCALAR_CTYPES[ret_base])
+        if ret_pointer and ret_base != "void"
+        else _SCALAR_CTYPES[ret_base]
+    )
+    arg_specs = [_parse_arg_token(part) for part in args_text.split(",") if part.strip()]
+    return {
+        "return": {"base": ret_base, "ctype": ret_ctype, "is_pointer": ret_pointer},
+        "args": arg_specs,
+    }
+
+
+def _is_pointer_signature(signature: str | None) -> bool:
+    if not signature:
+        return False
+    return "*" in signature
 
 
 def _load_callable(path: str, entrypoint: str, signature: str | None):
@@ -746,9 +882,14 @@ def _load_callable(path: str, entrypoint: str, signature: str | None):
     if suffix == ".py":
         return _load_python_callable(path, entrypoint), "python"
     if suffix in {".so", ".dylib", ".dll"}:
-        restype, argtypes = _parse_ctypes_signature(signature)
         lib = ctypes.CDLL(path)
         fn = getattr(lib, entrypoint)
+        if _is_pointer_signature(signature):
+            parsed = _parse_extended_signature(signature)
+            fn.restype = parsed["return"]["ctype"]
+            fn.argtypes = [spec["ctype"] for spec in parsed["args"]]
+            return (fn, parsed), "ctypes_pointer"
+        restype, argtypes = _parse_ctypes_signature(signature)
         fn.restype = restype
         fn.argtypes = argtypes
         return fn, "ctypes_scalar"
@@ -760,6 +901,36 @@ def _call_loaded(fn: Any, kind: str, case: Any) -> Any:
         if isinstance(case, tuple):
             return fn(*case)
         return fn(case)
+    if kind == "ctypes_pointer":
+        actual_fn, parsed = fn
+        if not isinstance(case, dict):
+            raise TypeError("ctypes_pointer cases must be dicts {arg_name: value}")
+        call_args = []
+        outputs: dict[str, np.ndarray] = {}
+        for spec in parsed["args"]:
+            name = spec.get("name")
+            if name is None:
+                raise ValueError("All pointer-signature args must be named")
+            if spec["kind"] == "scalar":
+                value = case[name]
+                call_args.append(spec["ctype"](value) if not isinstance(value, ctypes._SimpleCData) else value)
+                continue
+            if name in case and case[name] is not None:
+                buf = np.ascontiguousarray(case[name], dtype=spec["numpy_dtype"])
+                call_args.append(buf.ctypes.data_as(spec["ctype"]))
+                if not spec["const"]:
+                    outputs[name] = buf
+            else:
+                shape = case.get(f"__shape__{name}")
+                if shape is None:
+                    raise ValueError(f"Output buffer shape for {name!r} not provided")
+                buf = np.zeros(shape, dtype=spec["numpy_dtype"])
+                call_args.append(buf.ctypes.data_as(spec["ctype"]))
+                outputs[name] = buf
+        actual_fn(*call_args)
+        if len(outputs) == 1:
+            return next(iter(outputs.values()))
+        return outputs
     try:
         import torch
     except Exception:
@@ -811,6 +982,82 @@ def _compare_values(a: Any, b: Any, mode: str, rtol: float, atol: float) -> tupl
         max_abs = math.inf
         max_rel = math.inf
     return ok, {"max_abs_error": max_abs, "max_rel_error": max_rel, "rtol": rtol, "atol": atol}
+
+
+def _make_pointer_cases(
+    input_schema: dict[str, Any],
+    parsed_sig: dict[str, Any],
+    max_examples: int,
+    seed: int = 12345,
+) -> list[dict[str, Any]]:
+    """Generate dict cases for pointer-signature kernels.
+
+    Schema convention:
+      {"params": {"n": {"choices": [8,16,32], "default": 8}, ...},
+       "tensors": {"A": {"shape": ["n","n"], "dtype": "float64", "range": [-1,1]},
+                   "C": {"shape": ["n","n"], "dtype": "float64", "role": "output"}}}
+    """
+    rng = np.random.default_rng(seed)
+    params_schema = input_schema.get("params", {}) or {}
+    tensors_schema_raw = input_schema.get("tensors", {}) or {}
+    if isinstance(tensors_schema_raw, list):
+        tensors_schema = {entry["name"]: entry for entry in tensors_schema_raw if entry.get("name")}
+    else:
+        tensors_schema = tensors_schema_raw
+
+    arg_specs = parsed_sig["args"]
+    arg_by_name = {spec["name"]: spec for spec in arg_specs if spec.get("name")}
+
+    def _resolve_shape(shape_spec, params_concrete: dict[str, int]) -> tuple[int, ...]:
+        resolved = []
+        for entry in shape_spec:
+            if isinstance(entry, str):
+                if entry not in params_concrete:
+                    raise ValueError(f"Shape references unknown param: {entry!r}")
+                resolved.append(int(params_concrete[entry]))
+            else:
+                resolved.append(int(entry))
+        return tuple(resolved)
+
+    cases: list[dict[str, Any]] = []
+    for _ in range(max_examples):
+        params_concrete: dict[str, int] = {}
+        for name, spec in arg_by_name.items():
+            if spec["kind"] != "scalar":
+                continue
+            schema = params_schema.get(name, {})
+            if "choices" in schema:
+                params_concrete[name] = int(rng.choice(schema["choices"]))
+            elif "default" in schema:
+                params_concrete[name] = int(schema["default"])
+            else:
+                params_concrete[name] = 8
+
+        case: dict[str, Any] = {}
+        for name, value in params_concrete.items():
+            case[name] = value
+
+        for name, spec in arg_by_name.items():
+            if spec["kind"] != "pointer":
+                continue
+            tensor_schema = tensors_schema.get(name, {})
+            shape_spec = tensor_schema.get("shape")
+            if shape_spec is None:
+                raise ValueError(f"Pointer arg {name!r} missing shape in input_schema.tensors")
+            shape = _resolve_shape(shape_spec, params_concrete)
+            role = tensor_schema.get("role")
+            if role is None:
+                role = "input" if spec["const"] else "output"
+            if role == "input":
+                lo, hi = tensor_schema.get("range", (-1.0, 1.0))
+                arr = rng.uniform(float(lo), float(hi), size=shape).astype(spec["numpy_dtype"])
+                case[name] = arr
+            else:
+                case[name] = None
+                case[f"__shape__{name}"] = shape
+
+        cases.append(case)
+    return cases
 
 
 def _make_cases(input_schema: dict[str, Any], max_examples: int, arity: int) -> list[Any]:
@@ -882,12 +1129,18 @@ def _run_random_equivalence_core(config: dict[str, Any]) -> dict[str, Any]:
 
     fn_a, kind_a = _load_callable(str(Path(source_a).resolve()), name, signature)
     fn_b, kind_b = _load_callable(str(Path(source_b).resolve()), name, signature)
-    if kind_a == "ctypes_scalar" or kind_b == "ctypes_scalar":
-        schema = config.get("input_schema") or {"kind": "scalar"}
+    if kind_a == "ctypes_pointer" or kind_b == "ctypes_pointer":
+        schema = config.get("input_schema") or {}
+        parsed_sig = fn_a[1] if kind_a == "ctypes_pointer" else fn_b[1]
+        cases = _make_pointer_cases(schema, parsed_sig, max_examples)
+        arity = len(parsed_sig["args"])
     else:
-        schema = config.get("input_schema") or {"kind": "tensor", "shapes": [[1]], "dtypes": ["float32"]}
-    arity = _call_arity(signature)
-    cases = _make_cases(schema, max_examples, arity)
+        if kind_a == "ctypes_scalar" or kind_b == "ctypes_scalar":
+            schema = config.get("input_schema") or {"kind": "scalar"}
+        else:
+            schema = config.get("input_schema") or {"kind": "tensor", "shapes": [[1]], "dtypes": ["float32"]}
+        arity = _call_arity(signature)
+        cases = _make_cases(schema, max_examples, arity)
 
     examples_run = 0
     counterexamples: list[dict[str, Any]] = []
@@ -1041,12 +1294,89 @@ def _parse_fuzzer_metrics(text: str) -> dict[str, Any]:
     return metrics
 
 
+_SCALAR_DTYPE_TO_C: dict[str, str] = {
+    "float64": "double",
+    "double": "double",
+    "float32": "float",
+    "float": "float",
+    "int64": "int64_t",
+    "int32": "int32_t",
+    "int16": "int16_t",
+    "int8": "int8_t",
+    "uint64": "uint64_t",
+    "uint32": "uint32_t",
+    "uint16": "uint16_t",
+    "uint8": "uint8_t",
+}
+
+
+_ROBUSTNESS_WRAPPER_SCALAR_TEMPLATE = r"""
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+extern "C" __RET_TYPE__ __ENTRY__(__ARG_TYPE__);
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+    if (size < sizeof(__ARG_TYPE__)) return 0;
+    __ARG_TYPE__ x;
+    memcpy(&x, data, sizeof(__ARG_TYPE__));
+    __ENTRY__(x);
+    return 0;
+}
+"""
+
+
+def _source_has_libfuzzer_entrypoint(source: Path) -> bool:
+    try:
+        text = source.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return "LLVMFuzzerTestOneInput" in text
+
+
+def _synthesize_robustness_wrapper(
+    source: Path,
+    entrypoint: str,
+    input_schema: dict[str, Any] | None,
+    out_dir: Path,
+) -> Path | None:
+    if not input_schema:
+        return None
+    kind = str(input_schema.get("kind") or "").lower()
+    if kind != "scalar":
+        return None
+    arg_dtype = str(input_schema.get("dtype") or "float64").lower()
+    arg_c = _SCALAR_DTYPE_TO_C.get(arg_dtype)
+    if arg_c is None:
+        return None
+    ret_dtype = str(input_schema.get("return_dtype") or arg_dtype).lower()
+    if ret_dtype == "void":
+        ret_c: str | None = "void"
+    else:
+        ret_c = _SCALAR_DTYPE_TO_C.get(ret_dtype)
+    if ret_c is None:
+        return None
+    wrapper = out_dir / "lassi_fuzz_wrapper.cpp"
+    wrapper.write_text(
+        _ROBUSTNESS_WRAPPER_SCALAR_TEMPLATE
+        .replace("__RET_TYPE__", ret_c)
+        .replace("__ARG_TYPE__", arg_c)
+        .replace("__ENTRY__", entrypoint),
+        encoding="utf-8",
+    )
+    del source  # only needed for caller-side existence checks
+    return wrapper
+
+
 def _compile_fuzzer_if_needed(
     source_path: str,
     artifact: str | None,
     sanitizers: list[str],
     out_dir: Path,
     timeout_s: int,
+    entrypoint: str = "kernel",
+    input_schema: dict[str, Any] | None = None,
 ) -> tuple[Path | None, subprocess.CompletedProcess[str] | None]:
     if artifact:
         artifact_path = Path(artifact).resolve()
@@ -1059,7 +1389,33 @@ def _compile_fuzzer_if_needed(
         raise FileNotFoundError("clang++ not found")
     out = out_dir / "fuzz_target"
     sanitize = _sanitize_flag(["fuzzer", *sanitizers])
-    cmd = [compiler, "-O1", "-g", "-fno-omit-frame-pointer", sanitize, str(source), "-o", str(out)]
+
+    needs_wrapper = not _source_has_libfuzzer_entrypoint(source)
+    wrapper_path: Path | None = None
+    if needs_wrapper:
+        wrapper_path = _synthesize_robustness_wrapper(
+            source, entrypoint, input_schema, out_dir
+        )
+        if wrapper_path is None:
+            raise RuntimeError(
+                "Source does not define LLVMFuzzerTestOneInput and no synthesizable "
+                "input_schema was provided. Pass input_schema={'kind':'scalar',"
+                "'dtype':'float64'} (optionally with 'return_dtype') or include "
+                "LLVMFuzzerTestOneInput directly in the source."
+            )
+
+    cmd = [compiler, "-O1", "-g", "-fno-omit-frame-pointer", sanitize]
+    if wrapper_path is not None:
+        src_lang = (
+            "c++"
+            if source.suffix.lower() in {".cc", ".cpp", ".cxx", ".cp", ".c++"}
+            else "c"
+        )
+        cmd.extend(["-x", "c++", str(wrapper_path), "-x", src_lang, str(source)])
+    else:
+        cmd.append(str(source))
+    cmd.extend(["-o", str(out)])
+
     proc = _run_command(cmd, timeout_s=timeout_s)
     return (out if proc.returncode == 0 else None), proc
 
@@ -1075,7 +1431,6 @@ async def run_robustness_fuzzer_impl(
     budget: dict[str, Any] | None = None,
     max_len: int = 4096,
 ) -> str:
-    del entrypoint, input_schema
     sanitizers = sanitizers or ["address", "undefined"]
     budget = budget or {"max_total_time_s": 300, "jobs": 1, "workers": 1}
     root = _resolve_verify_root()
@@ -1096,6 +1451,8 @@ async def run_robustness_fuzzer_impl(
             sanitizers,
             out_dir,
             int(budget.get("max_total_time_s", 300)),
+            entrypoint=entrypoint,
+            input_schema=input_schema,
         )
     except Exception as exc:
         return _json_response("ERROR", 0.0, f"Fuzzer setup error: {exc}")
@@ -1163,6 +1520,131 @@ async def run_robustness_fuzzer_impl(
     )
 
 
+_DIFFERENTIAL_DRIVER_SCALAR_DOUBLE = r"""
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+#include <dlfcn.h>
+
+typedef double (*kernel_t)(double);
+static kernel_t fa = NULL;
+static kernel_t fb = NULL;
+static double g_rtol = 1e-9;
+static double g_atol = 1e-9;
+
+__attribute__((constructor))
+static void _lassi_load(void) {
+    const char *pa = getenv("LASSI_LIB_A");
+    const char *pb = getenv("LASSI_LIB_B");
+    const char *entry = getenv("LASSI_ENTRY");
+    const char *rtol_s = getenv("LASSI_RTOL");
+    const char *atol_s = getenv("LASSI_ATOL");
+    if (!entry || !*entry) entry = "kernel";
+    if (rtol_s) g_rtol = strtod(rtol_s, NULL);
+    if (atol_s) g_atol = strtod(atol_s, NULL);
+    if (!pa || !pb) {
+        fprintf(stderr, "LASSI_LIB_A and LASSI_LIB_B must be set\n");
+        abort();
+    }
+    void *ha = dlopen(pa, RTLD_NOW | RTLD_LOCAL);
+    if (!ha) { fprintf(stderr, "dlopen A failed: %s\n", dlerror()); abort(); }
+    void *hb = dlopen(pb, RTLD_NOW | RTLD_LOCAL);
+    if (!hb) { fprintf(stderr, "dlopen B failed: %s\n", dlerror()); abort(); }
+    fa = (kernel_t) dlsym(ha, entry);
+    fb = (kernel_t) dlsym(hb, entry);
+    if (!fa || !fb) {
+        fprintf(stderr, "dlsym %s failed\n", entry);
+        abort();
+    }
+}
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+    if (size < sizeof(double)) return 0;
+    double x;
+    memcpy(&x, data, sizeof(double));
+    if (!isfinite(x)) return 0;
+    double a = fa(x);
+    double b = fb(x);
+    int a_fin = isfinite(a);
+    int b_fin = isfinite(b);
+    if (!a_fin && !b_fin) return 0;
+    if (a_fin != b_fin) {
+        fprintf(stderr, "DIFFERENTIAL MISMATCH (finiteness) at x=%a a=%a b=%a\n", x, a, b);
+        abort();
+    }
+    double diff = fabs(a - b);
+    double tol = g_atol + g_rtol * fabs(b);
+    if (diff > tol) {
+        fprintf(stderr, "DIFFERENTIAL MISMATCH at x=%a a=%a b=%a diff=%a tol=%a\n",
+                x, a, b, diff, tol);
+        abort();
+    }
+    return 0;
+}
+"""
+
+
+def _signature_supports_diff_fuzz(signature: str | None) -> bool:
+    if not signature:
+        return True
+    try:
+        ret, args = _parse_ctypes_signature(signature)
+    except ValueError:
+        return False
+    return ret is ctypes.c_double and args == [ctypes.c_double]
+
+
+def _build_diff_fuzz_artifacts(
+    source_a: Path,
+    source_b: Path,
+    entrypoint: str,
+    sanitizers: list[str],
+    rtol: float,
+    atol: float,
+    work_dir: Path,
+    timeout_s: int,
+) -> tuple[Path, Path, Path, list[str]]:
+    work_dir.mkdir(parents=True, exist_ok=True)
+    cxx = shutil.which("clang++")
+    cc = shutil.which("clang")
+    if cxx is None or cc is None:
+        raise FileNotFoundError("clang and clang++ are required for differential fuzzer synthesis")
+
+    lib_a = work_dir / f"{source_a.stem}_a.so"
+    lib_b = work_dir / f"{source_b.stem}_b.so"
+    driver_src = work_dir / "differential_driver.cc"
+    driver_bin = work_dir / "differential_fuzz"
+    log_lines: list[str] = []
+
+    def _run(cmd: list[str]) -> None:
+        proc = _run_command(cmd, timeout_s=timeout_s)
+        log_lines.append("$ " + " ".join(cmd))
+        log_lines.append(proc.stdout or "")
+        log_lines.append(proc.stderr or "")
+        if proc.returncode != 0:
+            raise RuntimeError(f"Build step failed:\n{proc.stderr or proc.stdout}")
+
+    _run([cc, "-O2", "-fPIC", "-shared", str(source_a), "-o", str(lib_a)])
+    _run([cc, "-O2", "-fPIC", "-shared", str(source_b), "-o", str(lib_b)])
+
+    driver_src.write_text(_DIFFERENTIAL_DRIVER_SCALAR_DOUBLE, encoding="utf-8")
+    sanitize_flag = _sanitize_flag(["fuzzer", *sanitizers])
+    _run([
+        cxx,
+        "-O1",
+        "-g",
+        "-fno-omit-frame-pointer",
+        sanitize_flag,
+        str(driver_src),
+        "-ldl",
+        "-o",
+        str(driver_bin),
+    ])
+    return driver_bin, lib_a, lib_b, log_lines
+
+
 async def run_differential_fuzzer_impl(
     source_a: str,
     source_b: str,
@@ -1174,24 +1656,135 @@ async def run_differential_fuzzer_impl(
     budget: dict[str, Any] | None = None,
     max_len: int = 4096,
 ) -> str:
-    del source_a, source_b, task_type, comparison
-    if not artifact:
-        corpus = Path(corpus_dir).resolve()
-        corpus.mkdir(parents=True, exist_ok=True)
+    del task_type
+    if artifact:
+        return await run_robustness_fuzzer_impl(
+            source_path=artifact,
+            artifact=artifact,
+            corpus_dir=corpus_dir,
+            seed_corpus_dir=seed_corpus_dir,
+            budget=budget,
+            max_len=max_len,
+        )
+
+    comparison = comparison or {}
+    rtol = float(comparison.get("rtol", 1e-9))
+    atol = float(comparison.get("atol", 1e-9))
+    entrypoint = comparison.get("entrypoint", "kernel")
+    signature = comparison.get("signature", "double(double)")
+    if not _signature_supports_diff_fuzz(signature):
         return _json_response(
             "UNSURE",
             0.25,
-            "Differential fuzzing requires an existing libFuzzer artifact for the initial implementation.",
-            artifacts=[{"kind": "corpus_dir", "path": str(corpus)}],
+            f"Differential fuzz driver synthesis currently supports only double(double) kernels; got: {signature}",
             metrics={"requires_artifact": True},
         )
-    return await run_robustness_fuzzer_impl(
-        source_path=artifact,
-        artifact=artifact,
-        corpus_dir=corpus_dir,
-        seed_corpus_dir=seed_corpus_dir,
-        budget=budget,
-        max_len=max_len,
+
+    sanitizers = list(comparison.get("sanitizers") or ["address", "undefined"])
+    budget = budget or {"max_total_time_s": 30, "jobs": 1, "workers": 1}
+    root = _resolve_verify_root()
+    task_id = _now_task_id("difffuzz")
+    work_dir = root / "harnesses" / task_id
+    corpus = Path(corpus_dir).resolve()
+    crash_dir = root / "crashes" / task_id
+    corpus.mkdir(parents=True, exist_ok=True)
+    crash_dir.mkdir(parents=True, exist_ok=True)
+
+    source_a_path = Path(source_a).resolve()
+    source_b_path = Path(source_b).resolve()
+    if not source_a_path.exists() or not source_b_path.exists():
+        return _json_response("ERROR", 0.0, "source_a or source_b not found")
+
+    try:
+        driver_bin, lib_a, lib_b, build_log = _build_diff_fuzz_artifacts(
+            source_a_path,
+            source_b_path,
+            entrypoint,
+            sanitizers,
+            rtol,
+            atol,
+            work_dir,
+            timeout_s=int(budget.get("max_total_time_s", 30)) + 30,
+        )
+    except Exception as exc:
+        return _json_response(
+            "FAIL",
+            0.2,
+            f"Differential fuzz driver build failed: {exc}",
+            artifacts=[{"kind": "harness_dir", "path": str(work_dir)}],
+        )
+
+    cmd = [
+        str(driver_bin),
+        str(corpus),
+        f"-max_total_time={int(budget.get('max_total_time_s', 30))}",
+        f"-jobs={int(budget.get('jobs', 1) or 1)}",
+        f"-workers={int(budget.get('workers', 1) or 1)}",
+        f"-max_len={int(max_len)}",
+        f"-artifact_prefix={str(crash_dir)}/",
+    ]
+    if budget.get("runs") is not None:
+        cmd.append(f"-runs={int(budget['runs'])}")
+    if seed_corpus_dir:
+        seed = Path(seed_corpus_dir).resolve()
+        seed.mkdir(parents=True, exist_ok=True)
+        cmd.append(str(seed))
+
+    env = os.environ.copy()
+    env.update({
+        "LASSI_LIB_A": str(lib_a),
+        "LASSI_LIB_B": str(lib_b),
+        "LASSI_ENTRY": entrypoint,
+        "LASSI_RTOL": repr(rtol),
+        "LASSI_ATOL": repr(atol),
+    })
+
+    try:
+        proc = _run_command(cmd, cwd=work_dir, timeout_s=int(budget.get("max_total_time_s", 30)) + 30, env=env)
+    except subprocess.TimeoutExpired as exc:
+        return _json_response(
+            "UNSURE",
+            0.2,
+            "Differential fuzzing timed out.",
+            artifacts=[
+                {"kind": "fuzzer_target", "path": str(driver_bin)},
+                {"kind": "corpus_dir", "path": str(corpus)},
+                {"kind": "crash_dir", "path": str(crash_dir)},
+            ],
+            logs={"stdout": _short(exc.stdout), "stderr": _short(exc.stderr)},
+        )
+
+    combined = "\n".join(["\n".join(build_log), proc.stdout or "", proc.stderr or ""])
+    metrics = _parse_fuzzer_metrics(combined)
+    metrics["duration_s"] = int(budget.get("max_total_time_s", 30))
+    crash_files = [p for p in crash_dir.iterdir() if p.is_file()]
+    differential_hit = "DIFFERENTIAL MISMATCH" in combined
+    sanitizer_hit = bool(re.search(r"ERROR: (AddressSanitizer|UndefinedBehaviorSanitizer|LeakSanitizer)", combined))
+    failed = proc.returncode != 0 or sanitizer_hit or differential_hit or bool(crash_files)
+    counterexamples = [
+        {"path": str(p), "kind": "differential_mismatch" if differential_hit else "crash",
+         "reproducer_command": f"LASSI_LIB_A={lib_a} LASSI_LIB_B={lib_b} {driver_bin} {p}"}
+        for p in crash_files
+    ]
+    summary = (
+        "Differential fuzzer found a mismatch or crash."
+        if failed
+        else f"No differential mismatches found in {metrics['duration_s']} seconds."
+    )
+    return _json_response(
+        "FAIL" if failed else "PASS",
+        0.95 if failed else 0.8,
+        summary,
+        artifacts=[
+            {"kind": "fuzzer_target", "path": str(driver_bin)},
+            {"kind": "shared_library", "path": str(lib_a)},
+            {"kind": "shared_library", "path": str(lib_b)},
+            {"kind": "corpus_dir", "path": str(corpus)},
+            {"kind": "crash_dir", "path": str(crash_dir)},
+        ],
+        counterexamples=counterexamples,
+        metrics=metrics,
+        logs={"stdout": _short(proc.stdout), "stderr": _short(proc.stderr)},
     )
 
 

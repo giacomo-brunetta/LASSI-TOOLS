@@ -34,6 +34,25 @@ DEFAULT_PERF_EVENTS = [
     "cpu-migrations",
     "page-faults",
 ]
+SOFTWARE_ONLY_PERF_EVENTS = [
+    "task-clock",
+    "context-switches",
+    "cpu-migrations",
+    "page-faults",
+    "minor-faults",
+    "major-faults",
+]
+
+
+def _is_perf_eperm(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    return (
+        "no permission to enable" in lowered
+        or "operation not permitted" in lowered
+        or "perf_event_open" in lowered and "permitted" in lowered
+    )
 SPECIAL_HOTSPOT_PATTERNS = [
     "malloc",
     "free",
@@ -658,10 +677,10 @@ def _collect_perf_stats_sync(
         case_metric: dict[str, Any] = {"case_id": case_id}
         for suffix, command in targets:
             raw_path = out_dir / f"{case_id}_{suffix}.csv"
-            reproduce = _perf_stat_reproduce(command, events, repeat, raw_path, shell)
+            events_to_use = list(events)
             proc = _perf_stat_command(
                 command,
-                events,
+                events_to_use,
                 repeat,
                 raw_path,
                 shell,
@@ -669,14 +688,40 @@ def _collect_perf_stats_sync(
                 env=case.get("environment"),
                 timeout_s=timeout_s,
             )
+            if proc.returncode != 0 and _is_perf_eperm(proc.stderr or ""):
+                hardware_in_use = bool(set(events_to_use) - set(SOFTWARE_ONLY_PERF_EVENTS))
+                if hardware_in_use:
+                    events_to_use = list(SOFTWARE_ONLY_PERF_EVENTS)
+                    warnings.append(
+                        f"{case_id}_{suffix}: PMU access denied; retrying with software-only events."
+                    )
+                    proc = _perf_stat_command(
+                        command,
+                        events_to_use,
+                        repeat,
+                        raw_path,
+                        shell,
+                        cwd=case.get("working_dir"),
+                        env=case.get("environment"),
+                        timeout_s=timeout_s,
+                    )
+            reproduce = _perf_stat_reproduce(command, events_to_use, repeat, raw_path, shell)
             stdout_parts.append(proc.stdout)
             stderr_parts.append(proc.stderr)
             artifacts.append({"kind": "perf_stat_raw", "path": str(raw_path)})
             if proc.returncode != 0:
+                eperm = _is_perf_eperm(proc.stderr or "")
+                verdict = "UNSURE" if eperm else "ERROR"
+                summary = (
+                    f"perf stat denied PMU access for case {case_id}_{suffix}; "
+                    f"no usable counters available in this environment."
+                    if eperm
+                    else f"perf stat failed for case {case_id}_{suffix} with exit code {proc.returncode}."
+                )
                 return _json_response(
-                    "ERROR",
+                    verdict,
                     0.0,
-                    f"perf stat failed for case {case_id}_{suffix} with exit code {proc.returncode}.",
+                    summary,
                     metrics={"context": context},
                     artifacts=artifacts,
                     warnings=warnings,
@@ -933,10 +978,18 @@ def _profile_hotspots_sync(
             stderr_parts.append(proc.stderr)
             artifacts.append({"kind": "perf_data", "path": str(data_path)})
             if proc.returncode != 0:
+                eperm = _is_perf_eperm(proc.stderr or "")
+                verdict = "UNSURE" if eperm else "ERROR"
+                summary = (
+                    f"perf record denied PMU access for case {case_id}_{suffix}; "
+                    f"hotspot profiling unavailable in this environment."
+                    if eperm
+                    else f"perf record failed for case {case_id}_{suffix} with exit code {proc.returncode}."
+                )
                 return _json_response(
-                    "ERROR",
+                    verdict,
                     0.0,
-                    f"perf record failed for case {case_id}_{suffix} with exit code {proc.returncode}.",
+                    summary,
                     metrics={"context": context},
                     artifacts=artifacts,
                     warnings=warnings,

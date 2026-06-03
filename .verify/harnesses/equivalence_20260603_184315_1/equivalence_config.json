@@ -1,0 +1,67 @@
+{
+  "artifact_a": "/opt/lassi/.verify/builds/matmul_naive_lib_c70296d921/O3/matmul_naive_lib_O3.so",
+  "artifact_b": "/opt/lassi/.verify/builds/matmul_opt_lib_6d99d43672/O3/matmul_opt_lib_O3.so",
+  "budget": {
+    "max_examples": 50,
+    "timeout_s": 120
+  },
+  "comparison": {
+    "atol": 1e-09,
+    "mode": "allclose",
+    "rtol": 1e-09
+  },
+  "corpus_dir": ".verify/corpus/equivalence",
+  "entrypoints": [
+    {
+      "name": "matmul_kernel",
+      "signature": "void(double* C, const double* A, const double* B, int n)"
+    }
+  ],
+  "input_schema": {
+    "params": {
+      "n": {
+        "choices": [
+          8,
+          16,
+          32,
+          48,
+          64
+        ]
+      }
+    },
+    "tensors": {
+      "A": {
+        "dtype": "float64",
+        "range": [
+          -1,
+          1
+        ],
+        "shape": [
+          "n",
+          "n"
+        ]
+      },
+      "B": {
+        "dtype": "float64",
+        "range": [
+          -1,
+          1
+        ],
+        "shape": [
+          "n",
+          "n"
+        ]
+      },
+      "C": {
+        "dtype": "float64",
+        "role": "output",
+        "shape": [
+          "n",
+          "n"
+        ]
+      }
+    }
+  },
+  "source_a": "/Users/giacomobrunetta/Projects/matmul_naive_lib.c",
+  "source_b": "/Users/giacomobrunetta/Projects/matmul_opt_lib.c"
+}
