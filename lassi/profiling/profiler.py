@@ -256,6 +256,11 @@ class ArmPowerProbe(PowerProbe):
     
     def lookup_power_file(self) -> Path:
         hwmon_base = Path("/sys/class/hwmon")
+        if not hwmon_base.exists():
+            raise FileNotFoundError(
+                f"Power profiling unavailable: {hwmon_base} not present "
+                "(typical on Docker-for-Mac LinuxKit and non-Linux hosts)."
+            )
         # Only consider directories matching hwmon<number>
         for hwmon_dir in hwmon_base.iterdir():
             if not hwmon_dir.is_dir():

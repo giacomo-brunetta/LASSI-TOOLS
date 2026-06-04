@@ -13,31 +13,19 @@ from mcp.client.stdio import stdio_client
 
 from fastmcp import FastMCP
 
-from lassi.profiler import Timer
-from lassi.compiler import Compiler, CompilerTool, CompilationError, COMPILER_FLAGS_DB
-from lassi.source_file import SourceFile
-from lassi.executer import FunctionalValidator, ExecTool
-from lassi.profiler import MultiProfiler, CPUProfiler, GPUProfiler, ArmPowerProbe, NvidiaPowerProbe
-from lassi.gprof import GProf
-from lassi.export_pt_tool import export_model_to_pt_impl
-from lassi.torch_to_mlir_tool import compile_torch_to_mlir_impl
-from lassi.toolchain_info import get_toolchain_info_impl
-from lassi.verification_tools import (
-    build_sanitized_impl,
-    generate_assertion_suite_impl,
-    run_assertion_suite_impl,
-    run_random_equivalence_tests_impl,
-    run_robustness_fuzzer_impl,
-    run_differential_fuzzer_impl,
-    synthesize_common_harness_impl,
-    synthesize_verification_report_impl,
+from lassi.core.compiler import Compiler, CompilerTool, CompilationError, COMPILER_FLAGS_DB
+from lassi.core.source_file import SourceFile
+from lassi.core.executer import FunctionalValidator, ExecTool
+from lassi.profiling.profiler import (
+    Timer,
+    MultiProfiler,
+    CPUProfiler,
+    GPUProfiler,
+    ArmPowerProbe,
+    NvidiaPowerProbe,
 )
-from lassi.csv_tools import (
-    summarize_csv_impl,
-    compare_csv_outputs_impl,
-    diff_csv_outputs_impl,
-)
-from lassi.performance_tools import (
+from lassi.profiling.gprof import GProf
+from lassi.profiling.performance_tools import (
     run_benchmark_impl,
     collect_perf_stats_impl,
     profile_hotspots_impl,
@@ -47,6 +35,24 @@ from lassi.performance_tools import (
     run_roofline_analysis_impl,
     compare_roofline_impl,
 )
+from lassi.verification.verification_tools import (
+    build_sanitized_impl,
+    generate_assertion_suite_impl,
+    run_assertion_suite_impl,
+    run_random_equivalence_tests_impl,
+    run_robustness_fuzzer_impl,
+    run_differential_fuzzer_impl,
+    synthesize_common_harness_impl,
+    synthesize_verification_report_impl,
+)
+from lassi.verification.csv_tools import (
+    summarize_csv_impl,
+    compare_csv_outputs_impl,
+    diff_csv_outputs_impl,
+)
+from lassi.integrations.export_pt import export_model_to_pt_impl
+from lassi.integrations.torch_to_mlir import compile_torch_to_mlir_impl
+from lassi.integrations.toolchain_info import get_toolchain_info_impl
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 

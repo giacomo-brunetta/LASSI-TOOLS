@@ -55,6 +55,65 @@ This repository implements an agentic workflow focused on code performance optim
   | `synthesize_verification_report` | Aggregates verification MCP result objects into `.verify/reports/*.json` and `.md`. | `task_id` (optional), `task_type` (optional), `tool_results` (optional), `output_dir` (optional) |
 </details>
 
+### Repository Structure
+
+All MCP tools are registered in `LASSI_mcp.py` at the repository root. Their
+implementations live under `lassi/`, grouped by responsibility:
+
+```
+LASSI-TOOLS/
+├── LASSI_mcp.py              # FastMCP server — registers every tool
+├── lassi/
+│   ├── core/                 # Compiler, executer, source-file, data models
+│   │   ├── compiler.py
+│   │   ├── executer.py
+│   │   ├── source_file.py
+│   │   ├── data_models.py
+│   │   ├── utils.py
+│   │   └── mcp_helpers.py    # Shared helpers (now_task_id, short, write_json)
+│   ├── profiling/            # Profiler primitives + performance MCP impls
+│   │   ├── profiler.py       # Timer, MultiProfiler, CPU/GPU/ARM/NVIDIA probes
+│   │   ├── gprof.py
+│   │   └── performance_tools.py
+│   ├── verification/         # Sanitizer / equivalence / fuzz / CSV MCP impls
+│   │   ├── verification_tools.py
+│   │   ├── checks.py         # File/MLIR/numeric artifact checks
+│   │   └── csv_tools.py
+│   ├── analysis/             # Source-level translation analysis helpers
+│   │   └── translation_utils.py
+│   ├── integrations/         # External toolchain wrappers
+│   │   ├── export_pt.py      # PyTorch model → .pt
+│   │   ├── torch_to_mlir.py  # .pt → MLIR via torch-mlir
+│   │   └── toolchain_info.py
+│   ├── prompt_dicts/         # JSON prompt templates for LASSI agents
+│   └── helper_usage.md       # In-repo helper reuse guide for agents
+├── setup/                    # Client (Claude / Codex / Roo) MCP setup
+├── soda-tools/               # SODA MLIR/HLS toolchain wrappers
+├── resources/                # Compatibility wiki and prompts data
+├── examples/                 # End-to-end examples
+└── requirements/             # Python requirements pinned per platform
+```
+
+MCP tool group → backing module:
+
+| MCP tool group | Implementation module |
+|----------------|-----------------------|
+| `gprof_profiling`, `execute_with_latency`, `execute_with_profile`, `get_machine_info`, `get_gpu_info` | `lassi.profiling.gprof`, `lassi.profiling.profiler` |
+| `run_benchmark`, `collect_perf_stats`, `profile_hotspots`, `compare_performance`, `collect_hardware_model`, `estimate_workload_model`, `run_roofline_analysis`, `compare_roofline` | `lassi.profiling.performance_tools` |
+| `build_sanitized`, `synthesize_common_harness`, `generate_assertion_suite`, `run_assertion_suite`, `run_random_equivalence_tests`, `run_robustness_fuzzer`, `run_differential_fuzzer`, `synthesize_verification_report` | `lassi.verification.verification_tools` |
+| `summarize_csv`, `compare_csv_outputs`, `diff_csv_outputs` | `lassi.verification.csv_tools` |
+| `export_model_to_pt` | `lassi.integrations.export_pt` |
+| `compile_torch_to_mlir` | `lassi.integrations.torch_to_mlir` |
+| `get_toolchain_info` | `lassi.integrations.toolchain_info` |
+
+**Note on the two large modules.** `lassi/profiling/performance_tools.py`
+and `lassi/verification/verification_tools.py` are each ~1.8k LOC because
+they bundle many related MCP entrypoints with their internal helpers.
+Splitting them further (e.g. one file per `*_impl`) is deferred — it would
+trade a single grep-friendly file for many imports without changing
+behavior. Truly shared helpers across the two modules are factored into
+`lassi.core.mcp_helpers`.
+
 ### Workflow Sessions
 
 The `setup/` directory contains client-specific workflow setup:

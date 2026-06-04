@@ -10,7 +10,7 @@ import sys
 import numpy as np
 import torch
 
-from lassi.analysis.checks import (
+from lassi.verification.checks import (
     check_mlir_contains_dialect,
     check_mlir_contains_func,
     check_mlir_contains_runtime_args,

@@ -1,12 +1,15 @@
 # LASSI Helper Usage
 
 ## Purpose
-Use the helper modules in `lassi/` to avoid rewriting common translation, verification,
-artifact-checking, and reporting logic.
+Use the helper modules under `lassi/` to avoid rewriting common translation,
+verification, artifact-checking, and reporting logic. The MCP tools
+registered in `LASSI_mcp.py` are the authoritative runtime surface; the
+modules below are for in-repo Python scripts (especially generated
+harnesses).
 
 ## Modules
 
-### `lassi.check_utils`
+### `lassi.verification.checks`
 Use for:
 - file existence and non-empty checks
 - `.pt` and `.mlir` artifact checks
@@ -31,7 +34,7 @@ Common functions:
 - `run_text_diff`
 - `scan_warning_lines`
 
-### `lassi.translation_utils`
+### `lassi.analysis.translation_utils`
 Use for:
 - deterministic seed setup
 - tensor/input construction from simple specs
@@ -60,13 +63,29 @@ Common functions:
 - `artifact_paths_for_variant`
 - `summarize_mlir_checks`
 
+### `lassi.verification.csv_tools`
+Numeric CSV summarization, exact/tolerant comparison, and element-wise
+mismatch reporting. Backs the `summarize_csv`, `compare_csv_outputs`, and
+`diff_csv_outputs` MCP tools.
+
+### `lassi.core.mcp_helpers`
+Shared low-level helpers used by both performance and verification tool
+implementations: `now_task_id`, `short`, `write_json`. Verdict-shaping and
+process-running helpers intentionally stay local to each tool module
+because their semantics differ.
+
 ## Required Reuse Policy
-- Before writing translation/export/verification boilerplate, inspect these helper modules.
-- Do not reimplement helper functionality inline when an existing helper already covers the need.
-- If functionality is missing and is likely to be reused, add a new helper in `lassi/` instead of embedding one-off logic in generated scripts.
+- Before writing translation/export/verification boilerplate, inspect these
+  helper modules.
+- Do not reimplement helper functionality inline when an existing helper
+  already covers the need.
+- If functionality is missing and is likely to be reused, add a new helper
+  in the appropriate `lassi/<subpackage>/` module instead of embedding
+  one-off logic in generated scripts.
 
 ## MCP Tools vs Helpers
-- Use MCP tools for authoritative runtime actions and Docker-backed toolchain access:
+- Use MCP tools for authoritative runtime actions and Docker-backed
+  toolchain access:
   - `get_toolchain_info`
   - `export_model_to_pt`
   - `compile_torch_to_mlir`
@@ -75,13 +94,3 @@ Common functions:
   - parsing
   - report assembly
   - artifact naming
-
-## Future Schema Design
-If helper schemas are added later, expose them through a resource template such as:
-- `helpers://schema/check_utils/check_mlir_contains_func`
-- `helpers://schema/translation_utils/build_verification_summary`
-
-Recommended implementation:
-- define per-function metadata and optional Pydantic models
-- expose JSON schema and short usage notes through a resource template
-- keep this overview file as the first resource agents read

@@ -1,3 +1,22 @@
+"""Implementations of the performance MCP tools.
+
+Exposes ``*_impl`` async entrypoints called from ``LASSI_mcp.py``:
+
+- ``run_benchmark_impl`` — stable timing via ``hyperfine``.
+- ``collect_perf_stats_impl`` — CPU counters via ``perf stat``.
+- ``profile_hotspots_impl`` — hotspot profiling via ``perf record/report/script``.
+- ``compare_performance_impl`` — aggregates benchmark/perf/hotspot evidence.
+- ``collect_hardware_model_impl`` — hardware model for roofline analysis.
+- ``estimate_workload_model_impl`` — FLOPs/bytes/intensity estimation.
+- ``run_roofline_analysis_impl`` — combines workload+hardware models with timings.
+- ``compare_roofline_impl`` — differential roofline comparison.
+
+Shared helpers (``_now_task_id``, ``_short``, ``_write_json``) come from
+:mod:`lassi.core.mcp_helpers`. Verdict shape (``PERF_VERDICTS``) and the
+env-merging ``_run_command`` are intentionally local — they differ from
+the verification side.
+"""
+
 from __future__ import annotations
 
 import json
@@ -19,6 +38,10 @@ try:
     import psutil
 except Exception:  # pragma: no cover - psutil is expected in the MCP env
     psutil = None
+
+from lassi.core.mcp_helpers import now_task_id as _now_task_id
+from lassi.core.mcp_helpers import short as _short
+from lassi.core.mcp_helpers import write_json as _write_json
 
 
 PERF_VERDICTS = {"PASS", "REGRESSION", "IMPROVEMENT", "NEUTRAL", "UNSURE", "ERROR"}
@@ -90,10 +113,6 @@ class MetricProvider(ABC):
         raise NotImplementedError
 
 
-def _now_task_id(prefix: str) -> str:
-    return f"{prefix}_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
-
-
 def _artifact_dir(default_root: str, artifact_dir: str | None) -> Path:
     if artifact_dir:
         path = Path(artifact_dir)
@@ -101,14 +120,6 @@ def _artifact_dir(default_root: str, artifact_dir: str | None) -> Path:
         path = Path(default_root) / _now_task_id("task")
     path.mkdir(parents=True, exist_ok=True)
     return path.resolve()
-
-
-def _short(text: str | None, limit: int = 20000) -> str:
-    if not text:
-        return ""
-    if len(text) <= limit:
-        return text
-    return text[:limit] + f"\n... truncated {len(text) - limit} bytes ..."
 
 
 def _json_response(
@@ -135,12 +146,6 @@ def _json_response(
         "logs": logs or {"stdout": "", "stderr": ""},
     }
     return json.dumps(payload, indent=2, sort_keys=True)
-
-
-def _write_json(path: Path, data: Any) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return path
 
 
 def _write_text(path: Path, text: str) -> Path:

@@ -1,3 +1,29 @@
+"""Implementations of the verification MCP tools.
+
+Exposes ``*_impl`` async entrypoints called from ``LASSI_mcp.py``:
+
+- ``build_sanitized_impl`` — compile C/C++ with strict warnings and sanitizers.
+- ``synthesize_common_harness_impl`` — emits a Python/ctypes harness shared
+  between two implementations.
+- ``generate_assertion_suite_impl`` — generates the assertion test script.
+- ``run_assertion_suite_impl`` — runs the generated assertion suite against
+  two artifacts.
+- ``run_random_equivalence_tests_impl`` — randomized differential testing.
+- ``run_robustness_fuzzer_impl`` — libFuzzer with sanitizer instrumentation.
+- ``run_differential_fuzzer_impl`` — differential libFuzzer comparing two
+  implementations.
+- ``synthesize_verification_report_impl`` — aggregates verification verdicts
+  into ``.verify/reports/*.json`` and ``.md``.
+
+Also exposes ``random_equivalence_main`` which is invoked by the generated
+``test_equivalence.py`` harnesses under ``.verify/harnesses/*``.
+
+Shared helpers (``_now_task_id``, ``_short``, ``_write_json``) come from
+:mod:`lassi.core.mcp_helpers`. Verdict shape (``VALID_VERDICTS``) and the
+non-merging ``_run_command`` are intentionally local — they differ from
+the performance side.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -20,13 +46,13 @@ from typing import Any
 
 import numpy as np
 
+from lassi.core.mcp_helpers import now_task_id as _now_task_id
+from lassi.core.mcp_helpers import short as _short
+from lassi.core.mcp_helpers import write_json as _write_json
+
 
 VALID_VERDICTS = {"PASS", "FAIL", "UNSURE", "ERROR"}
 VERIFY_ROOT = Path(".verify")
-
-
-def _now_task_id(prefix: str) -> str:
-    return f"{prefix}_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
 
 
 def _json_response(
@@ -65,14 +91,6 @@ def _resolve_verify_root(base_dir: str | None = None) -> Path:
     return root
 
 
-def _short(text: str | None, limit: int = 20000) -> str:
-    if not text:
-        return ""
-    if len(text) <= limit:
-        return text
-    return text[:limit] + f"\n... truncated {len(text) - limit} bytes ..."
-
-
 def _run_command(
     cmd: list[str],
     *,
@@ -89,12 +107,6 @@ def _run_command(
         timeout=timeout_s,
         check=False,
     )
-
-
-def _write_json(path: Path, data: Any) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return path
 
 
 def _sanitize_token(path: Path) -> str:
@@ -1239,7 +1251,7 @@ async def run_random_equivalence_tests_impl(
     script_path.write_text(
         "import sys\n"
         f"sys.path.insert(0, {str(Path.cwd().resolve())!r})\n"
-        "from lassi.verification_tools import random_equivalence_main\n"
+        "from lassi.verification.verification_tools import random_equivalence_main\n"
         "raise SystemExit(random_equivalence_main())\n",
         encoding="utf-8",
     )
