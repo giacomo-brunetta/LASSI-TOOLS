@@ -68,11 +68,29 @@ Numeric CSV summarization, exact/tolerant comparison, and element-wise
 mismatch reporting. Backs the `summarize_csv`, `compare_csv_outputs`, and
 `diff_csv_outputs` MCP tools.
 
+### `lassi.integrations.torch_utils`
+Shared PyTorch helpers for model export, torch-mlir lowering, and
+translation scripts.
+
+Common functions:
+- `build_tensor_from_spec`
+- `build_inputs_from_specs`
+- `build_trace_input`
+- `load_module_from_file`
+
+### `lassi.core.command`
+Shared subprocess runners used by MCP tool implementations. Use
+`run_command` for argv-style commands and `run_shell_command` only when a
+shell command string is required. Set `merge_env=False` only when the caller
+intentionally wants to preserve non-merging environment semantics.
+
+### `lassi.core.responses`
+Shared JSON response formatting for MCP tools with module-specific verdict
+sets.
+
 ### `lassi.core.mcp_helpers`
 Shared low-level helpers used by both performance and verification tool
-implementations: `now_task_id`, `short`, `write_json`. Verdict-shaping and
-process-running helpers intentionally stay local to each tool module
-because their semantics differ.
+implementations: `now_task_id`, `short`, `write_json`.
 
 ## Required Reuse Policy
 - Before writing translation/export/verification boilerplate, inspect these

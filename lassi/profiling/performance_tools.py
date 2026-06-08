@@ -11,10 +11,9 @@ Exposes ``*_impl`` async entrypoints called from ``LASSI_mcp.py``:
 - ``run_roofline_analysis_impl`` — combines workload+hardware models with timings.
 - ``compare_roofline_impl`` — differential roofline comparison.
 
-Shared helpers (``_now_task_id``, ``_short``, ``_write_json``) come from
-:mod:`lassi.core.mcp_helpers`. Verdict shape (``PERF_VERDICTS``) and the
-env-merging ``_run_command`` are intentionally local — they differ from
-the verification side.
+Shared helpers come from :mod:`lassi.core.mcp_helpers`,
+:mod:`lassi.core.command`, and :mod:`lassi.core.responses`. Verdict shape
+(``PERF_VERDICTS``) remains local to this module.
 """
 
 from __future__ import annotations
@@ -42,6 +41,8 @@ except Exception:  # pragma: no cover - psutil is expected in the MCP env
 from lassi.core.mcp_helpers import now_task_id as _now_task_id
 from lassi.core.mcp_helpers import short as _short
 from lassi.core.mcp_helpers import write_json as _write_json
+from lassi.core.command import run_command as _run_command
+from lassi.core.responses import json_response as _shared_json_response
 
 
 PERF_VERDICTS = {"PASS", "REGRESSION", "IMPROVEMENT", "NEUTRAL", "UNSURE", "ERROR"}
@@ -132,20 +133,18 @@ def _json_response(
     warnings: list[str] | None = None,
     logs: dict[str, str] | None = None,
 ) -> str:
-    if verdict not in PERF_VERDICTS:
-        verdict = "ERROR"
-        confidence = 0.0
-        summary = f"Internal error: invalid performance verdict. Original summary: {summary}"
-    payload = {
-        "verdict": verdict,
-        "confidence": round(float(confidence), 4),
-        "summary": summary,
-        "metrics": metrics or {},
-        "artifacts": artifacts or [],
-        "warnings": warnings or [],
-        "logs": logs or {"stdout": "", "stderr": ""},
-    }
-    return json.dumps(payload, indent=2, sort_keys=True)
+    return _shared_json_response(
+        verdict,
+        confidence,
+        summary,
+        valid_verdicts=PERF_VERDICTS,
+        invalid_summary_prefix="Internal error: invalid performance verdict.",
+        round_confidence=4,
+        metrics=metrics,
+        artifacts=artifacts,
+        warnings=warnings or [],
+        logs=logs,
+    )
 
 
 def _write_text(path: Path, text: str) -> Path:
@@ -156,42 +155,6 @@ def _write_text(path: Path, text: str) -> Path:
 
 def _load_json(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
-def _merged_env(environment: dict[str, Any] | None) -> dict[str, str]:
-    env = os.environ.copy()
-    for key, value in (environment or {}).items():
-        env[str(key)] = str(value)
-    return env
-
-
-def _run_command(
-    cmd: list[str],
-    *,
-    cwd: str | Path | None = None,
-    env: dict[str, Any] | None = None,
-    timeout_s: int | float = 600,
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        cwd=str(cwd) if cwd else None,
-        env=_merged_env(env),
-        capture_output=True,
-        text=True,
-        timeout=timeout_s,
-        check=False,
-    )
-
-
-def _run_shell_command(
-    command: str,
-    shell: str,
-    *,
-    cwd: str | Path | None = None,
-    env: dict[str, Any] | None = None,
-    timeout_s: int | float = 600,
-) -> subprocess.CompletedProcess[str]:
-    return _run_command([shell, "-lc", command], cwd=cwd, env=env, timeout_s=timeout_s)
 
 
 def _host_context() -> dict[str, Any]:

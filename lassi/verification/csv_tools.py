@@ -6,6 +6,8 @@ import json
 
 import numpy as np
 
+from lassi.verification.checks import summarize_numeric_diff
+
 
 def _load_csv_array(path: str | Path) -> np.ndarray:
     resolved = Path(path).resolve()
@@ -72,19 +74,17 @@ async def compare_csv_outputs_impl(
 
     diff = candidate - golden
     abs_diff = np.abs(diff)
-    rel_diff = abs_diff / np.maximum(np.abs(golden), 1e-30)
-    exact_match = bool(np.array_equal(candidate, golden))
-    allclose = bool(np.allclose(candidate, golden, rtol=rtol, atol=atol))
+    numeric_diff = summarize_numeric_diff(candidate, golden, rtol=rtol, atol=atol)
 
     flat_index = int(np.argmax(abs_diff))
     mismatch_index = [int(i) for i in np.unravel_index(flat_index, golden.shape)]
 
     result.update({
         "shape_match": True,
-        "exact_match": exact_match,
-        "allclose": allclose,
-        "max_abs_error": float(np.max(abs_diff)),
-        "max_rel_error": float(np.max(rel_diff)),
+        "exact_match": numeric_diff["exact_match"],
+        "allclose": numeric_diff["allclose"],
+        "max_abs_error": numeric_diff["max_abs_error"],
+        "max_rel_error": numeric_diff["max_rel_error"],
         "first_max_abs_mismatch_index": mismatch_index,
         "golden_value_at_first_max_abs_mismatch": float(golden[tuple(mismatch_index)]),
         "candidate_value_at_first_max_abs_mismatch": float(candidate[tuple(mismatch_index)]),
@@ -93,8 +93,8 @@ async def compare_csv_outputs_impl(
         "inf_in_golden": bool(np.isinf(golden).any()),
         "inf_in_candidate": bool(np.isinf(candidate).any()),
         "classification": (
-            "IDENTICAL" if exact_match else
-            "ACCEPTABLE_NUMERIC_DRIFT" if allclose else
+            "IDENTICAL" if numeric_diff["exact_match"] else
+            "ACCEPTABLE_NUMERIC_DRIFT" if numeric_diff["allclose"] else
             "DIFF_EXISTS"
         ),
     })

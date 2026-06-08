@@ -69,6 +69,8 @@ LASSI-TOOLS/
 │   │   ├── executer.py
 │   │   ├── source_file.py
 │   │   ├── data_models.py
+│   │   ├── command.py        # Shared subprocess runner helpers
+│   │   ├── responses.py      # Shared MCP JSON response formatting
 │   │   ├── utils.py
 │   │   └── mcp_helpers.py    # Shared helpers (now_task_id, short, write_json)
 │   ├── profiling/            # Profiler primitives + performance MCP impls
@@ -84,7 +86,11 @@ LASSI-TOOLS/
 │   ├── integrations/         # External toolchain wrappers
 │   │   ├── export_pt.py      # PyTorch model → .pt
 │   │   ├── torch_to_mlir.py  # .pt → MLIR via torch-mlir
-│   │   └── toolchain_info.py
+│   │   ├── torch_utils.py    # Shared Torch input/module helpers
+│   │   ├── toolchain_info.py
+│   │   ├── hardware_info.py
+│   │   ├── soda.py
+│   │   └── compatibility_resources.py
 │   ├── prompt_dicts/         # JSON prompt templates for LASSI agents
 │   └── helper_usage.md       # In-repo helper reuse guide for agents
 ├── setup/                    # Client (Claude / Codex / Roo) MCP setup

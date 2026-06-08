@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-import importlib.util
 import json
 import random
-import sys
 
 import numpy as np
 import torch
 
+from lassi.integrations.torch_utils import build_inputs_from_specs as _build_inputs_from_specs
+from lassi.integrations.torch_utils import build_tensor_from_spec as _build_tensor_from_spec
+from lassi.integrations.torch_utils import load_module_from_file
 from lassi.verification.checks import (
     check_mlir_contains_dialect,
     check_mlir_contains_func,
@@ -40,46 +41,11 @@ def set_deterministic_seeds(seed: int) -> dict[str, Any]:
 
 
 def build_tensor_from_spec(spec: dict[str, Any]) -> torch.Tensor:
-    shape = spec.get("shape")
-    if not shape:
-        raise ValueError("Tensor spec must include a non-empty 'shape'.")
-
-    dtype_name = spec.get("dtype", "float32")
-    device_name = spec.get("device", "cpu")
-
-    dtype_map = {
-        "float16": torch.float16,
-        "float32": torch.float32,
-        "float64": torch.float64,
-        "bfloat16": torch.bfloat16,
-        "int32": torch.int32,
-        "int64": torch.int64,
-        "bool": torch.bool,
-    }
-    if dtype_name not in dtype_map:
-        raise ValueError(f"Unsupported dtype in spec: {dtype_name}")
-
-    dtype = dtype_map[dtype_name]
-
-    if "value" in spec:
-        value = spec["value"]
-        tensor = torch.full(shape, value, dtype=dtype, device=device_name)
-    elif dtype in (torch.float16, torch.float32, torch.float64, torch.bfloat16):
-        tensor = torch.randn(*shape, dtype=dtype, device=device_name)
-    elif dtype in (torch.int32, torch.int64):
-        low = spec.get("low", 0)
-        high = spec.get("high", 10)
-        tensor = torch.randint(low, high, shape, dtype=dtype, device=device_name)
-    elif dtype is torch.bool:
-        tensor = torch.randint(0, 2, shape, dtype=torch.int64, device=device_name).to(torch.bool)
-    else:
-        raise ValueError(f"Unsupported dtype in spec: {dtype_name}")
-
-    return tensor
+    return _build_tensor_from_spec(spec)
 
 
 def build_inputs_from_specs(specs: list[dict[str, Any]]) -> tuple[torch.Tensor, ...]:
-    return tuple(build_tensor_from_spec(spec) for spec in specs)
+    return _build_inputs_from_specs(specs)
 
 
 def clone_with_perturbation(tensor: torch.Tensor, index: tuple[int, ...], delta: Any) -> torch.Tensor:
@@ -89,18 +55,7 @@ def clone_with_perturbation(tensor: torch.Tensor, index: tuple[int, ...], delta:
 
 
 def load_python_module_from_path(path: str | Path, module_name: str | None = None):
-    resolved = Path(path).resolve()
-    if not resolved.exists():
-        raise FileNotFoundError(f"Module file not found: {resolved}")
-
-    module_name = module_name or resolved.stem
-    spec = importlib.util.spec_from_file_location(module_name, str(resolved))
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to create import spec for {resolved}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_module_from_file(path, module_name=module_name)
 
 
 def load_variants_registry(module: Any, attribute_name: str = "VARIANTS") -> dict[str, Any]:

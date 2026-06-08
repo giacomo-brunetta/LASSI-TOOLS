@@ -1,11 +1,9 @@
 """Shared helpers used by multiple MCP tool implementations.
 
 These were duplicated across ``lassi.profiling.performance_tools`` and
-``lassi.verification.verification_tools``. Only helpers that are byte-for-byte
-identical in both modules are factored here. Verdict-shaping helpers like
-``_json_response`` and process runners like ``_run_command`` differ between
-modules (different verdict sets, env-merging behavior, default timeouts) and
-intentionally remain local to each tool module.
+``lassi.verification.verification_tools``. Command execution and MCP JSON
+response formatting now live in ``lassi.core.command`` and
+``lassi.core.responses``; this module keeps the small artifact/report helpers.
 """
 
 from __future__ import annotations

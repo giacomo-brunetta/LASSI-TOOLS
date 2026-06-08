@@ -5,23 +5,7 @@ from typing import List
 
 import torch
 
-
-def _build_inputs(inputs_spec: List[dict]):
-    tensors = []
-    for inp in inputs_spec:
-        shape = inp.get("shape")
-        dtype = inp.get("dtype", "float32")
-
-        if dtype == "float32":
-            tensor = torch.randn(*shape)
-        elif dtype == "int64":
-            tensor = torch.randint(0, 10, shape)
-        else:
-            raise ValueError(f"Unsupported dtype: {dtype}")
-
-        tensors.append(tensor)
-
-    return tuple(tensors)
+from lassi.integrations.torch_utils import build_inputs_from_specs
 
 
 def _compile_with_frontend(model, inputs, target: str, frontend: str):
@@ -106,7 +90,7 @@ async def compile_torch_to_mlir_impl(
         model = _load_model(resolved_model_path)
         model.eval()
 
-        example_inputs = _build_inputs(inputs)
+        example_inputs = build_inputs_from_specs(inputs)
 
         if validate:
             try:

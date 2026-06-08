@@ -18,10 +18,9 @@ Exposes ``*_impl`` async entrypoints called from ``LASSI_mcp.py``:
 Also exposes ``random_equivalence_main`` which is invoked by the generated
 ``test_equivalence.py`` harnesses under ``.verify/harnesses/*``.
 
-Shared helpers (``_now_task_id``, ``_short``, ``_write_json``) come from
-:mod:`lassi.core.mcp_helpers`. Verdict shape (``VALID_VERDICTS``) and the
-non-merging ``_run_command`` are intentionally local — they differ from
-the performance side.
+Shared helpers come from :mod:`lassi.core.mcp_helpers`,
+:mod:`lassi.core.command`, and :mod:`lassi.core.responses`. Verdict shape
+(``VALID_VERDICTS``) remains local to this module.
 """
 
 from __future__ import annotations
@@ -49,6 +48,8 @@ import numpy as np
 from lassi.core.mcp_helpers import now_task_id as _now_task_id
 from lassi.core.mcp_helpers import short as _short
 from lassi.core.mcp_helpers import write_json as _write_json
+from lassi.core.command import run_command as _shared_run_command
+from lassi.core.responses import json_response as _shared_json_response
 
 
 VALID_VERDICTS = {"PASS", "FAIL", "UNSURE", "ERROR"}
@@ -65,20 +66,17 @@ def _json_response(
     metrics: dict[str, Any] | None = None,
     logs: dict[str, str] | None = None,
 ) -> str:
-    if verdict not in VALID_VERDICTS:
-        verdict = "ERROR"
-        confidence = 0.0
-        summary = f"Internal error: invalid verdict emitted. Original summary: {summary}"
-    payload = {
-        "verdict": verdict,
-        "confidence": float(confidence),
-        "summary": summary,
-        "artifacts": artifacts or [],
-        "counterexamples": counterexamples or [],
-        "metrics": metrics or {},
-        "logs": logs or {"stdout": "", "stderr": ""},
-    }
-    return json.dumps(payload, indent=2, sort_keys=True)
+    return _shared_json_response(
+        verdict,
+        confidence,
+        summary,
+        valid_verdicts=VALID_VERDICTS,
+        invalid_summary_prefix="Internal error: invalid verdict emitted.",
+        artifacts=artifacts,
+        counterexamples=counterexamples or [],
+        metrics=metrics,
+        logs=logs,
+    )
 
 
 def _loads_result(raw: str) -> dict[str, Any]:
@@ -98,14 +96,12 @@ def _run_command(
     timeout_s: int | float = 60,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return _shared_run_command(
         cmd,
-        cwd=str(cwd) if cwd else None,
+        cwd=cwd,
         env=env,
-        capture_output=True,
-        text=True,
-        timeout=timeout_s,
-        check=False,
+        timeout_s=timeout_s,
+        merge_env=False,
     )
 
 
