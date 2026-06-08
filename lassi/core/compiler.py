@@ -227,6 +227,14 @@ class CompilerTool:
         if result.returncode != 0:
             raise CompilationError(f"Compilation failed:\nCommand: {' '.join(cmd)}\nError: {result.stderr}")
 
+        if not output_file.exists():
+            raise CompilationError(
+                f"Compiler reported success but produced no output file at {output_file}.\n"
+                f"Command: {' '.join(cmd)}\n"
+                f"Stdout: {result.stdout}\n"
+                f"Stderr: {result.stderr}"
+            )
+
         return output_file
 
 COMPILER_FLAGS_DB = {
