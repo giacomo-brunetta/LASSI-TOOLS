@@ -75,38 +75,32 @@ async def compile_torch_to_mlir_impl(
     """
     Compile a PyTorch .pt model into MLIR using torch-mlir.
     """
-    try:
-        resolved_model_path = Path(model_path).resolve()
-        if not resolved_model_path.exists():
-            return f"[Compilation Error]\nModel file not found: {resolved_model_path}"
+    resolved_model_path = Path(model_path).resolve()
+    if not resolved_model_path.exists():
+        raise FileNotFoundError(f"Model file not found: {resolved_model_path}")
 
-        if output_path:
-            resolved_output_path = Path(output_path).resolve()
-        else:
-            resolved_output_path = resolved_model_path.with_suffix(".mlir")
+    if output_path:
+        resolved_output_path = Path(output_path).resolve()
+    else:
+        resolved_output_path = resolved_model_path.with_suffix(".mlir")
 
-        resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        model = _load_model(resolved_model_path)
-        model.eval()
+    model = _load_model(resolved_model_path)
+    model.eval()
 
-        example_inputs = build_inputs_from_specs(inputs)
+    example_inputs = build_inputs_from_specs(inputs)
 
-        if validate:
-            try:
-                with torch.no_grad():
-                    model(*example_inputs)
-            except Exception as exc:
-                return f"[Validation Error]\n{str(exc)}"
+    if validate:
+        with torch.no_grad():
+            model(*example_inputs)  # raises with a clear traceback on shape/dtype mismatch
 
-        mlir_module = _compile_with_frontend(
-            model,
-            example_inputs,
-            target,
-            frontend,
-        )
+    mlir_module = _compile_with_frontend(
+        model,
+        example_inputs,
+        target,
+        frontend,
+    )
 
-        resolved_output_path.write_text(str(mlir_module), encoding="utf-8")
-        return f"MLIR written to {resolved_output_path}"
-    except Exception as exc:
-        return f"[Compilation Error]\n{str(exc)}"
+    resolved_output_path.write_text(str(mlir_module), encoding="utf-8")
+    return f"MLIR written to {resolved_output_path}"

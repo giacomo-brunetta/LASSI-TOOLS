@@ -53,6 +53,7 @@ from lassi.integrations.compatibility_resources import (
     search_compatibility_wiki as search_compatibility_wiki_impl,
     wiki_resource_help,
 )
+from lassi.utils.md_render import render_for_output
 
 # Initialize FastMCP server
 mcp = FastMCP("LASSI") 
@@ -86,13 +87,16 @@ async def gprof_profiling(
         compiler_tool=CompilerTool.from_string(compiler.lower()) if compiler else None
         )
 
-    return gprofile.profile(
+    return render_for_output(
+        gprofile.profile(
             args=args,
             kwds=kwds if kwds else "",
             include_dirs=includes,
             library_dirs=libraries,
             extra_files=extra_files,
-        )
+        ),
+        title='gprof flat profile + callgraph',
+    )
 
 @mcp.tool()
 async def execute_with_latency(
@@ -149,7 +153,10 @@ async def execute_with_latency(
         return "\n".join(output_parts)
 
     except Exception as e:
-        return f"Execution failed with internal error: {str(e)}"
+        return render_for_output(
+            f"Execution failed with internal error: {str(e)}",
+            title='Execution + latency',
+        )
 
 @mcp.tool()
 async def execute_with_profile(
@@ -220,21 +227,30 @@ async def execute_with_profile(
         return "\n".join(output_parts)
 
     except Exception as e:
-        return f"Execution failed with internal error: {str(e)}"
+        return render_for_output(
+            f"Execution failed with internal error: {str(e)}",
+            title='Execution + power profile',
+        )
 
 @mcp.tool()
 async def get_machine_info() -> str:
     """
     Reads the CPU and RAM information of this machine.
     """
-    return await get_machine_info_impl()
+    return render_for_output(
+        await get_machine_info_impl(),
+        title='Machine info',
+    )
 
 @mcp.tool()
 async def get_gpu_info() -> str:
     """
     Asynchronously retrieves GPU information using available SMI tools.
     """
-    return await get_gpu_info_impl()
+    return render_for_output(
+        await get_gpu_info_impl(),
+        title='GPU info',
+    )
 
 @mcp.tool()
 async def run_benchmark(
@@ -254,7 +270,8 @@ async def run_benchmark(
     """
     Run stable timing benchmarks with hyperfine and return the common performance JSON schema.
     """
-    return await run_benchmark_impl(
+    return render_for_output(
+        await run_benchmark_impl(
         benchmark_cases=benchmark_cases,
         mode=mode,
         warmup=warmup,
@@ -267,6 +284,8 @@ async def run_benchmark(
         cleanup_command=cleanup_command,
         artifact_dir=artifact_dir,
         thresholds=thresholds,
+    ),
+        title='Benchmark results',
     )
 
 @mcp.tool()
@@ -283,7 +302,8 @@ async def collect_perf_stats(
     """
     Collect CPU performance counters with perf stat and derive IPC/cache/branch metrics.
     """
-    return await collect_perf_stats_impl(
+    return render_for_output(
+        await collect_perf_stats_impl(
         cases=cases,
         mode=mode,
         events=events,
@@ -292,6 +312,8 @@ async def collect_perf_stats(
         artifact_dir=artifact_dir,
         use_json_output_if_available=use_json_output_if_available,
         shell=shell,
+    ),
+        title='Perf-stat results',
     )
 
 @mcp.tool()
@@ -308,7 +330,8 @@ async def profile_hotspots(
     """
     Locate runtime hotspots with perf record/report/script and compare hotspot shifts.
     """
-    return await profile_hotspots_impl(
+    return render_for_output(
+        await profile_hotspots_impl(
         cases=cases,
         mode=mode,
         callgraph=callgraph,
@@ -317,6 +340,8 @@ async def profile_hotspots(
         generate_flamegraph=generate_flamegraph,
         artifact_dir=artifact_dir,
         shell=shell,
+    ),
+        title='Hotspot profile',
     )
 
 @mcp.tool()
@@ -330,12 +355,15 @@ async def compare_performance(
     """
     Aggregate benchmark, perf-stat, and hotspot evidence into a differential performance verdict.
     """
-    return await compare_performance_impl(
+    return render_for_output(
+        await compare_performance_impl(
         benchmark_result_path=benchmark_result_path,
         perf_stats_result_path=perf_stats_result_path,
         profile_result_path=profile_result_path,
         policy=policy,
         artifact_dir=artifact_dir,
+    ),
+        title='Performance comparison verdict',
     )
 
 @mcp.tool()
@@ -349,12 +377,15 @@ async def collect_hardware_model(
     """
     Collect a hardware model for roofline analysis, using manual peak overrides when supplied.
     """
-    return await collect_hardware_model_impl(
+    return render_for_output(
+        await collect_hardware_model_impl(
         device_selector=device_selector,
         precision_modes=precision_modes,
         bandwidth_levels=bandwidth_levels,
         manual_overrides=manual_overrides,
         artifact_dir=artifact_dir,
+    ),
+        title='Hardware model',
     )
 
 @mcp.tool()
@@ -368,12 +399,15 @@ async def estimate_workload_model(
     """
     Estimate FLOPs, bytes moved, and arithmetic intensity for roofline analysis.
     """
-    return await estimate_workload_model_impl(
+    return render_for_output(
+        await estimate_workload_model_impl(
         benchmark_cases=benchmark_cases,
         source_a=source_a,
         source_b=source_b,
         estimation_mode=estimation_mode,
         artifact_dir=artifact_dir,
+    ),
+        title='Workload model (FLOPs / bytes / AI)',
     )
 
 @mcp.tool()
@@ -390,7 +424,8 @@ async def run_roofline_analysis(
     """
     Run roofline analysis from benchmark timing, workload, and hardware model artifacts.
     """
-    return await run_roofline_analysis_impl(
+    return render_for_output(
+        await run_roofline_analysis_impl(
         benchmark_result_path=benchmark_result_path,
         workload_model_path=workload_model_path,
         hardware_model_path=hardware_model_path,
@@ -399,6 +434,8 @@ async def run_roofline_analysis(
         mode=mode,
         artifact_dir=artifact_dir,
         policy=policy,
+    ),
+        title='Roofline analysis',
     )
 
 @mcp.tool()
@@ -410,10 +447,13 @@ async def compare_roofline(
     """
     Compare reference and candidate roofline positions and utilization.
     """
-    return await compare_roofline_impl(
+    return render_for_output(
+        await compare_roofline_impl(
         roofline_result_path=roofline_result_path,
         policy=policy,
         artifact_dir=artifact_dir,
+    ),
+        title='Roofline comparison',
     )
 
 @mcp.tool()
@@ -422,7 +462,10 @@ async def get_toolchain_info() -> str:
     Return the effective Python, torch, torch-mlir, and LLVM-related toolchain
     information from the MCP server runtime environment.
     """
-    return await get_toolchain_info_impl()
+    return render_for_output(
+        await get_toolchain_info_impl(),
+        title='Toolchain info',
+    )
 
 @mcp.tool()
 async def summarize_csv(
@@ -431,7 +474,10 @@ async def summarize_csv(
     """
     Summarize a numeric CSV file: shape, size, range, mean/std, and NaN/Inf presence.
     """
-    return await summarize_csv_impl(path)
+    return render_for_output(
+        await summarize_csv_impl(path),
+        title='CSV summary',
+    )
 
 @mcp.tool()
 async def compare_csv_outputs(
@@ -444,12 +490,15 @@ async def compare_csv_outputs(
     """
     Compare two numeric CSV outputs and return exact/tolerant match status plus error metrics.
     """
-    return await compare_csv_outputs_impl(
+    return render_for_output(
+        await compare_csv_outputs_impl(
         golden_csv=golden_csv,
         candidate_csv=candidate_csv,
         rtol=rtol,
         atol=atol,
         expected_shape=expected_shape,
+    ),
+        title='CSV comparison',
     )
 
 @mcp.tool()
@@ -462,11 +511,14 @@ async def diff_csv_outputs(
     """
     Report element-wise CSV mismatches, optionally writing the mismatch report to disk.
     """
-    return await diff_csv_outputs_impl(
+    return render_for_output(
+        await diff_csv_outputs_impl(
         golden_csv=golden_csv,
         candidate_csv=candidate_csv,
         output_path=output_path,
         max_rows=max_rows,
+    ),
+        title='CSV element-wise diff',
     )
 
 @mcp.tool()
@@ -503,7 +555,8 @@ async def export_model_to_pt(
     """
     Load a PyTorch model from a Python file and export it to a .pt file.
     """
-    return await export_model_to_pt_impl(
+    return render_for_output(
+        await export_model_to_pt_impl(
         model_file=model_file,
         class_name=class_name,
         output_path=output_path,
@@ -511,6 +564,8 @@ async def export_model_to_pt(
         weights_path=weights_path,
         export_type=export_type,
         input_shape=input_shape,
+    ),
+        title='PyTorch .pt export',
     )
 
 @mcp.tool()
@@ -540,13 +595,16 @@ async def compile_torch_to_mlir(
     """
     Compile a PyTorch .pt model into MLIR using torch-mlir.
     """
-    return await compile_torch_to_mlir_impl(
+    return render_for_output(
+        await compile_torch_to_mlir_impl(
         model_path=model_path,
         inputs=inputs,
         target=target,
         frontend=frontend,
         validate=validate,
         output_path=output_path,
+    ),
+        title='Torch → MLIR compilation',
     )
 
 @mcp.tool()
@@ -566,7 +624,8 @@ async def build_sanitized(
     Compile C/C++ code with strict warnings and sanitizer instrumentation.
     Returns a JSON verification result with PASS/FAIL/UNSURE/ERROR verdict semantics.
     """
-    return await build_sanitized_impl(
+    return render_for_output(
+        await build_sanitized_impl(
         source_path=source_path,
         language=language,
         entrypoint_hint=entrypoint_hint,
@@ -577,6 +636,8 @@ async def build_sanitized(
         timeout_s=timeout_s,
         extra_compile_flags=extra_compile_flags,
         extra_link_flags=extra_link_flags,
+    ),
+        title='Sanitized build',
     )
 
 @mcp.tool()
@@ -591,13 +652,16 @@ async def synthesize_common_harness(
     """
     Generate an inspectable common Python harness for Python callables and scalar shared libraries.
     """
-    return await synthesize_common_harness_impl(
+    return render_for_output(
+        await synthesize_common_harness_impl(
         source_a=source_a,
         source_b=source_b,
         task_type=task_type,
         entrypoints=entrypoints,
         input_schema=input_schema,
         output_schema=output_schema,
+    ),
+        title='Common harness',
     )
 
 @mcp.tool()
@@ -614,7 +678,8 @@ async def generate_assertion_suite(
     """
     Generate a shared assertion suite and harness metadata for both implementations.
     """
-    return await generate_assertion_suite_impl(
+    return render_for_output(
+        await generate_assertion_suite_impl(
         source_a=source_a,
         source_b=source_b,
         task_type=task_type,
@@ -623,6 +688,8 @@ async def generate_assertion_suite(
         semantic_hints=semantic_hints,
         numeric_tolerance=numeric_tolerance,
         timeout_s=timeout_s,
+    ),
+        title='Assertion suite generation',
     )
 
 @mcp.tool()
@@ -636,12 +703,15 @@ async def run_assertion_suite(
     """
     Execute a generated shared assertion suite against two implementation artifacts.
     """
-    return await run_assertion_suite_impl(
+    return render_for_output(
+        await run_assertion_suite_impl(
         assertion_suite_path=assertion_suite_path,
         implementation_a_artifact=implementation_a_artifact,
         implementation_b_artifact=implementation_b_artifact,
         task_type=task_type,
         timeout_s=timeout_s,
+    ),
+        title='Assertion suite run',
     )
 
 @mcp.tool()
@@ -660,7 +730,8 @@ async def run_random_equivalence_tests(
     """
     Run randomized differential testing and persist minimized failing inputs.
     """
-    return await run_random_equivalence_tests_impl(
+    return render_for_output(
+        await run_random_equivalence_tests_impl(
         source_a=source_a,
         source_b=source_b,
         artifact_a=artifact_a,
@@ -671,6 +742,8 @@ async def run_random_equivalence_tests(
         comparison=comparison,
         budget=budget,
         corpus_dir=corpus_dir,
+    ),
+        title='Random equivalence tests',
     )
 
 @mcp.tool()
@@ -688,7 +761,8 @@ async def run_robustness_fuzzer(
     """
     Run robustness fuzzing with libFuzzer and sanitizer instrumentation.
     """
-    return await run_robustness_fuzzer_impl(
+    return render_for_output(
+        await run_robustness_fuzzer_impl(
         source_path=source_path,
         artifact=artifact,
         entrypoint=entrypoint,
@@ -698,6 +772,8 @@ async def run_robustness_fuzzer(
         seed_corpus_dir=seed_corpus_dir,
         budget=budget,
         max_len=max_len,
+    ),
+        title='Robustness fuzz',
     )
 
 @mcp.tool()
@@ -715,7 +791,8 @@ async def run_differential_fuzzer(
     """
     Run an existing differential libFuzzer target and persist corpus/crash artifacts.
     """
-    return await run_differential_fuzzer_impl(
+    return render_for_output(
+        await run_differential_fuzzer_impl(
         source_a=source_a,
         source_b=source_b,
         artifact=artifact,
@@ -725,6 +802,8 @@ async def run_differential_fuzzer(
         seed_corpus_dir=seed_corpus_dir,
         budget=budget,
         max_len=max_len,
+    ),
+        title='Differential fuzz',
     )
 
 @mcp.tool()
@@ -737,11 +816,14 @@ async def synthesize_verification_report(
     """
     Aggregate verification tool results into a stable JSON and markdown report.
     """
-    return await synthesize_verification_report_impl(
+    return render_for_output(
+        await synthesize_verification_report_impl(
         task_id=task_id,
         task_type=task_type,
         tool_results=tool_results,
         output_dir=output_dir,
+    ),
+        title='Verification report',
     )
 
 @mcp.tool()
@@ -763,10 +845,13 @@ async def synthesize_tosa_with_soda(
     Run the shared soda-tools Makefile from an output folder that already contains 01_tosa.mlir.
     The command log is always written to <output_dir>/log.txt.
     """
-    return await synthesize_tosa_with_soda_impl(
+    return render_for_output(
+        await synthesize_tosa_with_soda_impl(
         output_dir=output_dir,
         stage=stage,
         build_mode=build_mode,
+    ),
+        title='SODA synthesis',
     )
 
 #============================================================================

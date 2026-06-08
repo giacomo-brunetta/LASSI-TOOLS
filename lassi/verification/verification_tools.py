@@ -83,6 +83,26 @@ def _loads_result(raw: str) -> dict[str, Any]:
     return json.loads(raw)
 
 
+def _normalize_entrypoints(entrypoints: list | None) -> list[dict[str, Any]]:
+    """Accept entrypoints as a list of strings (just names), dicts, or mixed,
+    and return a list of `{"name": ..., "signature": ...}` dicts. Strings
+    become `{"name": s}`; dicts pass through.
+    """
+    if not entrypoints:
+        return []
+    normalized: list[dict[str, Any]] = []
+    for item in entrypoints:
+        if isinstance(item, str):
+            normalized.append({"name": item})
+        elif isinstance(item, dict):
+            normalized.append(item)
+        else:
+            raise ValueError(
+                f"entrypoint entry must be a string or {{name, signature}} dict; got {type(item).__name__}"
+            )
+    return normalized
+
+
 def _resolve_verify_root(base_dir: str | None = None) -> Path:
     root = Path(base_dir).resolve() if base_dir else (Path.cwd() / VERIFY_ROOT).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -542,13 +562,14 @@ async def synthesize_common_harness_impl(
     out_dir.mkdir(parents=True, exist_ok=True)
     harness_path = out_dir / "common_harness.py"
     metadata_path = out_dir / "harness_metadata.json"
-    entrypoint = (entrypoints or [{"name": "kernel"}])[0]
+    normalized = _normalize_entrypoints(entrypoints) or [{"name": "kernel"}]
+    entrypoint = normalized[0]
     harness_path.write_text(_HARNESS_TEMPLATE, encoding="utf-8")
     metadata = {
         "source_a": str(Path(source_a).resolve()),
         "source_b": str(Path(source_b).resolve()),
         "task_type": task_type,
-        "entrypoints": entrypoints or [],
+        "entrypoints": normalized,
         "supported_interfaces": ["python_module_callable", "ctypes_scalar_shared_library"],
     }
     _write_json(metadata_path, metadata)
@@ -561,7 +582,7 @@ async def synthesize_common_harness_impl(
             {"kind": "python_harness", "path": str(harness_path)},
             {"kind": "metadata", "path": str(metadata_path)},
         ],
-        metrics={"entrypoints_found": len(entrypoints or []), "primary_entrypoint": entrypoint.get("name", "kernel")},
+        metrics={"entrypoints_found": len(normalized), "primary_entrypoint": entrypoint.get("name", "kernel")},
     )
 
 
@@ -643,7 +664,8 @@ async def generate_assertion_suite_impl(
 ) -> str:
     del semantic_hints, timeout_s
     tolerance = numeric_tolerance or {"rtol": 1e-5, "atol": 1e-6}
-    entrypoint = (entrypoints or [{"name": "kernel", "signature": "double(double)"}])[0]
+    normalized = _normalize_entrypoints(entrypoints) or [{"name": "kernel", "signature": "double(double)"}]
+    entrypoint = normalized[0]
     root = _resolve_verify_root()
     task_id = _now_task_id("assertions")
     out_dir = root / "assertions" / task_id
@@ -653,7 +675,7 @@ async def generate_assertion_suite_impl(
         source_a=str(source_a),
         source_b=str(source_b),
         task_type=task_type,
-        entrypoints=entrypoints or [entrypoint],
+        entrypoints=normalized,
     ))
     harness_path = next((a["path"] for a in harness_result["artifacts"] if a["kind"] == "python_harness"), "")
     suite_path = out_dir / "assertion_suite.py"
@@ -1235,7 +1257,7 @@ async def run_random_equivalence_tests_impl(
         "source_b": source_b,
         "artifact_a": artifact_a,
         "artifact_b": artifact_b,
-        "entrypoints": entrypoints or [{"name": "kernel", "signature": "double(double)"}],
+        "entrypoints": _normalize_entrypoints(entrypoints) or [{"name": "kernel", "signature": "double(double)"}],
         "input_schema": input_schema or {"kind": "scalar"},
         "comparison": comparison or {"mode": "allclose", "rtol": 1e-5, "atol": 1e-6},
         "budget": budget or {"max_examples": 1000, "timeout_s": 300},

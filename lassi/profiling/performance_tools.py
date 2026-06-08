@@ -442,7 +442,7 @@ def _run_benchmark_sync(
     speedups = [c["speedup"] for c in case_results if c.get("speedup")]
     geomean_speedup = _geomean(speedups)
     confidence = _benchmark_confidence(case_results)
-    summary = _benchmark_summary(verdict, case_results, geomean_speedup)
+    summary = _benchmark_summary(verdict, case_results, geomean_speedup, max_cv_pct=max_cv_pct)
     metrics = {
         "cases": case_results,
         "geomean_speedup": geomean_speedup,
@@ -581,9 +581,32 @@ def _benchmark_confidence(cases: list[dict[str, Any]]) -> float:
     return max(0.35, min(0.95, 0.95 - max(0.0, max_cv - 2.0) / 25.0))
 
 
-def _benchmark_summary(verdict: str, cases: list[dict[str, Any]], geomean_speedup: float | None) -> str:
+def _benchmark_summary(
+    verdict: str,
+    cases: list[dict[str, Any]],
+    geomean_speedup: float | None,
+    max_cv_pct: float | None = None,
+) -> str:
     if not cases:
         return "No benchmark cases were measured."
+    if verdict == "UNSURE":
+        # Surface the noisiest case + the threshold so the caller knows whether
+        # to retry with more runs or raise the threshold.
+        cvs: list[float] = []
+        for c in cases:
+            for key in ("cv_pct", "cv_a_pct", "cv_b_pct"):
+                v = c.get(key)
+                if v is not None:
+                    cvs.append(float(v))
+        if cvs:
+            observed = max(cvs)
+            threshold = f" (threshold {max_cv_pct:.1f}%)" if max_cv_pct is not None else ""
+            return (
+                f"UNSURE: noisy measurement — max observed CV {observed:.2f}%{threshold} "
+                f"across {len(cases)} case(s). Raise --min-runs, increase --warmup, "
+                f"or relax via --thresholds '{{\"max_cv_pct\": <N>}}'."
+            )
+        return f"UNSURE: measured {len(cases)} case(s) but no CV signal was produced."
     if geomean_speedup:
         return f"{verdict}: candidate geomean speedup is {geomean_speedup:.3g}x across {len(cases)} case(s)."
     return f"{verdict}: measured {len(cases)} single-target benchmark case(s)."
@@ -629,6 +652,8 @@ def _collect_perf_stats_sync(
     context = _host_context()
     warnings = _hygiene_warnings(context, cases)
     if not shutil.which("perf"):
+        if platform.system() == "Darwin":
+            return _collect_perf_stats_macos(cases, mode, repeat, timeout_s, artifact_dir, shell, context, warnings)
         return _json_response("ERROR", 0.0, "perf is unavailable in this environment.", metrics={"context": context})
     events = events or DEFAULT_PERF_EVENTS
     artifacts: list[dict[str, str]] = []
@@ -924,6 +949,8 @@ def _profile_hotspots_sync(
     context = _host_context()
     warnings = _hygiene_warnings(context, cases)
     if not shutil.which("perf"):
+        if platform.system() == "Darwin":
+            return _profile_hotspots_macos(cases, mode, timeout_s, artifact_dir, shell, context, warnings)
         return _json_response("ERROR", 0.0, "perf is unavailable in this environment.", metrics={"context": context})
     artifacts: list[dict[str, str]] = []
     stdout_parts: list[str] = []
@@ -1680,6 +1707,12 @@ def _roofline_markdown(payload: dict[str, Any]) -> str:
 
 def _try_roofline_plot(path: Path, cases: list[dict[str, Any]], peak_flops: float, peak_bw: float) -> Path | None:
     try:
+        import matplotlib
+        # Force the non-interactive backend BEFORE importing pyplot. The
+        # roofline impl runs in an asyncio worker thread, so any GUI backend
+        # (the macOS default) raises "Cannot create FigureManager outside the
+        # main thread". Agg is thread-safe and headless.
+        matplotlib.use("Agg", force=True)
         import matplotlib.pyplot as plt
     except Exception:
         return None
@@ -1805,3 +1838,304 @@ def _compare_roofline_markdown(payload: dict[str, Any]) -> str:
             f"{_fmt(case.get('achieved_flops_speedup'))} | {case.get('bound_changed')} | {case.get('verdict')} |"
         )
     return "\n".join(lines) + "\n"
+
+
+# ===========================================================================
+# macOS / Apple Silicon fallbacks for `perf stat` and `perf record`.
+#
+# Apple does not ship a Linux-style `perf` binary. The substitutes used here
+# are always present on macOS:
+#   - /usr/bin/time -l        — wall/user/sys time, RSS, page faults, ctx
+#                                switches, and (on Apple Silicon) cycles
+#                                elapsed + instructions retired. Gives us
+#                                IPC and per-input-element metrics.
+#   - /usr/bin/sample <pid>   — stack-sampling profiler; produces a call
+#                                graph we parse into a top-N hotspot list.
+#
+# Output payloads are normalized to the same schema produced by the Linux
+# `perf` paths so `compare_performance` and downstream tools work unchanged.
+# Branch / cache counters are simply absent on this path (macOS does not
+# expose them without elevated privileges + Instruments).
+# ===========================================================================
+
+_MAC_TIME_LINE_RE = re.compile(r"^\s*([\d.]+)\s+real\s+([\d.]+)\s+user\s+([\d.]+)\s+sys\s*$")
+_MAC_TIME_PAIR_RE = re.compile(r"^\s*(\d+)\s+(.+?)\s*$")
+
+
+def _parse_mac_time_l(stderr_text: str) -> dict[str, float]:
+    """Parse one /usr/bin/time -l block. Returns a flat counter dict."""
+    out: dict[str, float] = {}
+    for line in stderr_text.splitlines():
+        m = _MAC_TIME_LINE_RE.match(line)
+        if m:
+            out["wall_s"] = float(m.group(1))
+            out["user_s"] = float(m.group(2))
+            out["sys_s"] = float(m.group(3))
+            continue
+        m = _MAC_TIME_PAIR_RE.match(line)
+        if not m:
+            continue
+        value = float(m.group(1))
+        label = m.group(2).strip().lower()
+        key = {
+            "maximum resident set size": "max_rss_bytes",
+            "page reclaims": "page_reclaims",
+            "page faults": "page_faults",
+            "voluntary context switches": "voluntary_ctx",
+            "involuntary context switches": "involuntary_ctx",
+            "instructions retired": "instructions",
+            "cycles elapsed": "cycles",
+            "peak memory footprint": "peak_memory_bytes",
+        }.get(label)
+        if key:
+            out[key] = value
+    return out
+
+
+def _aggregate_samples(samples: list[dict[str, float]]) -> dict[str, float]:
+    """Compute mean (+ stddev when n>=2) across a list of /usr/bin/time -l
+    parse results. Mean values land at the bare key so downstream
+    `_derive_counter_metrics` picks them up; stddev/cv at `<key>_stddev`."""
+    if not samples:
+        return {}
+    keys = set()
+    for s in samples:
+        keys.update(s.keys())
+    out: dict[str, float] = {}
+    for k in keys:
+        values = [s[k] for s in samples if k in s]
+        if not values:
+            continue
+        mean = statistics.fmean(values) if hasattr(statistics, "fmean") else sum(values) / len(values)
+        out[k] = mean
+        if len(values) >= 2:
+            stddev = statistics.pstdev(values)
+            out[f"{k}_stddev"] = stddev
+            if mean:
+                out[f"{k}_cv_pct"] = 100.0 * stddev / abs(mean)
+    return out
+
+
+def _collect_perf_stats_macos(
+    cases: list[dict[str, Any]],
+    mode: str,
+    repeat: int,
+    timeout_s: int,
+    artifact_dir: str | None,
+    shell: str,
+    context: dict[str, Any],
+    warnings: list[str],
+) -> str:
+    """macOS path for collect_perf_stats — uses /usr/bin/time -l N times per case."""
+    out_dir = _artifact_dir(".perf/perf_stats", artifact_dir)
+    artifacts: list[dict[str, str]] = []
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+    metrics_cases: list[dict[str, Any]] = []
+    warnings = list(warnings) + [
+        "macOS path: using /usr/bin/time -l; branch / cache counters are not available without Instruments + elevated privileges."
+    ]
+
+    time_bin = "/usr/bin/time"
+    if not Path(time_bin).exists() or not os.access(time_bin, os.X_OK):
+        return _json_response(
+            "ERROR", 0.0,
+            "/usr/bin/time not available; cannot collect perf stats on this macOS host.",
+            metrics={"context": context},
+        )
+
+    for index, case in enumerate(cases):
+        case_id = str(case.get("case_id") or f"case_{index + 1:03d}")
+        targets = _perf_targets(case, mode)
+        if not targets:
+            return _json_response("ERROR", 0.0, f"Case {case_id} is missing perf command fields.")
+        case_metric: dict[str, Any] = {"case_id": case_id}
+        for suffix, command in targets:
+            samples: list[dict[str, float]] = []
+            raw_path = out_dir / f"{case_id}_{suffix}.time.txt"
+            raw_lines: list[str] = []
+            for run_i in range(max(1, int(repeat))):
+                cmd = [time_bin, "-l", shell, "-lc", command]
+                proc = _run_command(cmd, cwd=case.get("working_dir"), env=case.get("environment"), timeout_s=timeout_s)
+                stdout_parts.append(proc.stdout)
+                stderr_parts.append(proc.stderr)
+                raw_lines.append(f"--- run {run_i + 1} (rc={proc.returncode}) ---\n{proc.stderr}")
+                if proc.returncode != 0:
+                    _write_text(raw_path, "\n".join(raw_lines))
+                    return _json_response(
+                        "ERROR", 0.0,
+                        f"/usr/bin/time -l failed for case {case_id}_{suffix} with exit code {proc.returncode}.",
+                        metrics={"context": context},
+                        artifacts=artifacts,
+                        warnings=warnings,
+                        logs={"stdout": _short("\n".join(stdout_parts)), "stderr": _short("\n".join(stderr_parts))},
+                    )
+                samples.append(_parse_mac_time_l(proc.stderr))
+            _write_text(raw_path, "\n".join(raw_lines))
+            artifacts.append({"kind": "perf_stat_raw", "path": str(raw_path)})
+            aggregated = _aggregate_samples(samples)
+            case_metric[suffix] = _derive_counter_metrics(aggregated, case.get("metadata") or {})
+            case_metric.setdefault("reproduce", {})[suffix] = (
+                f"{time_bin} -l {shell} -lc {command!r}   # repeat={repeat}"
+            )
+        if mode.lower().strip() == "differential" and "a" in case_metric and "b" in case_metric:
+            case_metric["delta"] = _counter_delta(case_metric["a"], case_metric["b"])
+        metrics_cases.append(case_metric)
+
+    summary = _perf_stats_summary(metrics_cases)
+    payload = json.loads(
+        _json_response(
+            "PASS", 0.75,
+            summary,
+            metrics={"cases": metrics_cases, "context": context},
+            artifacts=artifacts,
+            warnings=warnings,
+            logs={"stdout": _short("\n".join(stdout_parts)), "stderr": _short("\n".join(stderr_parts))},
+        )
+    )
+    result_path = _write_json(out_dir / "result.json", payload)
+    report_path = _write_text(out_dir / "report.md", _perf_stats_markdown(payload))
+    payload["artifacts"].extend([
+        {"kind": "perf_stats_result_json", "path": str(result_path)},
+        {"kind": "perf_stats_report", "path": str(report_path)},
+    ])
+    _write_json(result_path, payload)
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+_MAC_SAMPLE_LINE_RE = re.compile(
+    r"""^[\s+!|:]*           # call-graph indent decoration
+        (\d+)\s+              # sample count
+        (\S+)\s+              # symbol (or ??? for unresolved)
+        \(in\s+([^)]+)\)      # binary
+    """,
+    re.VERBOSE,
+)
+
+
+def _parse_mac_sample(text: str, limit: int = 15) -> list[dict[str, Any]]:
+    """Extract a top-N hotspot list from a `sample` Call Graph dump.
+
+    Each call-graph line carries the leaf-or-inclusive sample count for that
+    stack frame. We sum samples per resolved symbol and report the heaviest
+    `limit` symbols as percentages of the total sampled count.
+    """
+    in_call_graph = False
+    counts: dict[str, int] = {}
+    total = 0
+    for line in text.splitlines():
+        if line.startswith("Call graph:"):
+            in_call_graph = True
+            continue
+        if not in_call_graph:
+            continue
+        if line.startswith("Binary Images:") or line.startswith("Total number "):
+            break
+        m = _MAC_SAMPLE_LINE_RE.match(line)
+        if not m:
+            continue
+        count = int(m.group(1))
+        symbol = m.group(2)
+        if symbol == "???":
+            total = max(total, count)  # still counts toward "everything sampled"
+            continue
+        counts[symbol] = counts.get(symbol, 0) + count
+        total = max(total, count)
+    if not counts or total == 0:
+        return []
+    ranked = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+    return [{"symbol": s, "percent": round(100.0 * c / total, 2)} for s, c in ranked]
+
+
+def _profile_hotspots_macos(
+    cases: list[dict[str, Any]],
+    mode: str,
+    timeout_s: int,
+    artifact_dir: str | None,
+    shell: str,
+    context: dict[str, Any],
+    warnings: list[str],
+) -> str:
+    """macOS path for profile_hotspots — launches the target and samples its PID."""
+    out_dir = _artifact_dir(".perf/profiles", artifact_dir)
+    artifacts: list[dict[str, str]] = []
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+    metrics_cases: list[dict[str, Any]] = []
+    warnings = list(warnings) + [
+        "macOS path: using /usr/bin/sample; no callgraph SVG / FlameGraph generation."
+    ]
+
+    sample_bin = "/usr/bin/sample"
+    if not Path(sample_bin).exists():
+        return _json_response(
+            "ERROR", 0.0,
+            "/usr/bin/sample not available; cannot profile hotspots on this macOS host.",
+            metrics={"context": context},
+        )
+
+    for index, case in enumerate(cases):
+        case_id = str(case.get("case_id") or f"case_{index + 1:03d}")
+        case_metric: dict[str, Any] = {"case_id": case_id}
+        for suffix, command in _perf_targets(case, mode):
+            sample_path = out_dir / f"{case_id}_{suffix}.sample.txt"
+            cwd = case.get("working_dir")
+            env_extra = case.get("environment") or {}
+            full_env = {**os.environ, **{k: str(v) for k, v in env_extra.items()}} if env_extra else None
+            try:
+                target = subprocess.Popen(
+                    [shell, "-lc", command],
+                    cwd=cwd,
+                    env=full_env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except OSError as exc:
+                return _json_response(
+                    "ERROR", 0.0,
+                    f"Failed to launch case {case_id}_{suffix}: {exc}",
+                    metrics={"context": context},
+                )
+            # `sample` samples for the requested wall-clock seconds OR until
+            # the process exits, whichever comes first. Cap to timeout_s.
+            sample_proc = _run_command(
+                [sample_bin, str(target.pid), str(max(1, min(timeout_s, 60))), "-file", str(sample_path)],
+                timeout_s=timeout_s + 5,
+            )
+            stdout_parts.append(sample_proc.stdout)
+            stderr_parts.append(sample_proc.stderr)
+            try:
+                target.wait(timeout=timeout_s)
+            except subprocess.TimeoutExpired:
+                target.kill()
+                target.wait()
+                warnings.append(f"{case_id}_{suffix}: target exceeded timeout_s={timeout_s}; killed.")
+            artifacts.append({"kind": "sample_report", "path": str(sample_path)})
+            sample_text = sample_path.read_text(encoding="utf-8", errors="ignore") if sample_path.exists() else ""
+            case_metric[f"top_functions_{suffix}"] = _parse_mac_sample(sample_text)
+        if mode.lower().strip() == "differential":
+            case_metric["hotspot_shift"] = _hotspot_shift(
+                case_metric.get("top_functions_a", []),
+                case_metric.get("top_functions_b", []),
+            )
+        metrics_cases.append(case_metric)
+
+    summary = _hotspot_summary(metrics_cases)
+    payload = json.loads(
+        _json_response(
+            "PASS", 0.7,
+            summary,
+            metrics={"cases": metrics_cases, "context": context},
+            artifacts=artifacts,
+            warnings=warnings,
+            logs={"stdout": _short("\n".join(stdout_parts)), "stderr": _short("\n".join(stderr_parts))},
+        )
+    )
+    result_path = _write_json(out_dir / "result.json", payload)
+    report_path = _write_text(out_dir / "report.md", _hotspot_markdown(payload))
+    payload["artifacts"].extend([
+        {"kind": "profile_result_json", "path": str(result_path)},
+        {"kind": "profile_report", "path": str(report_path)},
+    ])
+    _write_json(result_path, payload)
+    return json.dumps(payload, indent=2, sort_keys=True)
