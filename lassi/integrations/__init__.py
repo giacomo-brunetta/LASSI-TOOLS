@@ -1,16 +1,15 @@
-"""Wrappers for external toolchains exposed as MCP tools.
+"""Wrappers for external toolchains used by the ``lassi-*`` CLIs.
 
 Modules:
 
-- :mod:`lassi.integrations.export_pt` — backs ``export_model_to_pt``
+- :mod:`lassi.integrations.export_pt` — backs ``lassi-export-model-to-pt``
   (loads a PyTorch model class and writes a ``.pt`` artifact).
-- :mod:`lassi.integrations.torch_to_mlir` — backs ``compile_torch_to_mlir``
-  (lowers ``.pt`` to MLIR via ``torch-mlir``).
-- :mod:`lassi.integrations.toolchain_info` — backs ``get_toolchain_info``
-  (reports Python, torch, torch-mlir, and LLVM versions).
-- :mod:`lassi.integrations.hardware_info` — backs machine/GPU inventory tools.
-- :mod:`lassi.integrations.soda` — backs SODA synthesis.
-- :mod:`lassi.integrations.compatibility_resources` — backs compatibility wiki
-  MCP resources.
+- :mod:`lassi.integrations.torch_to_mlir` — backs
+  ``lassi-compile-torch-to-mlir`` (lowers ``.pt`` to MLIR via ``torch-mlir``).
+- :mod:`lassi.integrations.toolchain_info` — backs
+  ``lassi-get-toolchain-info`` (Python / torch / torch-mlir / LLVM versions).
+- :mod:`lassi.integrations.hardware_info` — backs ``lassi-get-machine-info``
+  and ``lassi-get-gpu-info``.
+- :mod:`lassi.integrations.soda` — backs ``lassi-synthesize-tosa-with-soda``.
 - :mod:`lassi.integrations.torch_utils` — shared Torch input/module helpers.
 """

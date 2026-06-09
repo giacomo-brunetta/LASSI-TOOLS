@@ -30,10 +30,8 @@ def _run_version_cmd(cmd: list[str]) -> dict:
 
 
 async def get_toolchain_info_impl() -> str:
-    """
-    Return the effective Python/torch/torch-mlir/LLVM-related toolchain
-    information from the MCP server runtime environment as JSON.
-    """
+    """Return the effective Python/torch/torch-mlir/LLVM-related toolchain
+    information from the current runtime environment as JSON."""
     info: dict = {
         "python": {
             "executable": sys.executable,

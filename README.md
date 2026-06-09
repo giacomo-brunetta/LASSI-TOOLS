@@ -2,9 +2,7 @@
 
 LASSI is an agentic workflow for **code performance optimization**, **C/C++ → PyTorch translation**, **functional verification**, **profiling**, and **MLIR/TOSA model artifact generation**.
 
-The tooling has migrated from a single FastMCP server to a set of **Claude Code Skills + Subagents**. Each former MCP tool is now an individual skill the agent can invoke through `Bash`, with no JSON-RPC server in the loop. The legacy MCP server is still shipped under [`mcp/`](mcp/README.md) for backward compatibility.
-
-> **Heads up:** the entry point used to be `LASSI_mcp.py` at the repo root. It now lives at `mcp/LASSI_mcp.py`. The legacy MCP Dockerfile, configure scripts, and bootstrap shells live under `mcp/`.
+The tooling ships as a set of **Claude Code Skills + Subagents**. Each former MCP tool is now an individual skill the agent invokes through `Bash`, with no JSON-RPC server in the loop. The legacy FastMCP server has been removed; if you need it, restore it from git history.
 
 ---
 
@@ -17,12 +15,10 @@ LASSI-TOOLS/
 │   └── skills/                 # One skill per former MCP tool (lassi-*)
 ├── agents/                     # Python agent implementations (used by graph/)
 ├── cli/                        # Standalone CLI scripts each skill shells out to
+├── compat_tool/                # Standalone Torch-MLIR → TOSA compatibility CLI + wiki
 ├── graph/                      # Pydantic-graph workflow that orchestrates agents
 ├── lassi/                      # Core libraries (profiling, verification, integrations)
-├── mcp/                        # Legacy MCP server (LASSI_mcp.py, Dockerfiles, configure)
-├── setup/                      # Non-Claude client setup (Roo Code modes)
 ├── soda-tools/                 # SODA MLIR/HLS toolchain wrappers
-├── resources/                  # Compatibility wiki and prompt data
 ├── examples/                   # End-to-end examples
 └── requirements/               # Pinned Python requirements
 ```
@@ -248,23 +244,3 @@ The current test config benchmarks the result but defines no golden-output
 cases, so add representative golden cases before using it as a correctness
 gate.
 
----
-
-## Legacy MCP Server
-
-If you need the original FastMCP server (e.g. for Roo Code, Codex, or non-Claude clients), see [`mcp/README.md`](mcp/README.md). The Docker and conda launch paths are the same as before; only the file locations changed.
-
----
-
-## Other Clients (Roo Code)
-
-`setup/roo/` ships the Roo Code custom modes and per-mode rule folders that mirror the Claude subagents above. Install them with:
-
-```bash
-ROO_SETTINGS="$HOME/.vscode-server/data/User/globalStorage/rooveterinaryinc.roo-cline/settings"
-mkdir -p "$ROO_SETTINGS" "$HOME/.roo"
-cp setup/roo/custom_modes.yaml "$ROO_SETTINGS/custom_modes.yaml"
-cp -R setup/roo/rules-* "$HOME/.roo/"
-```
-
-If you already keep custom modes, merge `custom_modes.yaml` instead of overwriting it. Roo Code still talks to the legacy MCP server — configure it from `mcp/` (see that folder's README).

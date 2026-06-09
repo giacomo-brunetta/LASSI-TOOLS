@@ -2,10 +2,10 @@
 
 ## Purpose
 Use the helper modules under `lassi/` to avoid rewriting common translation,
-verification, artifact-checking, and reporting logic. The MCP tools
-registered in `LASSI_mcp.py` are the authoritative runtime surface; the
-modules below are for in-repo Python scripts (especially generated
-harnesses).
+verification, artifact-checking, and reporting logic. The `cli/lassi-*`
+scripts (driven by the Claude Code skills) and the Pydantic-graph flow in
+`graph/graph_flow.py` are the authoritative runtime surface; the modules
+below are for in-repo Python scripts (especially generated harnesses).
 
 ## Modules
 
@@ -65,8 +65,8 @@ Common functions:
 
 ### `lassi.verification.csv_tools`
 Numeric CSV summarization, exact/tolerant comparison, and element-wise
-mismatch reporting. Backs the `summarize_csv`, `compare_csv_outputs`, and
-`diff_csv_outputs` MCP tools.
+mismatch reporting. Backs the `lassi-summarize-csv`,
+`lassi-compare-csv-outputs`, and `lassi-diff-csv-outputs` CLIs.
 
 ### `lassi.integrations.torch_utils`
 Shared PyTorch helpers for model export, torch-mlir lowering, and
@@ -78,20 +78,6 @@ Common functions:
 - `build_trace_input`
 - `load_module_from_file`
 
-### `lassi.core.command`
-Shared subprocess runners used by MCP tool implementations. Use
-`run_command` for argv-style commands and `run_shell_command` only when a
-shell command string is required. Set `merge_env=False` only when the caller
-intentionally wants to preserve non-merging environment semantics.
-
-### `lassi.core.responses`
-Shared JSON response formatting for MCP tools with module-specific verdict
-sets.
-
-### `lassi.core.mcp_helpers`
-Shared low-level helpers used by both performance and verification tool
-implementations: `now_task_id`, `short`, `write_json`.
-
 ## Required Reuse Policy
 - Before writing translation/export/verification boilerplate, inspect these
   helper modules.
@@ -101,12 +87,12 @@ implementations: `now_task_id`, `short`, `write_json`.
   in the appropriate `lassi/<subpackage>/` module instead of embedding
   one-off logic in generated scripts.
 
-## MCP Tools vs Helpers
-- Use MCP tools for authoritative runtime actions and Docker-backed
-  toolchain access:
-  - `get_toolchain_info`
-  - `export_model_to_pt`
-  - `compile_torch_to_mlir`
+## CLIs vs Helpers
+- Use the `cli/lassi-*` scripts (via the matching skills) for authoritative
+  runtime actions and toolchain access:
+  - `lassi-get-toolchain-info`
+  - `lassi-export-model-to-pt`
+  - `lassi-compile-torch-to-mlir`
 - Use Python helpers for reusable in-repo script logic:
   - verification checks
   - parsing

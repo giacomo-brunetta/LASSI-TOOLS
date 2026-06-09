@@ -87,7 +87,7 @@ def split_list(value: str | None) -> list[str] | None:
 
 
 # ---------------------------------------------------------------------------
-# Markdown rendering (shared with the MCP server via lassi.utils.md_render)
+# Markdown rendering (lassi.utils.md_render)
 # ---------------------------------------------------------------------------
 
 

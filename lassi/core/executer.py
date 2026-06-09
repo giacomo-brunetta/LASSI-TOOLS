@@ -95,12 +95,10 @@ class ExecTool:
         else:
             args = self.args
 
-        # FIX 1: Wrap map() in list(). 
-        # Without this, 'cmd' is an iterator that gets exhausted by the print statement below.
         cmd = list(map(str, [str(self.executable.resolve()), *shlex.split(args)]))
 
-        # FIX 2: Redirect logs to stderr. 
-        # Regular print() writes to stdout, which corrupts the MCP JSON-RPC protocol.
+        # Log to stderr so callers that pipe stdout (binary-stdout harnesses,
+        # CLI JSON output) aren't corrupted by progress messages.
         print(f"Running with command: {' '.join(cmd)}", file=sys.stderr)
 
         # Use provided profiler if available, otherwise fallback to default

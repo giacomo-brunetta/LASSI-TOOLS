@@ -1,14 +1,11 @@
-"""Profiling primitives and performance MCP tool implementations.
+"""Profiling primitives used by the ``lassi-*`` CLIs.
 
 Modules:
 
-- :mod:`lassi.profiling.profiler` — ``Profiler``/``MultiProfiler``, timers,
-  CPU/GPU/ARM/NVIDIA power probes used by ``execute_with_latency`` and
-  ``execute_with_profile``.
-- :mod:`lassi.profiling.gprof` — gprof orchestrator backing ``gprof_profiling``.
-- :mod:`lassi.profiling.performance_tools` — implementations for
-  ``run_benchmark``, ``collect_perf_stats``, ``profile_hotspots``,
-  ``compare_performance``, ``collect_hardware_model``,
-  ``estimate_workload_model``, ``run_roofline_analysis``, and
-  ``compare_roofline``.
+- :mod:`lassi.profiling.profiler` — ``Profiler`` / ``MultiProfiler``, timers,
+  and CPU/GPU/ARM/NVIDIA power probes. Backs ``lassi-execute-with-latency``,
+  ``lassi-execute-with-profile``, ``lassi-run-benchmark``,
+  ``lassi-collect-perf-stats``, ``lassi-profile-hotspots``,
+  ``lassi-compare-performance``, ``lassi-estimate-workload-model``,
+  ``lassi-run-roofline-analysis``, and ``lassi-compare-roofline``.
 """

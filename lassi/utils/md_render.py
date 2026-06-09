@@ -1,10 +1,9 @@
 """Render LASSI tool outputs (dict / list / JSON string / plain text) as Markdown.
 
-Used by both the CLI wrappers (`cli/lassi-*`) and the MCP server
-(`LASSI_mcp.py`) so the same output shape reaches the LLM through any
-interface. The on-disk JSON artifact files that downstream LASSI tools
-consume are NOT touched by this module — only the human/LLM-facing
-representation is rewritten.
+Used by the CLI wrappers (`cli/lassi-*`) so the LLM-facing output shape
+stays consistent across tools. The on-disk JSON artifact files that
+downstream LASSI tools consume are NOT touched by this module — only the
+human/LLM-facing representation is rewritten.
 """
 
 from __future__ import annotations
@@ -118,8 +117,8 @@ def to_md(data: Any, *, title: str | None = None) -> str:
 
 def render_for_output(result: Any, *, title: str | None = None) -> str:
     """Take an impl result (dict, list, JSON string, plain text, or None) and
-    produce a Markdown string suitable for printing to stdout or returning
-    from an MCP tool.
+    produce a Markdown string suitable for printing to stdout from a
+    ``cli/lassi-*`` script.
 
     - None → empty string.
     - dict / list → `to_md(result, title=title)`.

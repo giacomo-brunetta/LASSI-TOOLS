@@ -1,8 +1,9 @@
 """Verification tooling: sanitizer builds, assertion suites, equivalence and fuzz testing, and CSV diffing.
 
-Backs the MCP tools ``build_sanitized``, ``synthesize_common_harness``,
-``generate_assertion_suite``, ``run_assertion_suite``,
-``run_random_equivalence_tests``, ``run_robustness_fuzzer``,
-``run_differential_fuzzer``, ``synthesize_verification_report``,
-``summarize_csv``, ``compare_csv_outputs``, and ``diff_csv_outputs``.
+Backs the ``lassi-build-sanitized``, ``lassi-synthesize-common-harness``,
+``lassi-generate-assertion-suite``, ``lassi-run-assertion-suite``,
+``lassi-run-random-equivalence-tests``, ``lassi-run-robustness-fuzzer``,
+``lassi-run-differential-fuzzer``, ``lassi-synthesize-verification-report``,
+``lassi-summarize-csv``, ``lassi-compare-csv-outputs``, and
+``lassi-diff-csv-outputs`` CLIs / skills.
 """
