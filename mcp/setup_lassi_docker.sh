@@ -10,7 +10,7 @@ CLIENT="${CLIENT:-claude}"
 SERVER_NAME="${SERVER_NAME:-lassi}"
 
 CONTAINER_WORKDIR="/opt/lassi"
-CONTAINER_SERVER_PATH="/opt/lassi/LASSI_mcp.py"
+CONTAINER_SERVER_PATH="/opt/lassi/mcp/LASSI_mcp.py"
 CONTAINER_PYTHON="/opt/lassi/.venv/bin/python"
 
 cd "${REPO_ROOT}"
@@ -25,11 +25,11 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building Docker image ${IMAGE_NAME} from setup/Dockerfile.lassi"
-docker build -f setup/Dockerfile.lassi -t "${IMAGE_NAME}" .
+echo "Building Docker image ${IMAGE_NAME} from mcp/Dockerfile.lassi"
+docker build -f mcp/Dockerfile.lassi -t "${IMAGE_NAME}" .
 
 echo "Writing ${CLIENT} MCP configuration (server name: ${SERVER_NAME})"
-"${PYTHON_BIN}" setup/configure_MCP.py \
+"${PYTHON_BIN}" mcp/configure_MCP.py \
   --client "${CLIENT}" \
   --mode docker \
   --image-name "${IMAGE_NAME}" \

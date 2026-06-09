@@ -4,7 +4,7 @@
     "optimized": "optimized.c"
   },
   "compiler": "clang",
-  "scope": ["test.c", "optimized.c", ".verify"],
+  "scope": ["test.c", "optimized.c", ".verify", "LASSI"],
   "flags": {
     "correctness": "-O0 -lm",
     "performance": "-O3 -lm"

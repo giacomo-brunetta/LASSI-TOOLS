@@ -3,7 +3,7 @@
 # start_mcp.sh — ensure the LASSI MCP server is ready to launch.
 #
 # Claude Code (and other clients) spawn the MCP server on demand via
-#   docker run -i ... lassi-soda-mcp:latest python3 .../LASSI_mcp.py
+#   docker run -i ... lassi-soda-mcp:latest python3 .../mcp/LASSI_mcp.py
 # This script makes that command succeed by:
 #   1. Starting Docker Desktop if the daemon is not reachable.
 #   2. Building the lassi-soda-mcp image if it is missing (or when --rebuild).
@@ -19,6 +19,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-lassi-soda-mcp:latest}"
 DOCKER_WAIT_SECONDS="${DOCKER_WAIT_SECONDS:-60}"
 
@@ -97,7 +98,7 @@ if [ "$REBUILD" -eq 1 ] || ! image_exists; then
   else
     log "Image ${IMAGE_NAME} not found; building."
   fi
-  (cd "$SCRIPT_DIR" && docker build -f setup/Dockerfile.mcp -t "$IMAGE_NAME" .)
+  (cd "$REPO_ROOT" && docker build -f mcp/Dockerfile.mcp -t "$IMAGE_NAME" .)
 else
   log "Image ${IMAGE_NAME} already present."
 fi

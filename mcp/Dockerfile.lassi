@@ -60,4 +60,4 @@ COPY . /opt/lassi
 
 # Stdio MCP server: the client (Claude / Codex / Roo) spawns this container
 # with `docker run -i ...` and pipes JSON-RPC over stdin/stdout.
-CMD ["/opt/lassi/.venv/bin/python", "/opt/lassi/LASSI_mcp.py"]
+CMD ["/opt/lassi/.venv/bin/python", "/opt/lassi/mcp/LASSI_mcp.py"]

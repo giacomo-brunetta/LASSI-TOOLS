@@ -1,97 +1,49 @@
+"""Agent ABC and the cross-agent permission router.
+
+SDK communication and logging live in `agents.utils`; per-agent classes live
+in their own modules (`agents.analyst`, `agents.planner`, ...). Anything that
+multiple agent classes need to share goes here (or in `utils`).
+"""
+
 from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any, Mapping
 
 from claude_agent_sdk import (
     AgentDefinition,
-    AssistantMessage,
     ClaudeSDKClient,
     PermissionResultAllow,
     PermissionResultDeny,
-    ResultMessage,
-    SystemMessage,
-    TextBlock,
-    ToolUseBlock,
 )
+
+from .utils import claude_send
 
 logger = logging.getLogger(__name__)
 
 PATH_TOOLS = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit"}
-PathPermissionFn = Callable[[str, dict, Any], Awaitable[Any]]
 
 
-def _log_tool_use(block: ToolUseBlock) -> None:
-    raw = block.input if isinstance(block.input, dict) else {}
-    if block.name == "Task":
-        sub = raw.get("subagent_type") or "<unspecified>"
-        desc = raw.get("description") or raw.get("prompt", "")
-        if isinstance(desc, str) and len(desc) > 120:
-            desc = desc[:117] + "..."
-        logger.info("claude dispatched agent '%s' (task: %s)", sub, desc)
-    elif block.name == "Skill":
-        skill = raw.get("skill") or raw.get("name") or "<unknown>"
-        args = raw.get("args") or raw.get("arguments") or ""
-        logger.info("claude invoked skill '%s' args=%r", skill, args)
-    else:
-        logger.debug("claude tool use: %s input=%s", block.name, raw)
+def render_paths(items: Mapping[str, Path | str]) -> str:
+    """Render a key→value mapping as `key: value` lines, one per entry.
 
-
-def _log_system_message(message: SystemMessage) -> None:
-    subtype = getattr(message, "subtype", None) or "system"
-    data = getattr(message, "data", {}) or {}
-    if subtype == "init":
-        logger.info(
-            "claude session init: model=%s tools=%s agents=%s skills=%s",
-            data.get("model"),
-            data.get("tools") or data.get("available_tools"),
-            data.get("agents"),
-            data.get("skills"),
-        )
-    elif subtype in {"skill", "skill_loaded", "skill_activated"}:
-        logger.info("claude loaded skill: %s", data.get("name") or data)
-    elif subtype in {"agent", "subagent_started"}:
-        logger.info("claude started subagent: %s", data.get("name") or data)
-    else:
-        logger.debug("claude system event %s: %s", subtype, data)
-
-
-async def claude_send(client: ClaudeSDKClient, prompt: str) -> str:
-    """Send `prompt` on an already-connected ClaudeSDKClient and return the final text."""
-    await client.query(prompt)
-    final_text = ""
-    async for message in client.receive_response():
-        if isinstance(message, SystemMessage):
-            _log_system_message(message)
-        elif isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, ToolUseBlock):
-                    _log_tool_use(block)
-                elif isinstance(block, TextBlock) and block.text:
-                    final_text = block.text
-        elif isinstance(message, ResultMessage):
-            if message.result:
-                final_text = message.result
-            logger.info(
-                "claude turn finished: stop_reason=%s duration_ms=%s cost=%s",
-                getattr(message, "stop_reason", None),
-                getattr(message, "duration_ms", None),
-                getattr(message, "total_cost_usd", None),
-            )
-    return final_text
+    Used by individual agents to format the path/parameter section of their
+    task prompts (`input file: ...`, `output file: ...`, etc.) consistently.
+    """
+    return "\n".join(f"{key}: {value}" for key, value in items.items())
 
 
 class Agent(ABC):
     """Abstract Claude Agent SDK subagent.
 
-    Subclasses set the class-level metadata (`name`, `description`,
+    Subclasses set class-level metadata (`name`, `description`,
     `system_prompt`, `tools`, `model`, `allowed_skills`) and implement
-    `build_task_prompt` to render the Task-tool body for their specific use
-    case. `allowed_skills` is auto-injected into both the agent's tool list
-    (adds the `Skill` tool when non-empty) and the rendered system prompt,
-    and is enforced at session level by `build_permission_router`.
+    `build_task_prompt` to render the Task-tool body for their use case.
+    `allowed_skills` is auto-injected into both the agent's tool list (adds
+    the `Skill` tool when non-empty) and the rendered system prompt, and is
+    enforced session-wide by `build_permission_router`.
     """
 
     name: str = ""
@@ -111,8 +63,8 @@ class Agent(ABC):
         bullets = "\n- ".join(self.allowed_skills)
         return (
             self.system_prompt
-            + "\n\nYou may invoke ONLY these skills via the Skill tool (any other "
-            "skill name will be denied):\n- "
+            + "\n\nYou may invoke ONLY these skills via the Skill tool (any "
+            "other skill name will be denied):\n- "
             + bullets
         )
 
@@ -154,11 +106,11 @@ def build_permission_router(
 ):
     """Return a `can_use_tool` callback enforcing path scope + per-agent skills.
 
-    `allowed_paths` is a list of absolute path prefixes that bound every
-    Read/Write/Edit-class tool call (applies session-wide). `None` disables
-    the path check. `agents` keys by agent name; each agent's `allowed_skills`
-    list bounds which skills that subagent may invoke. The main session
-    (no subagent) may call any skill in the union of all agent allowlists.
+    `allowed_paths`: absolute path prefixes that bound every Read/Write/Edit
+    tool call (`None` disables the path check). Applies session-wide.
+    `agents`: keyed by agent name. Each agent's `allowed_skills` bounds which
+    skills it may invoke. The main session may call any skill in the union of
+    all agent allowlists. Every denial logs a WARNING.
     """
 
     union_skills: set[str] = set()

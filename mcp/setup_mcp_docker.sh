@@ -20,11 +20,11 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building Docker image ${IMAGE_NAME} from Dockerfile.mcp"
-docker build -f setup/Dockerfile.mcp -t "${IMAGE_NAME}" .
+echo "Building Docker image ${IMAGE_NAME} from mcp/Dockerfile.mcp"
+docker build -f mcp/Dockerfile.mcp -t "${IMAGE_NAME}" .
 
 echo "Writing ${CLIENT} MCP configuration"
-"${PYTHON_BIN}" setup/configure_MCP.py --client "${CLIENT}" --mode docker --image-name "${IMAGE_NAME}"
+"${PYTHON_BIN}" mcp/configure_MCP.py --client "${CLIENT}" --mode docker --image-name "${IMAGE_NAME}"
 
 echo "Done."
 echo "Image: ${IMAGE_NAME}"

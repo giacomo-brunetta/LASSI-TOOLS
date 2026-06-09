@@ -6,12 +6,12 @@ import sys
 from typing import List, Optional
 
 
-setup_dir = pathlib.Path(__file__).resolve().parent
-repo_root = setup_dir.parent
+mcp_dir = pathlib.Path(__file__).resolve().parent
+repo_root = mcp_dir.parent
 home = pathlib.Path.home()
 default_image_name = "lassi-soda-mcp:latest"
 
-mcp_server_path = repo_root / "LASSI_mcp.py"
+mcp_server_path = mcp_dir / "LASSI_mcp.py"
 default_roo_settings_path = (
     home
     / ".vscode-server"
