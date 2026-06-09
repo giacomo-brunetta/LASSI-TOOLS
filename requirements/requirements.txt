@@ -99,6 +99,8 @@ torchvision
 torchaudio
 cffi
 pybind11
+claude-agent-sdk==0.2.93
+pydantic-graph==1.106.0
 ruff
 mypy
 rich

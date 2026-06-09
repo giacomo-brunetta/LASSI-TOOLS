@@ -9,7 +9,7 @@ The project has since moved to **Claude Code Skills + CLI tools** (see the top-l
 - Anyone who needs JSON-RPC tool calls from a non-Claude client.
 - Reproducibility against older runs that referenced MCP tool names directly.
 
-> **Path note.** The server entrypoint used to live at the repo root. It now lives at `mcp/LASSI_mcp.py`. The Dockerfiles, `configure_MCP.py`, and the bootstrap shells all moved into this folder.
+> **Path note.** The server entrypoint used to live at the repo root. It now lives at `mcp/LASSI_mcp.py`. The MCP Dockerfile, `configure_MCP.py`, and its bootstrap shells live in this folder.
 
 ---
 
@@ -20,9 +20,7 @@ mcp/
 ├── LASSI_mcp.py            # FastMCP server — registers every tool
 ├── configure_MCP.py        # Writes the MCP entry into a client config
 ├── Dockerfile.mcp          # Slim image: derives from agostini01/soda:latest
-├── Dockerfile.lassi        # Self-contained image: ubuntu:24.04 + venv
 ├── setup_mcp_docker.sh     # Build Dockerfile.mcp + configure a client
-├── setup_lassi_docker.sh   # Build Dockerfile.lassi + configure a client
 ├── start_mcp.sh            # Boot Docker, ensure image, run stdio smoke test
 └── README.md
 ```
@@ -37,11 +35,12 @@ Run everything from the repo root unless noted.
 
 ### Option A — Docker (recommended)
 
-The Dockerfile bakes the perf / sanitizer / hyperfine / torch-mlir runtime so you don't pollute the host:
+The Dockerfile derives from the SODA image and keeps the MCP runtime out of the
+host environment:
 
 ```bash
-# Builds mcp/Dockerfile.lassi and writes the MCP entry for Claude Code.
-CLIENT=claude ./mcp/setup_lassi_docker.sh
+# Builds mcp/Dockerfile.mcp and writes the MCP entry for Claude Code.
+CLIENT=claude ./mcp/setup_mcp_docker.sh
 ```
 
 Switch clients with `CLIENT=roo` or `CLIENT=codex`. Override the image tag with `IMAGE_NAME=foo:tag` and the MCP entry name with `SERVER_NAME=lassi`.
@@ -56,12 +55,6 @@ docker run --rm -i -v $HOME:$HOME --workdir /opt/lassi \
 ```
 
 The `SYS_ADMIN` / `PERFMON` / `seccomp=unconfined` flags unlock `perf_event_open` on Linux hosts. On Docker-for-Mac the LinuxKit kernel still gates with `perf_event_paranoid` and the perf tools fall back to software-only events.
-
-If you'd rather derive from the SODA base image (`agostini01/soda:latest`) instead of a clean Ubuntu, use the alternate flow:
-
-```bash
-CLIENT=claude ./mcp/setup_mcp_docker.sh   # uses mcp/Dockerfile.mcp
-```
 
 ### Option B — Conda on the host
 

@@ -1,0 +1,4 @@
+claude-agent-sdk==0.2.93
+gcovr==8.6
+pydantic==2.12.5
+pydantic-graph==1.106.0

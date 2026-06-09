@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -11,17 +12,14 @@ from pathlib import Path
 from statistics import mean
 from typing import Literal
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from pydantic_graph import GraphBuilder, StepContext, TypeExpression
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agents import (
-    AnalystAgent,
     CoderAgent,
     ConfigBuilderAgent,
     PlannerAgent,
-    build_permission_router,
 )
 from lassi.core.compiler import Compiler, CompilerTool
 from lassi.core.executer import FunctionalValidator, WrongOutput, WrongRetCode
@@ -65,22 +63,17 @@ logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "graph_code_test.json"
-BUILD_ROOT = Path(".verify/refactoring")
-LASSI_DIR = Path("LASSI")
+BUILD_ROOT = Path(os.environ.get("LASSI_BUILD_ROOT", ".verify/refactoring"))
+LASSI_DIR = Path(os.environ.get("LASSI_ARTIFACT_DIR", "LASSI"))
 CONTEXT_FILE = "00_context.md"
-ANALYSIS_FILE = "01_analysis.md"
-PLAN_FILE = "02_plan.md"
-CHANGES_FILE = "03_changes.md"
+PLAN_FILE = "01_plan.md"
+CHANGES_FILE = "02_changes.md"
 CLAUDE_MODEL = "claude-opus-4-7"
 
-# Agent instances used by this flow. Swap CoderAgent() for CCodeOptimizerAgent()
-# or a future specialized variant by editing this one line.
-ANALYST_AGENT = AnalystAgent()
+# Agent instances used by this flow.
 PLANNER_AGENT = PlannerAgent()
 CODER_AGENT = CoderAgent()
 CONFIG_BUILDER_AGENT = ConfigBuilderAgent()
-AGENT_INSTANCES = (ANALYST_AGENT, PLANNER_AGENT, CODER_AGENT, CONFIG_BUILDER_AGENT)
-AGENT_REGISTRY = dict(a.registration() for a in AGENT_INSTANCES)
 
 Ok = Literal["ok"]
 Fail = Literal["fail"]
@@ -143,14 +136,14 @@ class PipelineStage:
     config: PipelineConfig | None = None
     original: SourceFile | None = None
     optimized: SourceFile | None = None
-    claude_client: ClaudeSDKClient | None = field(default=None, repr=False)
     llm_result: str | None = None
     instructions: list[Path] = field(default_factory=list)
     # Retry / feedback bookkeeping
     coder_iterations: int = 0
-    max_coder_iterations: int = 3
+    max_coder_iterations: int = 2
     planner_iterations: int = 0
-    max_planner_iterations: int = 2
+    max_planner_iterations: int = 1
+    candidate_seeded: bool = False
     code_feedback: str | None = None  # fed to coder on the next dispatch
     plan_feedback: str | None = None  # fed to planner on the next dispatch
     # Profile gate
@@ -193,40 +186,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-async def _ensure_claude_client(state: PipelineStage) -> ClaudeSDKClient:
-    """Lazy-create the multi-turn Claude session and store it on state."""
-    if state.claude_client is not None:
-        return state.claude_client
-    allowed_paths = state.config.resolved_scope(state.repo_path) if state.config else None
-    if allowed_paths is not None:
-        logger.info(
-            "permission scope: %s", [str(p) for p in allowed_paths]
-        )
-    # Limit which skills attach to the session to the union of every
-    # registered agent's `allowed_skills`. We deliberately keep the SDK's
-    # default `setting_sources` (user + project + local) so the bundled CLI's
-    # system prompt / instruction scaffolding stays in place — dropping it
-    # caused the model to return an empty `stop_sequence` response in 15ms.
-    skill_allowlist = sorted({s for a in AGENT_INSTANCES for s in a.allowed_skills})
-    options = ClaudeAgentOptions(
-        cwd=str(state.repo_path),
-        model=CLAUDE_MODEL,
-        permission_mode="acceptEdits",
-        allowed_tools=[
-            "Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep",
-            "Task", "Skill",
-        ],
-        agents=AGENT_REGISTRY,
-        skills=skill_allowlist,
-        can_use_tool=build_permission_router(
-            allowed_paths=allowed_paths,
-            agents={a.name: a for a in AGENT_INSTANCES},
-        ),
+def _session_kwargs(state: PipelineStage) -> dict:
+    """Common per-agent session kwargs (cwd, allowed_paths, model)."""
+    allowed_paths = (
+        state.config.resolved_scope(state.repo_path) if state.config else None
     )
-    client = ClaudeSDKClient(options=options)
-    await client.connect()
-    state.claude_client = client
-    return client
+    if allowed_paths is not None:
+        allowed_paths.append((state.repo_path / LASSI_DIR).resolve())
+    return {
+        "cwd": state.repo_path,
+        "allowed_paths": allowed_paths,
+        "model": CLAUDE_MODEL,
+    }
 
 
 def _benchmark(source: SourceFile, args: str, runs: int) -> list[float]:
@@ -235,6 +206,19 @@ def _benchmark(source: SourceFile, args: str, runs: int) -> list[float]:
         report = source.execute(args=args, profiler=Timer())
         latencies.append(report.latency)
     return latencies
+
+
+def _ensure_candidate_seeded(
+    original_path: Path,
+    optimized_path: Path,
+    *,
+    already_seeded: bool,
+) -> bool:
+    """Seed the candidate once, preserving it across retries and re-plans."""
+    optimized_path.parent.mkdir(parents=True, exist_ok=True)
+    if not already_seeded:
+        optimized_path.write_bytes(original_path.read_bytes())
+    return True
 
 
 def _gcovr_summary(root: Path) -> str | None:
@@ -307,9 +291,8 @@ async def main(argv: list[str] | None = None) -> None:
         repo = ctx.state.repo_path
         logger.info("asking config-builder to generate %s for repo %s", cfg_path, repo)
         try:
-            client = await _ensure_claude_client(ctx.state)
             ctx.state.llm_result = await CONFIG_BUILDER_AGENT.dispatch_agent(
-                client,
+                **_session_kwargs(ctx.state),
                 repo_path=repo,
                 output_path=cfg_path,
             )
@@ -401,8 +384,8 @@ async def main(argv: list[str] | None = None) -> None:
             )
             context_path.write_text(
                 "# Pipeline Context\n\n"
-                "This file is the seed instruction for the analyst-planner-coder chain.\n"
-                "Every agent consumes the prior artifact and writes the next one.\n\n"
+                "This file is the seed instruction for the planner-coder chain.\n"
+                "The planner inspects the source and produces one actionable plan.\n\n"
                 "## Repository\n"
                 f"- root: {ctx.state.repo_path}\n"
                 f"- config: {ctx.state.config_path}\n\n"
@@ -430,35 +413,11 @@ async def main(argv: list[str] | None = None) -> None:
             return "fail"
 
     @g.step
-    async def analyze(ctx: StepContext[PipelineStage, None, object]) -> Ok | Fail:
-        if not ctx.state.instructions:
-            ctx.state.error = "analyze step has no prior instruction in the chain"
-            return "fail"
-        input_path = ctx.state.instructions[-1]
-        output_path = ctx.state.repo_path / LASSI_DIR / ANALYSIS_FILE
-        logger.info("dispatching analyst: %s -> %s", input_path, output_path)
-        try:
-            client = await _ensure_claude_client(ctx.state)
-            ctx.state.llm_result = await ANALYST_AGENT.dispatch_agent(
-                client, input_path=input_path, output_path=output_path,
-            )
-            if not output_path.exists() or output_path.stat().st_size == 0:
-                raise FileNotFoundError(f"analyst did not write {output_path}")
-            ctx.state.instructions.append(output_path)
-            return "ok"
-        except Exception as exc:
-            ctx.state.error = f"analysis step failed: {exc}"
-            return "fail"
-
-    @g.step
     async def plan_refactor(ctx: StepContext[PipelineStage, None, object]) -> Ok | Fail:
         if not ctx.state.instructions:
             ctx.state.error = "plan step has no prior instruction in the chain"
             return "fail"
-        # The analyst's output is always the planner's input — even on a re-plan,
-        # we read from the analysis artifact, not the previous plan.
-        analysis_path = ctx.state.repo_path / LASSI_DIR / ANALYSIS_FILE
-        input_path = analysis_path if analysis_path.exists() else ctx.state.instructions[-1]
+        input_path = ctx.state.repo_path / LASSI_DIR / CONTEXT_FILE
         output_path = ctx.state.repo_path / LASSI_DIR / PLAN_FILE
         notes = ctx.state.plan_feedback or ""
         if notes:
@@ -470,9 +429,8 @@ async def main(argv: list[str] | None = None) -> None:
             )
         logger.info("dispatching planner: %s -> %s", input_path, output_path)
         try:
-            client = await _ensure_claude_client(ctx.state)
             ctx.state.llm_result = await PLANNER_AGENT.dispatch_agent(
-                client,
+                **_session_kwargs(ctx.state),
                 input_path=input_path,
                 output_path=output_path,
                 notes=notes,
@@ -480,7 +438,8 @@ async def main(argv: list[str] | None = None) -> None:
             if not output_path.exists() or output_path.stat().st_size == 0:
                 raise FileNotFoundError(f"planner did not write {output_path}")
             ctx.state.instructions.append(output_path)
-            # Fresh plan: coder gets a fresh retry budget and a clean slate.
+            # A fresh plan gets a fresh retry budget but keeps the candidate so
+            # the planner and coder can build on useful work from prior rounds.
             ctx.state.plan_feedback = None
             ctx.state.code_feedback = None
             ctx.state.coder_iterations = 0
@@ -510,17 +469,19 @@ async def main(argv: list[str] | None = None) -> None:
                 notes,
             )
         logger.info(
-            "seeding %s from %s and dispatching coder: %s -> %s",
-            optimized_full, original_full, input_path, output_path,
+            "dispatching coder against candidate %s: %s -> %s",
+            optimized_full, input_path, output_path,
         )
         try:
-            optimized_full.parent.mkdir(parents=True, exist_ok=True)
-            optimized_full.write_text(original_full.read_text())
-            seed_mtime = optimized_full.stat().st_mtime
+            ctx.state.candidate_seeded = _ensure_candidate_seeded(
+                original_full,
+                optimized_full,
+                already_seeded=ctx.state.candidate_seeded,
+            )
+            candidate_before = optimized_full.read_bytes()
 
-            client = await _ensure_claude_client(ctx.state)
             ctx.state.llm_result = await CODER_AGENT.dispatch_agent(
-                client,
+                **_session_kwargs(ctx.state),
                 input_path=input_path,
                 output_path=output_path,
                 target_file=cfg.optimized_path,
@@ -532,9 +493,9 @@ async def main(argv: list[str] | None = None) -> None:
                 raise FileNotFoundError(f"coder did not write {output_path}")
             if not optimized_full.exists():
                 raise FileNotFoundError(f"coder removed {optimized_full}")
-            if optimized_full.stat().st_mtime <= seed_mtime:
-                # Coder left the target unchanged from the seed → treat as
-                # "give up": the coder thinks the plan is unactionable.
+            if optimized_full.read_bytes() == candidate_before:
+                # An unchanged candidate means the coder found no actionable
+                # repair or implementation for the current plan.
                 ctx.state.plan_feedback = (
                     f"Coder did not modify {cfg.optimized_path}. The plan at "
                     f"{plan_path} appears unactionable to the coder.\n"
@@ -734,9 +695,6 @@ async def main(argv: list[str] | None = None) -> None:
 
     @g.step
     async def ready(ctx: StepContext[PipelineStage, None, object]) -> str:
-        if ctx.state.claude_client is not None:
-            await ctx.state.claude_client.disconnect()
-            ctx.state.claude_client = None
         assert ctx.state.config is not None
         cfg = ctx.state.config
         chain = "\n".join(f"    {i}. {p}" for i, p in enumerate(ctx.state.instructions))
@@ -768,9 +726,6 @@ async def main(argv: list[str] | None = None) -> None:
 
     @g.step
     async def failed(ctx: StepContext[PipelineStage, None, object]) -> str:
-        if ctx.state.claude_client is not None:
-            await ctx.state.claude_client.disconnect()
-            ctx.state.claude_client = None
         return f"Pipeline failed: {ctx.state.error}"
 
     # ----- decisions -----
@@ -834,8 +789,7 @@ async def main(argv: list[str] | None = None) -> None:
         g.edge_from(load_config).to(load_config_decision),
         g.edge_from(generate_config).to(generate_config_decision),
         g.edge_from(sanity_check_original).to(ok_or_fail_to(bootstrap_context)),
-        g.edge_from(bootstrap_context).to(ok_or_fail_to(analyze)),
-        g.edge_from(analyze).to(ok_or_fail_to(plan_refactor)),
+        g.edge_from(bootstrap_context).to(ok_or_fail_to(plan_refactor)),
         g.edge_from(plan_refactor).to(ok_or_fail_to(code_refactor)),
         g.edge_from(code_refactor).to(code_refactor_decision),
         g.edge_from(test_refactor).to(test_refactor_decision),

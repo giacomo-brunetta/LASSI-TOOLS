@@ -1,0 +1,21 @@
+{
+  "sources": {
+    "original": "/run/3mm-original.c",
+    "optimized": "linear-algebra/kernels/3mm/3mm.c"
+  },
+  "compiler": "clang",
+  "scope": [
+    ".",
+    "/run/3mm-original.c"
+  ],
+  "flags": {
+    "correctness": "-O0 -DMEDIUM_DATASET -DPOLYBENCH_TIME -I /workspace/utilities -I /workspace/linear-algebra/kernels/3mm /workspace/utilities/polybench.c -lm",
+    "performance": "-O3 -DMEDIUM_DATASET -DPOLYBENCH_TIME -I /workspace/utilities -I /workspace/linear-algebra/kernels/3mm /workspace/utilities/polybench.c -lm"
+  },
+  "arguments": {
+    "benchmark": "",
+    "benchmark_runs": 5,
+    "target_speedup": 0.0,
+    "golden": []
+  }
+}

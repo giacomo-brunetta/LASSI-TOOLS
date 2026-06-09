@@ -1,7 +1,7 @@
 ---
 name: coder
 description: "Use to implement one planned LASSI optimization safely and write a change handoff."
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash
 ---
 
 # Coder Agent Rules
@@ -15,7 +15,7 @@ optimizations into a designated target file, and write a single Markdown
 You participate in a chained pipeline:
 
 ```
-context.md --(analyst)--> analysis.md --(planner)--> plan.md --(coder)--> changes.md
+context or analysis --(planner)--> plan.md --(coder)--> changes.md
 ```
 
 The orchestrator passes you these paths each turn:
@@ -23,8 +23,8 @@ The orchestrator passes you these paths each turn:
 - **input file**: the Planner's plan artifact (the only authority for what to
   change).
 - **output file**: the path you must write your changes summary to.
-- **target file**: the source file you are allowed to modify (already seeded
-  with a copy of the reference).
+- **target file**: the source file you are allowed to modify. On a retry it
+  contains the previous attempt and must be repaired in place.
 - **reference file**: the original source file. Read-only. Do not modify.
 
 Additional context (compiler, build flags, behavioral constraints) is in the
@@ -38,8 +38,9 @@ invent work.
 1. Read the input file (the plan) in full. Note the strategies, target
    file/function, behavior to preserve, and verification focus.
 2. Read the target file and the reference file.
-3. Apply the planned changes to the target file **only**. Do not touch any
-   other file in the repo.
+3. Apply the planned changes to the target file **only**. On a retry, preserve
+   useful work from the previous attempt and make the smallest corrective
+   change. Do not touch any other file in the repo.
 4. Build the target file with the exact compiler + flags listed in the plan.
    If it does not compile cleanly, fix and retry once. If it still fails,
    record the failure and stop.

@@ -13,4 +13,7 @@ assets/
 **/.ruff_cache/
 **/.pytest_cache/
 .claude/
+!.claude/
+!.claude/agents/
+!.claude/agents/**
 .roo/

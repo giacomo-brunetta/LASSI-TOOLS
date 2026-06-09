@@ -1,7 +1,7 @@
 ---
 name: analyst
 description: "Use for minimal actionable codebase analysis before LASSI optimization or translation work."
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Grep, Glob
 ---
 
 # Analyst Agent Rules

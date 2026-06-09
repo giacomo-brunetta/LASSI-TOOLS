@@ -4,7 +4,7 @@ LASSI is an agentic workflow for **code performance optimization**, **C/C++ → 
 
 The tooling has migrated from a single FastMCP server to a set of **Claude Code Skills + Subagents**. Each former MCP tool is now an individual skill the agent can invoke through `Bash`, with no JSON-RPC server in the loop. The legacy MCP server is still shipped under [`mcp/`](mcp/README.md) for backward compatibility.
 
-> **Heads up:** the entry point used to be `LASSI_mcp.py` at the repo root. It now lives at `mcp/LASSI_mcp.py`. All Dockerfiles, configure scripts, and bootstrap shells were moved into `mcp/` too.
+> **Heads up:** the entry point used to be `LASSI_mcp.py` at the repo root. It now lives at `mcp/LASSI_mcp.py`. The legacy MCP Dockerfile, configure scripts, and bootstrap shells live under `mcp/`.
 
 ---
 
@@ -189,6 +189,64 @@ Workflow artifacts always land in `<project>/LASSI/`. Prefer file handoffs over 
 ## Programmatic Orchestration (Pydantic-graph)
 
 `graph/graph_flow.py` runs the same agents headlessly via the Claude Agent SDK + `pydantic_graph`, with a built-in benchmarking and verification loop. See `graph/example.py` and `graph/graph_code_test.json` for the input shape. This is the path to take when you want repeatable batch runs rather than interactive Claude Code sessions.
+
+To run the graph with Bash isolated inside Docker, use:
+
+```bash
+graph/run_graph_docker.sh --rebuild /path/to/project graph_code_test.json
+```
+
+The launcher builds `graph/Dockerfile`, mounts only the selected project
+read-write at `/workspace`, and runs with a read-only container filesystem,
+dropped capabilities, and ephemeral Claude state. By default it mounts
+`~/.claude/settings.json` read-only for authentication; use `--no-settings`
+when authenticating entirely through provider environment variables. Audit the
+exact Docker command without executing it using `--dry-run`.
+
+### Reproduce the isolated PolyBench 3mm run
+
+This example makes the full PolyBench tree readable while allowing the graph
+to edit only `linear-algebra/kernels/3mm/3mm.c`. It uses
+`graph/polybench_3mm_test.json`, mounts an immutable copy of the original
+source as the reference, and keeps graph reports and compiled binaries
+ephemeral inside the container.
+
+Prerequisites: Docker is running, Claude authentication is available through
+`~/.claude/settings.json`, and PolyBenchC 4.2.1 is located at
+`~/Projects/PolyBenchC-4.2.1`.
+
+```bash
+POLYBENCH="$HOME/Projects/PolyBenchC-4.2.1"
+TARGET="linear-algebra/kernels/3mm/3mm.c"
+
+cp "$POLYBENCH/$TARGET" /tmp/3mm-original.c
+find "$POLYBENCH" -type f -print0 |
+  sort -z |
+  xargs -0 shasum -a 256 > /tmp/polybench-before.sha256
+
+graph/run_graph_docker.sh --rebuild \
+  --read-only-project \
+  --writable-file "$TARGET" \
+  --external-config graph/polybench_3mm_test.json \
+  --read-only-mount /tmp/3mm-original.c:/run/3mm-original.c \
+  "$POLYBENCH"
+```
+
+Verify that the only changed file is `3mm.c`:
+
+```bash
+find "$POLYBENCH" -type f -print0 |
+  sort -z |
+  xargs -0 shasum -a 256 > /tmp/polybench-after.sha256
+
+diff -u /tmp/polybench-before.sha256 /tmp/polybench-after.sha256
+diff -u /tmp/3mm-original.c "$POLYBENCH/$TARGET"
+```
+
+The hash diff should contain exactly one changed path: `$POLYBENCH/$TARGET`.
+The current test config benchmarks the result but defines no golden-output
+cases, so add representative golden cases before using it as a correctness
+gate.
 
 ---
 

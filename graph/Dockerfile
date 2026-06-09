@@ -1,11 +1,13 @@
 FROM ubuntu:24.04
 
+ARG REQUIREMENTS_FILE=requirements/requirements_graph.txt
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# System tooling required by the LASSI MCP server:
+# System tooling required by the graph optimization pipeline:
 # - build-essential / clang / llvm / lld / libc++ / libclang-rt for sanitizer
 #   and libFuzzer builds invoked by the verification tools
 # - cmake / ninja / make / pkg-config for native project builds
@@ -50,14 +52,13 @@ RUN apt-get update && \
 RUN python3 -m venv /opt/lassi/.venv
 ENV PATH="/opt/lassi/.venv/bin:${PATH}"
 
-COPY requirements/requirements.txt /tmp/requirements.txt
+COPY ${REQUIREMENTS_FILE} /tmp/requirements.txt
 RUN /opt/lassi/.venv/bin/pip install --upgrade pip && \
     /opt/lassi/.venv/bin/pip install -r /tmp/requirements.txt
 
 # Bake the LASSI source last so dependency layers cache across edits.
+RUN mkdir -p /lassi-build
+
 WORKDIR /opt/lassi
 COPY . /opt/lassi
-
-# Stdio MCP server: the client (Claude / Codex / Roo) spawns this container
-# with `docker run -i ...` and pipes JSON-RPC over stdin/stdout.
-CMD ["/opt/lassi/.venv/bin/python", "/opt/lassi/mcp/LASSI_mcp.py"]
+RUN chmod +x /opt/lassi/graph/docker_entrypoint.sh

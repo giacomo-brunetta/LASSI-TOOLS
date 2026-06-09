@@ -9,22 +9,6 @@ class CCodeOptimizerAgent(Agent):
     """Subagent that edits one C source file to lower its runtime latency."""
 
     name = "c-optimizer"
-    description = (
-        "Optimize a single C source file for lower runtime latency without changing "
-        "its observable behavior."
-    )
-    system_prompt = (
-        "You are a C performance specialist. You will be given the path of a single C "
-        "file to optimize and the path of a reference file you must NOT touch.\n\n"
-        "Rules:\n"
-        "- Edit only the file the user names; never touch any other file.\n"
-        "- Preserve the command-line interface and exact stdout for every valid input.\n"
-        "- Keep the implementation in portable C accepted by the project's compiler.\n"
-        "- Do not alter graph structure or golden outputs.\n"
-        "- Run a compile check (e.g. `clang -O3 <file> -o /tmp/check`) before finishing.\n"
-        "- Reply with a one-paragraph summary of the optimization you applied."
-    )
-    tools = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
     model = "inherit"
     allowed_skills = [
         "lassi-execute-with-latency",
