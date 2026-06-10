@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeSDKClient,
-    ResultMessage,
-    SystemMessage,
-    TextBlock,
-    ToolUseBlock,
-)
+if TYPE_CHECKING:
+    from claude_agent_sdk import ClaudeSDKClient, ToolUseBlock, SystemMessage
 # ///////////////////////////////////////////////////////////////////////////////
 #                              LOGGING UTILS
 # ///////////////////////////////////////////////////////////////////////////////
@@ -19,7 +14,7 @@ from claude_agent_sdk import (
 logger = logging.getLogger(__name__)
 
 
-def _log_tool_use(block: ToolUseBlock) -> None:
+def _log_tool_use(block: "ToolUseBlock") -> None:
     raw = block.input if isinstance(block.input, dict) else {}
 
     # Log Task
@@ -41,7 +36,7 @@ def _log_tool_use(block: ToolUseBlock) -> None:
         logger.debug("claude tool use: %s input=%s", block.name, raw)
 
 
-def _log_system_message(message: SystemMessage) -> None:
+def _log_system_message(message: "SystemMessage") -> None:
     subtype = getattr(message, "subtype", None) or "system"
     data = getattr(message, "data", {}) or {}
 
@@ -71,8 +66,16 @@ def _log_system_message(message: SystemMessage) -> None:
 #                              Agent Invocation Helper
 # ///////////////////////////////////////////////////////////////////////////////
 
-async def claude_send(client: ClaudeSDKClient, prompt: str) -> str:
+async def claude_send(client: "ClaudeSDKClient", prompt: str) -> str:
     """Send `prompt` on a connected ClaudeSDKClient; return the final text."""
+    from claude_agent_sdk import (
+        AssistantMessage,
+        ResultMessage,
+        SystemMessage,
+        TextBlock,
+        ToolUseBlock,
+    )
+
     await client.query(prompt)
     final_text = ""
     async for message in client.receive_response():

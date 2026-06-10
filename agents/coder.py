@@ -15,20 +15,19 @@ class CoderAgent(Agent):
     def build_task_prompt(
         self,
         *,
-        input_path: Path,
-        output_path: Path,
+        plan_message: str,
         target_file: Path,
         reference_file: Path,
         notes: str = "",
     ) -> str:
         body = render_paths(
             {
-                "input file":     input_path,
-                "output file":    output_path,
                 "target file":    target_file,
                 "reference file": reference_file,
             }
         )
+        body += f"\n\nPlanner message:\n\n{plan_message.strip()}"
+        body += "\n\nReturn the complete Markdown changes report in your final reply."
         if notes:
             body += f"\n\nAdditional notes:\n{notes}"
         return body

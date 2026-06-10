@@ -8,9 +8,9 @@ from .base import Agent
 class PlannerAgent(Agent):
     """Optimization strategy picker. Two dispatch shapes:
 
-    - **LASSI .md pipeline** — `dispatch_agent(input_path=..., output_path=...)`
-      reads a pipeline context or prior analysis, inspects the source, and
-      writes a `plan.md` that the Coder consumes.
+    - **Message pipeline** — `dispatch_agent(context_message=...)` reads the
+      supplied context, inspects the source, and returns a Markdown plan that
+      the orchestrator passes directly to the Coder.
     - **Perf-driven re-plan** — `dispatch_agent(original_path=...,
       optimized_path=..., original_latency=..., optimized_latency=...,
       target_speedup=...)` reads both source files and proposes one different
@@ -21,13 +21,13 @@ class PlannerAgent(Agent):
     name = "planner"
     model = "inherit"
     allowed_skills: list[str] = []
+    access_mode = "read"
 
     def build_task_prompt(
         self,
         *,
-        # Mode 1: .md pipeline
-        input_path: Path | None = None,
-        output_path: Path | None = None,
+        # Mode 1: message pipeline
+        context_message: str | None = None,
         # Mode 2: perf re-plan
         original_path: Path | None = None,
         optimized_path: Path | None = None,
@@ -36,8 +36,12 @@ class PlannerAgent(Agent):
         target_speedup: float | None = None,
         notes: str = "",
     ) -> str:
-        if input_path is not None and output_path is not None:
-            body = f"input file:  {input_path}\noutput file: {output_path}"
+        if context_message is not None:
+            body = (
+                "Pipeline context message:\n\n"
+                f"{context_message.strip()}\n\n"
+                "Return the complete Markdown plan in your final reply."
+            )
         elif (
             original_path is not None
             and optimized_path is not None
@@ -62,7 +66,7 @@ class PlannerAgent(Agent):
         else:
             raise TypeError(
                 "PlannerAgent.build_task_prompt requires either "
-                "(input_path, output_path) for MODE 1 or "
+                "context_message for MODE 1 or "
                 "(original_path, optimized_path, original_latency, "
                 "optimized_latency, target_speedup) for MODE 2"
             )

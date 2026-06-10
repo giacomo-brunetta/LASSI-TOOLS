@@ -19,14 +19,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from claude_agent_sdk import (
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    PermissionResultAllow,
-    PermissionResultDeny,
-)
+from .dispatch import get_dispatch_backend
 
-from .utils import claude_send
+# claude_agent_sdk is only required for in-process dispatch (no backend
+# registered). When the graph runs on a host that has delegated dispatch to
+# Docker containers, the SDK lives inside the image, not on the host — so
+# we import lazily and only the bits we use.
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +112,10 @@ class Agent(ABC):
     name: str = ""
     model: str = "inherit"
     allowed_skills: list[str] = []
+    # "write" agents need a read-write project mount (they edit source files
+    # or LASSI artifacts under the project tree). "read" agents only inspect
+    # the project and can share a single read-only container with their peers.
+    access_mode: str = "write"
 
     def __init__(self, spec_dir: Path | None = None) -> None:
         if not self.name:
@@ -135,8 +137,10 @@ class Agent(ABC):
         allowed_paths: list[Path] | None = None,
         model: str | None = None,
         permission_mode: str = "acceptEdits",
-    ) -> ClaudeAgentOptions:
+    ):
         """Build the `ClaudeAgentOptions` that scope this agent's session."""
+        from claude_agent_sdk import ClaudeAgentOptions  # lazy: SDK only on the run side
+
         allowed_tools = list(self.tools)
         if self.allowed_skills and "Skill" not in allowed_tools:
             allowed_tools.append("Skill")
@@ -159,6 +163,21 @@ class Agent(ABC):
         permission_mode: str = "acceptEdits",
         **context: Any,
     ) -> str:
+        backend = get_dispatch_backend()
+        if backend is not None:
+            logger.info("dispatching agent '%s' via %s backend", self.name, backend.__name__)
+            return await backend(
+                self,
+                cwd=cwd,
+                allowed_paths=allowed_paths,
+                model=model,
+                permission_mode=permission_mode,
+                **context,
+            )
+        from claude_agent_sdk import ClaudeSDKClient  # lazy: SDK only on the run side
+
+        from .utils import claude_send
+
         body = self.build_task_prompt(**context)
         options = self.build_options(
             cwd=cwd,
@@ -166,7 +185,7 @@ class Agent(ABC):
             model=model,
             permission_mode=permission_mode,
         )
-        logger.info("dispatching agent '%s'", self.name)
+        logger.info("dispatching agent '%s' in-process", self.name)
         client = ClaudeSDKClient(options=options)
         await client.connect()
         try:
@@ -184,6 +203,11 @@ def build_permission_router(*, allowed_paths: list[Path] | None):
     router only handles the path-scope policy the SDK cannot express
     declaratively.
     """
+
+    from claude_agent_sdk import (  # lazy: SDK only on the run side
+        PermissionResultAllow,
+        PermissionResultDeny,
+    )
 
     def _path_in_scope(file_path: str) -> bool:
         if allowed_paths is None:

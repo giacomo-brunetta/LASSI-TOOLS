@@ -1,7 +1,7 @@
 ---
 name: config-builder
 description: "Use to generate or update a graph_code_test.json-style pipeline config (sources, compiler, scope, flags, arguments, golden outputs) from a kernel source."
-tools: Read, Write, Bash, Grep, Glob
+tools: Read, Bash, Grep, Glob
 ---
 
 # Config Builder Agent Rules
@@ -33,7 +33,6 @@ The JSON must match this exact shape (omit no keys):
 The orchestrator gives you:
 
 - **repo path**: the working directory containing the source(s).
-- **output file**: the JSON path you must write.
 - *(optional)* compiler hint, flag hints, benchmark hint, scope hint.
 
 ## Required Steps
@@ -54,15 +53,15 @@ The orchestrator gives you:
    `target_speedup` to 0.0 unless the user specified otherwise.
 6. Populate `scope` with: the source path, the optimized path, and any build /
    output directories the pipeline writes into (`.verify` by default).
-7. Write the JSON to the output file path. Validate it parses.
+7. Return the complete JSON config as your final reply. Validate it parses.
 
 ## Constraints
 
 - Do not invent stdout — every golden entry must come from an actual run.
 - Do not modify the source file.
-- Write only to the output file path given.
+- Do not write the config or modify repository files.
 
 ## Completion
 
-Final chat reply <= 5 bullets: output path, compiler + flags, benchmark args,
-number of golden cases, blocker if any.
+Your final reply must contain only the complete JSON config, with no Markdown
+fence, preamble, or completion summary.

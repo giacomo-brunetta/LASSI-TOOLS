@@ -11,7 +11,7 @@ class ConfigBuilderAgent(Agent):
     Discovers the source files, picks a compiler + flag pair, infers a
     benchmark argument shape from the program's CLI, generates a small set of
     golden (args, stdout) cases by actually running the reference binary,
-    and writes the final JSON to the path the orchestrator gives it.
+    and returns the final JSON to the orchestrator.
     """
 
     name = "config-builder"
@@ -22,7 +22,6 @@ class ConfigBuilderAgent(Agent):
         self,
         *,
         repo_path: Path,
-        output_path: Path,
         compiler_hint: str | None = None,
         correctness_flags_hint: str | None = None,
         performance_flags_hint: str | None = None,
@@ -31,8 +30,7 @@ class ConfigBuilderAgent(Agent):
         notes: str = "",
     ) -> str:
         items: dict[str, object] = {
-            "repo path":   repo_path,
-            "output file": output_path,
+            "repo path": repo_path,
         }
         if compiler_hint:
             items["compiler hint"] = compiler_hint
@@ -45,6 +43,7 @@ class ConfigBuilderAgent(Agent):
         if scope_hint:
             items["scope hint"] = ", ".join(str(p) for p in scope_hint)
         body = "\n".join(f"{k}: {v}" for k, v in items.items())
+        body += "\n\nReturn only the complete JSON config in your final reply."
         if notes:
             body += f"\n\nAdditional notes:\n{notes}"
         return body

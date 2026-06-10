@@ -1,16 +1,17 @@
 {
   "sources": {
-    "original": "/run/3mm-original.c",
-    "optimized": "linear-algebra/kernels/3mm/3mm.c"
+    "original": "linear-algebra/kernels/3mm/3mm.c",
+    "optimized": "linear-algebra/kernels/3mm/3mm_opt.c"
   },
   "compiler": "clang",
   "scope": [
-    ".",
-    "/run/3mm-original.c"
+    "linear-algebra/kernels/3mm",
+    "utilities",
+    ".verify"
   ],
   "flags": {
-    "correctness": "-O0 -DMEDIUM_DATASET -DPOLYBENCH_TIME -I /workspace/utilities -I /workspace/linear-algebra/kernels/3mm /workspace/utilities/polybench.c -lm",
-    "performance": "-O3 -DMEDIUM_DATASET -DPOLYBENCH_TIME -I /workspace/utilities -I /workspace/linear-algebra/kernels/3mm /workspace/utilities/polybench.c -lm"
+    "correctness": "-O0 -DMEDIUM_DATASET -DPOLYBENCH_TIME -I utilities -I linear-algebra/kernels/3mm utilities/polybench.c -lm",
+    "performance": "-O3 -DMEDIUM_DATASET -DPOLYBENCH_TIME -I utilities -I linear-algebra/kernels/3mm utilities/polybench.c -lm"
   },
   "arguments": {
     "benchmark": "",

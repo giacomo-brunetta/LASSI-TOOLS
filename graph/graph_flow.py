@@ -5,8 +5,10 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean
@@ -20,6 +22,13 @@ from agents import (
     CoderAgent,
     ConfigBuilderAgent,
     PlannerAgent,
+)
+from graph.container_pool import (
+    AgentContainer,
+    CONTAINER_REFERENCE,
+    CONTAINER_WORKSPACE,
+    DEFAULT_IMAGE,
+    EXTERNAL_CONFIG_MOUNT,
 )
 from lassi.core.compiler import Compiler, CompilerTool
 from lassi.core.executer import FunctionalValidator, WrongOutput, WrongRetCode
@@ -64,10 +73,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "graph_code_test.json"
 BUILD_ROOT = Path(os.environ.get("LASSI_BUILD_ROOT", ".verify/refactoring"))
-LASSI_DIR = Path(os.environ.get("LASSI_ARTIFACT_DIR", "LASSI"))
-CONTEXT_FILE = "00_context.md"
-PLAN_FILE = "01_plan.md"
-CHANGES_FILE = "02_changes.md"
+REFERENCE_ROOT = Path(os.environ.get("LASSI_REFERENCE_ROOT", "."))
 CLAUDE_MODEL = "claude-opus-4-7"
 
 # Agent instances used by this flow.
@@ -109,10 +115,18 @@ class PipelineConfig:
         flags = raw["flags"]
         args = raw["arguments"]
         golden = [(case["args"], case["stdout"]) for case in args.get("golden", [])]
-        scope = [Path(p) for p in raw["scope"]] if "scope" in raw else None
+        original_path = _project_relative_path(sources["original"], "sources.original")
+        optimized_path = _project_relative_path(sources["optimized"], "sources.optimized")
+        if original_path == optimized_path:
+            raise ValueError("sources.original and sources.optimized must be different paths")
+        scope = (
+            [_project_relative_path(p, "scope entry") for p in raw["scope"]]
+            if "scope" in raw
+            else None
+        )
         return cls(
-            original_path=Path(sources["original"]),
-            optimized_path=Path(sources["optimized"]),
+            original_path=original_path,
+            optimized_path=optimized_path,
             compiler=Compiler(raw["compiler"]),
             correctness_flags=flags["correctness"],
             performance_flags=flags["performance"],
@@ -137,7 +151,10 @@ class PipelineStage:
     original: SourceFile | None = None
     optimized: SourceFile | None = None
     llm_result: str | None = None
-    instructions: list[Path] = field(default_factory=list)
+    context_message: str | None = None
+    plan_message: str | None = None
+    coder_report: str | None = None
+    reports: list[tuple[str, str]] = field(default_factory=list)
     # Retry / feedback bookkeeping
     coder_iterations: int = 0
     max_coder_iterations: int = 2
@@ -153,6 +170,19 @@ class PipelineStage:
     error: str | None = None
 
 
+def _project_relative_path(value: str, label: str) -> Path:
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"{label} must be a project-relative path: {value!r}")
+    return path
+
+
+def _resolve_config_path(repo_path: Path, config_path: Path) -> Path:
+    if config_path.is_absolute():
+        return config_path.resolve()
+    return (repo_path / config_path).resolve()
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -161,6 +191,18 @@ class PipelineStage:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the graph-based refactoring pipeline against a pipeline config.",
+    )
+    parser.add_argument(
+        "repo",
+        nargs="?",
+        type=Path,
+        default=None,
+        help="Project directory to operate on (default: current working directory).",
+    )
+    parser.add_argument(
+        "--generate-config-only",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "config_path",
@@ -173,15 +215,52 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--repo",
-        type=Path,
-        default=None,
-        help="Repo to operate on (default: current working directory).",
-    )
-    parser.add_argument(
         "--no-profile",
         action="store_true",
         help="Skip the profile step (only run unit-test verification).",
+    )
+    parser.add_argument(
+        "--no-docker",
+        action="store_true",
+        help=(
+            "Run the graph, agents, compilation, and benchmarks directly on the "
+            "host. Default is Docker."
+        ),
+    )
+    parser.add_argument(
+        "--image",
+        default=DEFAULT_IMAGE,
+        help="Docker image used for graph execution (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--settings",
+        type=Path,
+        default=Path.home() / ".claude" / "settings.json",
+        help=(
+            "Path to a Claude settings.json mounted read-only into the graph "
+            "container. Pass --no-settings to rely solely on env-var credentials."
+        ),
+    )
+    parser.add_argument(
+        "--no-settings",
+        action="store_true",
+        help="Do not mount Claude settings; agents rely on environment credentials.",
+    )
+    parser.add_argument(
+        "--no-auto-build",
+        action="store_true",
+        help="Fail instead of running `docker build` when the image is missing.",
+    )
+    parser.add_argument(
+        "--readonly",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Project-relative or absolute path to mount read-only inside the "
+            "graph container (may be repeated). The pipeline config is always "
+            "added automatically."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -192,7 +271,8 @@ def _session_kwargs(state: PipelineStage) -> dict:
         state.config.resolved_scope(state.repo_path) if state.config else None
     )
     if allowed_paths is not None:
-        allowed_paths.append((state.repo_path / LASSI_DIR).resolve())
+        if state.config is not None:
+            allowed_paths.append((REFERENCE_ROOT / state.config.original_path).resolve())
     return {
         "cwd": state.repo_path,
         "allowed_paths": allowed_paths,
@@ -219,6 +299,45 @@ def _ensure_candidate_seeded(
     if not already_seeded:
         optimized_path.write_bytes(original_path.read_bytes())
     return True
+
+
+def _validate_report(result: str, *, stage: str, heading: str) -> str:
+    report = result.strip()
+    if not report:
+        raise ValueError(f"{stage} returned an empty report")
+    if not report.startswith(heading):
+        raise ValueError(f"{stage} report must start with {heading!r}")
+    return report
+
+
+def _record_report(state: PipelineStage, stage: str, report: str) -> None:
+    state.reports.append((stage, report))
+    logger.info("%s report:\n%s", stage, report)
+
+
+def _write_generated_config(config_path: Path, result: str) -> PipelineConfig:
+    text = result.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines)
+    raw = json.loads(text)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(raw, indent=2) + "\n")
+    return PipelineConfig.load(config_path)
+
+
+def _compile_reference(source: SourceFile, *, flags: str, output_file: Path) -> None:
+    """Compile the baseline with all relative config paths rooted at /reference."""
+    previous_cwd = Path.cwd()
+    try:
+        os.chdir(REFERENCE_ROOT.resolve())
+        source.compile(kwds=flags, output_file=output_file)
+    finally:
+        os.chdir(previous_cwd)
 
 
 def _gcovr_summary(root: Path) -> str | None:
@@ -258,9 +377,141 @@ def _format_golden_failure(args: str, expected: str, actual: str, exc: Exception
 
 async def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    config_path = args.config_path.resolve()
     repo_path = (args.repo or Path.cwd()).resolve()
+    config_path = _resolve_config_path(repo_path, args.config_path)
 
+    if not args.no_docker and not os.environ.get("LASSI_GRAPH_IN_CONTAINER"):
+        await _launch_graph_container(args, repo_path, config_path)
+        return
+
+    # Compile/exec invocations in lassi.core run subprocesses without a cwd
+    # argument, so relative -I/source paths in the pipeline config resolve
+    # against the host CWD. Mirror the container's /workspace = project root
+    # convention by chdir'ing here.
+    os.chdir(repo_path)
+
+    logger.info("graph execution: %s", "container" if os.environ.get("LASSI_GRAPH_IN_CONTAINER") else "host (--no-docker)")
+    if args.generate_config_only:
+        await _generate_config_only(config_path, repo_path)
+        return
+    await _run_graph(args, config_path, repo_path)
+
+
+def _container_path(host_path: Path, repo_path: Path) -> Path:
+    try:
+        return CONTAINER_WORKSPACE / host_path.relative_to(repo_path)
+    except ValueError:
+        return EXTERNAL_CONFIG_MOUNT
+
+
+async def _generate_config_only(config_path: Path, repo_path: Path) -> None:
+    if config_path.exists():
+        PipelineConfig.load(config_path)
+        return
+    state = PipelineStage(config_path=config_path, repo_path=repo_path)
+    result = await CONFIG_BUILDER_AGENT.dispatch_agent(
+        **_session_kwargs(state),
+        repo_path=repo_path,
+    )
+    _write_generated_config(config_path, result)
+    _record_report(state, "config-builder", result.strip())
+
+
+async def _launch_graph_container(
+    args: argparse.Namespace,
+    repo_path: Path,
+    config_path: Path,
+) -> None:
+    if repo_path == Path("/"):
+        raise SystemExit("refusing to mount the host root as the editable project")
+    if not repo_path.is_dir():
+        raise SystemExit(f"project directory does not exist: {repo_path}")
+
+    settings_path: Path | None = None
+    if not args.no_settings:
+        settings_path = args.settings.expanduser().resolve()
+        if not settings_path.is_file():
+            raise SystemExit(
+                f"Claude settings not found at {settings_path}; pass --no-settings "
+                "or --settings PATH to override"
+            )
+
+    try:
+        config_path.relative_to(repo_path)
+        config_is_external = False
+    except ValueError:
+        config_is_external = True
+    if config_is_external and not config_path.is_file():
+        raise SystemExit(f"external config does not exist: {config_path}")
+
+    extra_overlays = [
+        (path if path.is_absolute() else repo_path / path).resolve()
+        for path in args.readonly
+    ]
+    for path in extra_overlays:
+        if not path.exists():
+            raise SystemExit(f"read-only overlay does not exist: {path}")
+
+    common = dict(
+        project_dir=repo_path,
+        image=args.image,
+        settings_path=settings_path,
+        repo_root=Path(__file__).resolve().parent.parent,
+        auto_build=not args.no_auto_build,
+        external_config=config_path if config_is_external else None,
+    )
+
+    # A generated config cannot be overlaid read-only in a running container.
+    # Generate it in a short bootstrap container, then restart with final mounts.
+    if not config_path.exists():
+        with AgentContainer(**common, read_only_overlays=extra_overlays) as bootstrap:
+            await bootstrap.exec_graph(
+                [
+                    str(CONTAINER_WORKSPACE),
+                    str(_container_path(config_path, repo_path)),
+                    "--generate-config-only",
+                    "--no-settings",
+                ]
+            )
+
+    config = PipelineConfig.load(config_path)
+    original_path = (repo_path / config.original_path).resolve()
+    try:
+        original_path.relative_to(repo_path)
+    except ValueError as exc:
+        raise SystemExit(f"reference source escapes project: {original_path}") from exc
+    if not original_path.is_file():
+        raise SystemExit(f"reference source does not exist: {original_path}")
+
+    overlays = [*extra_overlays]
+    if not config_is_external:
+        overlays.append(config_path)
+
+    inner_args = [
+        str(CONTAINER_WORKSPACE),
+        str(_container_path(config_path, repo_path)),
+    ]
+    if args.no_profile:
+        inner_args.append("--no-profile")
+    inner_args.append("--no-settings")
+
+    with tempfile.TemporaryDirectory(prefix="lassi-reference-") as temp_dir:
+        reference_dir = Path(temp_dir) / "project"
+        shutil.copytree(repo_path, reference_dir, symlinks=True)
+        with AgentContainer(
+            **common,
+            reference_dir=reference_dir,
+            read_only_overlays=overlays,
+            reference_overlays=[config.original_path],
+        ) as container:
+            logger.info(
+                "running graph in Docker (project=%s, reference snapshot=%s, ro overlays=%d)",
+                repo_path, reference_dir, len(overlays) + 1,
+            )
+            await container.exec_graph(inner_args)
+
+
+async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Path) -> None:
     g = GraphBuilder(state_type=PipelineStage, output_type=str)
 
     @g.step
@@ -294,11 +545,9 @@ async def main(argv: list[str] | None = None) -> None:
             ctx.state.llm_result = await CONFIG_BUILDER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
                 repo_path=repo,
-                output_path=cfg_path,
             )
-            if not cfg_path.exists():
-                raise FileNotFoundError(f"agent did not create {cfg_path}")
-            json.loads(cfg_path.read_text())  # parse-validate
+            _write_generated_config(cfg_path, ctx.state.llm_result)
+            _record_report(ctx.state, "config-builder", ctx.state.llm_result.strip())
             return "ok"
         except Exception as exc:
             ctx.state.error = f"config generation failed: {exc}"
@@ -317,12 +566,13 @@ async def main(argv: list[str] | None = None) -> None:
         try:
             original = SourceFile(
                 file_name=cfg.original_path,
-                folder_path=ctx.state.repo_path,
+                folder_path=REFERENCE_ROOT,
                 compiler_tool=CompilerTool(cfg.compiler),
             )
             (ctx.state.repo_path / BUILD_ROOT).mkdir(parents=True, exist_ok=True)
-            original.compile(
-                kwds=cfg.correctness_flags,
+            _compile_reference(
+                original,
+                flags=cfg.correctness_flags,
                 output_file=ctx.state.repo_path / BUILD_ROOT / "original_sanity",
             )
             ctx.state.original = original
@@ -374,23 +624,20 @@ async def main(argv: list[str] | None = None) -> None:
     ) -> Ok | Fail:
         assert ctx.state.config is not None
         cfg = ctx.state.config
-        lassi_dir = ctx.state.repo_path / LASSI_DIR
-        lassi_dir.mkdir(parents=True, exist_ok=True)
-        context_path = lassi_dir / CONTEXT_FILE
-        logger.info("writing bootstrap context -> %s", context_path)
+        logger.info("building in-memory pipeline context")
         try:
             sample_golden = "\n".join(
                 f"- args={a!r}" for a, _ in cfg.golden_outputs[:5]
             )
-            context_path.write_text(
+            ctx.state.context_message = (
                 "# Pipeline Context\n\n"
-                "This file is the seed instruction for the planner-coder chain.\n"
+                "This message is the seed instruction for the planner-coder chain.\n"
                 "The planner inspects the source and produces one actionable plan.\n\n"
                 "## Repository\n"
                 f"- root: {ctx.state.repo_path}\n"
                 f"- config: {ctx.state.config_path}\n\n"
                 "## Target source\n"
-                f"- reference (read-only): {cfg.original_path}\n"
+                f"- reference (read-only): {REFERENCE_ROOT / cfg.original_path}\n"
                 f"- optimization target:   {cfg.optimized_path}\n\n"
                 "## Build\n"
                 f"- compiler: {cfg.compiler.value}\n"
@@ -406,7 +653,6 @@ async def main(argv: list[str] | None = None) -> None:
                 "- Sample inputs:\n"
                 f"{sample_golden}\n"
             )
-            ctx.state.instructions.append(context_path)
             return "ok"
         except Exception as exc:
             ctx.state.error = f"context bootstrap failed: {exc}"
@@ -414,11 +660,9 @@ async def main(argv: list[str] | None = None) -> None:
 
     @g.step
     async def plan_refactor(ctx: StepContext[PipelineStage, None, object]) -> Ok | Fail:
-        if not ctx.state.instructions:
-            ctx.state.error = "plan step has no prior instruction in the chain"
+        if not ctx.state.context_message:
+            ctx.state.error = "plan step has no context message"
             return "fail"
-        input_path = ctx.state.repo_path / LASSI_DIR / CONTEXT_FILE
-        output_path = ctx.state.repo_path / LASSI_DIR / PLAN_FILE
         notes = ctx.state.plan_feedback or ""
         if notes:
             logger.info(
@@ -427,17 +671,19 @@ async def main(argv: list[str] | None = None) -> None:
                 ctx.state.max_planner_iterations,
                 notes,
             )
-        logger.info("dispatching planner: %s -> %s", input_path, output_path)
+        logger.info("dispatching planner with in-memory context")
         try:
             ctx.state.llm_result = await PLANNER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
-                input_path=input_path,
-                output_path=output_path,
+                context_message=ctx.state.context_message,
                 notes=notes,
             )
-            if not output_path.exists() or output_path.stat().st_size == 0:
-                raise FileNotFoundError(f"planner did not write {output_path}")
-            ctx.state.instructions.append(output_path)
+            ctx.state.plan_message = _validate_report(
+                ctx.state.llm_result,
+                stage="planner",
+                heading="# Plan",
+            )
+            _record_report(ctx.state, "planner", ctx.state.plan_message)
             # A fresh plan gets a fresh retry budget but keeps the candidate so
             # the planner and coder can build on useful work from prior rounds.
             ctx.state.plan_feedback = None
@@ -455,10 +701,10 @@ async def main(argv: list[str] | None = None) -> None:
         assert ctx.state.config is not None
         assert ctx.state.original is not None
         cfg = ctx.state.config
-        plan_path = ctx.state.repo_path / LASSI_DIR / PLAN_FILE
-        input_path = plan_path if plan_path.exists() else ctx.state.instructions[-1]
-        output_path = ctx.state.repo_path / LASSI_DIR / CHANGES_FILE
-        original_full = ctx.state.repo_path / cfg.original_path
+        if not ctx.state.plan_message:
+            ctx.state.error = "coder step has no planner message"
+            return "fail"
+        original_full = REFERENCE_ROOT / cfg.original_path
         optimized_full = ctx.state.repo_path / cfg.optimized_path
         notes = ctx.state.code_feedback or ""
         if notes:
@@ -469,8 +715,8 @@ async def main(argv: list[str] | None = None) -> None:
                 notes,
             )
         logger.info(
-            "dispatching coder against candidate %s: %s -> %s",
-            optimized_full, input_path, output_path,
+            "dispatching coder against candidate %s with planner message",
+            optimized_full,
         )
         try:
             ctx.state.candidate_seeded = _ensure_candidate_seeded(
@@ -482,29 +728,31 @@ async def main(argv: list[str] | None = None) -> None:
 
             ctx.state.llm_result = await CODER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
-                input_path=input_path,
-                output_path=output_path,
+                plan_message=ctx.state.plan_message,
                 target_file=cfg.optimized_path,
-                reference_file=cfg.original_path,
+                reference_file=REFERENCE_ROOT / cfg.original_path,
                 notes=notes,
             )
 
-            if not output_path.exists() or output_path.stat().st_size == 0:
-                raise FileNotFoundError(f"coder did not write {output_path}")
+            ctx.state.coder_report = _validate_report(
+                ctx.state.llm_result,
+                stage="coder",
+                heading="# Changes",
+            )
+            _record_report(ctx.state, "coder", ctx.state.coder_report)
             if not optimized_full.exists():
                 raise FileNotFoundError(f"coder removed {optimized_full}")
             if optimized_full.read_bytes() == candidate_before:
                 # An unchanged candidate means the coder found no actionable
                 # repair or implementation for the current plan.
                 ctx.state.plan_feedback = (
-                    f"Coder did not modify {cfg.optimized_path}. The plan at "
-                    f"{plan_path} appears unactionable to the coder.\n"
-                    f"Coder report ({output_path}): {ctx.state.llm_result}"
+                    f"Coder did not modify {cfg.optimized_path}. The current plan "
+                    f"appears unactionable to the coder.\n"
+                    f"Coder report:\n{ctx.state.coder_report}"
                 )
                 logger.warning("coder gave up; escalating to planner")
                 return "giveup"
 
-            ctx.state.instructions.append(output_path)
             ctx.state.optimized = SourceFile(
                 file_name=cfg.optimized_path,
                 folder_path=ctx.state.repo_path,
@@ -535,8 +783,9 @@ async def main(argv: list[str] | None = None) -> None:
         for stale in ctx.state.repo_path.glob("*.gcda"):
             stale.unlink()
         try:
-            ctx.state.original.compile(
-                kwds=cfg.correctness_flags,
+            _compile_reference(
+                ctx.state.original,
+                flags=cfg.correctness_flags,
                 output_file=ctx.state.repo_path / BUILD_ROOT / "original_correctness",
             )
             ctx.state.optimized.compile(
@@ -606,8 +855,9 @@ async def main(argv: list[str] | None = None) -> None:
             cfg.performance_flags, cfg.benchmark_args, cfg.benchmark_runs,
         )
         try:
-            ctx.state.original.compile(
-                kwds=cfg.performance_flags,
+            _compile_reference(
+                ctx.state.original,
+                flags=cfg.performance_flags,
                 output_file=ctx.state.repo_path / BUILD_ROOT / "original_perf",
             )
             ctx.state.optimized.compile(
@@ -697,7 +947,7 @@ async def main(argv: list[str] | None = None) -> None:
     async def ready(ctx: StepContext[PipelineStage, None, object]) -> str:
         assert ctx.state.config is not None
         cfg = ctx.state.config
-        chain = "\n".join(f"    {i}. {p}" for i, p in enumerate(ctx.state.instructions))
+        reports = "\n".join(f"    {i}. {stage}" for i, (stage, _) in enumerate(ctx.state.reports))
         perf_line = ""
         if ctx.state.optimized_latencies:
             original = mean(ctx.state.original_latencies)
@@ -720,7 +970,7 @@ async def main(argv: list[str] | None = None) -> None:
             f"  planner:     {ctx.state.planner_iterations} re-plan round(s)\n"
             f"  coder:       {ctx.state.coder_iterations} retry round(s)\n"
             + perf_line
-            + f"  artifact chain ({len(ctx.state.instructions)} files):\n{chain}\n"
+            + f"  message reports ({len(ctx.state.reports)}):\n{reports}\n"
             f"  coder note:  {ctx.state.llm_result}"
         )
 
