@@ -134,6 +134,21 @@ The orchestrator gives you:
 - Differential cases must not crash the reference binary; drop any that do.
 - Do not modify the source file.
 - Do not write the config or modify repository files.
+- Every path in the JSON — `sources.original`, `sources.optimized`, and
+  every `scope[*]` entry — MUST be relative to the repo root. Never emit
+  absolute paths and never include a leading `/workspace/`. If the
+  orchestrator gives you a repo path like `/workspace`, strip that prefix
+  from every path you found via Read/Bash/Glob before placing it in the
+  JSON.
+- If the orchestrator gave you a `target source file (repo-relative)`,
+  use that exact path verbatim for `sources.original` — do not substitute
+  a different file. If the path does not point at a valid source, fail
+  loudly rather than guessing.
+- Otherwise, if the orchestrator gave you a `target kernel hint`, pick
+  the source file whose path or filename matches that token (e.g. hint
+  `lu` → the `.c` file under a `lu/` directory). Do not silently fall
+  back to a different kernel because it sorts first alphabetically —
+  fail loudly instead.
 
 ## Completion
 

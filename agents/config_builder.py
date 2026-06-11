@@ -22,6 +22,8 @@ class ConfigBuilderAgent(Agent):
         self,
         *,
         repo_path: Path,
+        target_path: Path | None = None,
+        target_hint: str | None = None,
         compiler_hint: str | None = None,
         correctness_flags_hint: str | None = None,
         performance_flags_hint: str | None = None,
@@ -32,6 +34,10 @@ class ConfigBuilderAgent(Agent):
         items: dict[str, object] = {
             "repo path": repo_path,
         }
+        if target_path is not None:
+            items["target source file (repo-relative)"] = str(target_path)
+        elif target_hint:
+            items["target kernel hint"] = target_hint
         if compiler_hint:
             items["compiler hint"] = compiler_hint
         if correctness_flags_hint:
@@ -43,6 +49,24 @@ class ConfigBuilderAgent(Agent):
         if scope_hint:
             items["scope hint"] = ", ".join(str(p) for p in scope_hint)
         body = "\n".join(f"{k}: {v}" for k, v in items.items())
+        if target_path is not None:
+            body += (
+                f"\n\nThe target source file is `{target_path}` (repo-relative). "
+                "Use this exact path for `sources.original` — do NOT substitute "
+                "a different file even if other candidates exist in the tree."
+            )
+        elif target_hint:
+            body += (
+                f"\n\nThe target kernel is {target_hint!r}: pick the source file "
+                f"whose path or filename matches this token (e.g. `.../{target_hint}/"
+                f"{target_hint}.c` in a PolyBench-style layout). Do NOT pick a "
+                "different kernel even if it appears first alphabetically."
+            )
+        body += (
+            "\n\nAll paths in the JSON (sources.original, sources.optimized, "
+            "every scope[*]) MUST be relative to the repo root. Never emit "
+            "absolute paths and never include a leading `/workspace/`."
+        )
         body += "\n\nReturn only the complete JSON config in your final reply."
         if notes:
             body += f"\n\nAdditional notes:\n{notes}"

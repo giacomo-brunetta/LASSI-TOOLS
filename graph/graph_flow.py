@@ -349,6 +349,47 @@ def _resolve_config_path(repo_path: Path, config_path: Path) -> Path:
     return (repo_path / config_path).resolve()
 
 
+_CONFIG_NAME_SUFFIXES = (
+    "_graph_config",
+    "_graph_code_test",
+    "_pipeline",
+    "_config",
+)
+
+
+def _resolve_target_path(target: Path | None, repo_path: Path) -> Path | None:
+    """Validate --target and return it as a repo-relative Path, or None if unset."""
+    if target is None:
+        return None
+    candidate = target if target.is_absolute() else (repo_path / target)
+    candidate = candidate.resolve()
+    if not candidate.is_file():
+        raise SystemExit(f"--target does not exist or is not a file: {candidate}")
+    try:
+        rel = candidate.relative_to(repo_path.resolve())
+    except ValueError as exc:
+        raise SystemExit(
+            f"--target {candidate} is outside the project root {repo_path}"
+        ) from exc
+    return rel
+
+
+def _target_hint_from_config_path(config_path: Path) -> str | None:
+    """Derive a target-kernel hint from a config filename (e.g. lu_graph_config.json -> 'lu')."""
+    stem = config_path.stem
+    if not stem:
+        return None
+    lowered = stem.lower()
+    for suffix in _CONFIG_NAME_SUFFIXES:
+        if lowered.endswith(suffix) and len(stem) > len(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    stem = stem.strip("._-")
+    if not stem or stem.lower() in {"graph_code_test", "pipeline", "config"}:
+        return None
+    return stem
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -378,6 +419,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "Path to the pipeline config JSON. If the file does not exist, an "
             "agent will be asked to generate it from the repo contents."
+        ),
+    )
+    parser.add_argument(
+        "--target",
+        type=Path,
+        default=None,
+        help=(
+            "Path to the source file the config-builder should target as "
+            "`sources.original` (absolute or repo-relative). Required when "
+            "generating a config for a multi-kernel repo; ignored when the "
+            "config already exists."
         ),
     )
     parser.add_argument(
@@ -652,9 +704,32 @@ def _write_generated_config(config_path: Path, result: str) -> PipelineConfig:
             lines = lines[:-1]
         text = "\n".join(lines)
     raw = json.loads(text)
+    _strip_workspace_prefix(raw)
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(raw, indent=2) + "\n")
     return PipelineConfig.load(config_path)
+
+
+def _strip_workspace_prefix(raw: dict) -> None:
+    """Defensively rewrite agent-emitted /workspace/... paths to repo-relative."""
+    def _fix(value: str) -> str:
+        if not isinstance(value, str):
+            return value
+        prefix = str(CONTAINER_WORKSPACE).rstrip("/") + "/"
+        if value.startswith(prefix):
+            return value[len(prefix):]
+        if value == str(CONTAINER_WORKSPACE):
+            return "."
+        return value
+
+    sources = raw.get("sources")
+    if isinstance(sources, dict):
+        for key in ("original", "optimized"):
+            if key in sources:
+                sources[key] = _fix(sources[key])
+    scope = raw.get("scope")
+    if isinstance(scope, list):
+        raw["scope"] = [_fix(p) for p in scope]
 
 
 def _compile_reference(source: SourceFile, *, flags: str, output_file: Path) -> None:
@@ -872,7 +947,8 @@ async def main(argv: list[str] | None = None) -> None:
 
     logger.info("graph execution: %s", "container" if os.environ.get("LASSI_GRAPH_IN_CONTAINER") else "host (--no-docker)")
     if args.generate_config_only:
-        await _generate_config_only(config_path, repo_path)
+        target_path = _resolve_target_path(args.target, repo_path)
+        await _generate_config_only(config_path, repo_path, target_path=target_path)
         return
     await _run_graph(args, config_path, repo_path)
 
@@ -884,7 +960,12 @@ def _container_path(host_path: Path, repo_path: Path) -> Path:
         return EXTERNAL_CONFIG_MOUNT
 
 
-async def _generate_config_only(config_path: Path, repo_path: Path) -> None:
+async def _generate_config_only(
+    config_path: Path,
+    repo_path: Path,
+    *,
+    target_path: Path | None = None,
+) -> None:
     if config_path.exists():
         PipelineConfig.load(config_path)
         return
@@ -893,6 +974,11 @@ async def _generate_config_only(config_path: Path, repo_path: Path) -> None:
         result = await CONFIG_BUILDER_AGENT.dispatch_agent(
             **_session_kwargs(state),
             repo_path=repo_path,
+            target_path=target_path,
+            target_hint=(
+                None if target_path is not None
+                else _target_hint_from_config_path(config_path)
+            ),
         )
         _write_generated_config(config_path, result)
         _record_report(state, "config-builder", result.strip())
@@ -947,15 +1033,20 @@ async def _launch_graph_container(
     # A generated config cannot be overlaid read-only in a running container.
     # Generate it in a short bootstrap container, then restart with final mounts.
     if not config_path.exists():
+        bootstrap_argv = [
+            str(CONTAINER_WORKSPACE),
+            str(_container_path(config_path, repo_path)),
+            "--generate-config-only",
+            "--no-settings",
+        ]
+        host_target = _resolve_target_path(args.target, repo_path)
+        if host_target is not None:
+            bootstrap_argv += [
+                "--target",
+                str(CONTAINER_WORKSPACE / host_target),
+            ]
         with AgentContainer(**common, read_only_overlays=extra_overlays) as bootstrap:
-            await bootstrap.exec_graph(
-                [
-                    str(CONTAINER_WORKSPACE),
-                    str(_container_path(config_path, repo_path)),
-                    "--generate-config-only",
-                    "--no-settings",
-                ]
-            )
+            await bootstrap.exec_graph(bootstrap_argv)
 
     config = PipelineConfig.load(config_path)
     original_path = (repo_path / config.original_path).resolve()
@@ -1029,10 +1120,16 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
         cfg_path = ctx.state.config_path
         repo = ctx.state.repo_path
         logger.info("asking config-builder to generate %s for repo %s", cfg_path, repo)
+        target_path = _resolve_target_path(getattr(args, "target", None), repo)
         try:
             ctx.state.llm_result = await CONFIG_BUILDER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
                 repo_path=repo,
+                target_path=target_path,
+                target_hint=(
+                    None if target_path is not None
+                    else _target_hint_from_config_path(cfg_path)
+                ),
             )
             _write_generated_config(cfg_path, ctx.state.llm_result)
             _record_report(ctx.state, "config-builder", ctx.state.llm_result.strip())
