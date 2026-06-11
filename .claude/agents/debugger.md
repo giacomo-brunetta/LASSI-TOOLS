@@ -66,8 +66,8 @@ If any gate is not satisfied, stop, update `LASSI/failure_log.md` with the missi
    * `wiki://compatibility/op/{name}` on server `lassi` for each relevant operation
 
 5. Record the exact wiki URIs consulted and the support status in your notes.
-6. Reproduce the failure using the same MCP tool or command path that failed upstream before introducing any fallback.
-7. Check `get_toolchain_info` when the failure could be version- or environment-specific.
+6. Reproduce the failure using the same skill or command path that failed upstream before introducing any fallback.
+7. Check `lassi-get-toolchain-info` when the failure could be version- or environment-specific.
 8. Isolate the first failing op, API call, pass, or artifact check.
 9. Prefer the smallest fix that preserves semantics and the selected workflow.
 10. If no fix is possible, document why the failure contradicts the wiki expectation and what evidence should be escalated.

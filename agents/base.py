@@ -17,14 +17,14 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, TYPE_CHECKING
 
-from .dispatch import get_dispatch_backend
+if TYPE_CHECKING:
+    from claude_agent_sdk import ClaudeSDKClient
 
-# claude_agent_sdk is only required for in-process dispatch (no backend
-# registered). When the graph runs on a host that has delegated dispatch to
-# Docker containers, the SDK lives inside the image, not on the host — so
-# we import lazily and only the bits we use.
+# claude_agent_sdk is only required inside the graph container. Import lazily
+# so the host side (which only needs to launch the container) doesn't pull
+# the SDK in.
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +104,10 @@ class Agent(ABC):
     the prompt has a single source of truth shared between this pipeline
     and any direct Claude Code subagent invocation.
 
-    `dispatch_agent` spins up a fresh `ClaudeSDKClient` configured from
-    these fields and runs the task body as the main (and only) session —
-    no Task-tool indirection, no orchestrator turn.
+    `dispatch_agent` opens a `ClaudeSDKClient` on the first call and reuses
+    it for every subsequent dispatch on the same instance, so the agent
+    accumulates conversation memory across plan/code/retry rounds. Call
+    `close()` (typically once per pipeline) to disconnect.
     """
 
     name: str = ""
@@ -125,6 +126,8 @@ class Agent(ABC):
         self.tools = spec.tools
         self.system_prompt = spec.system_prompt
         self.spec_source = spec.source
+        self._client: "ClaudeSDKClient | None" = None
+        self._client_options_key: tuple | None = None
 
     @abstractmethod
     def build_task_prompt(self, **context: Any) -> str:
@@ -163,35 +166,46 @@ class Agent(ABC):
         permission_mode: str = "acceptEdits",
         **context: Any,
     ) -> str:
-        backend = get_dispatch_backend()
-        if backend is not None:
-            logger.info("dispatching agent '%s' via %s backend", self.name, backend.__name__)
-            return await backend(
-                self,
+        from .utils import claude_send
+
+        key = (
+            str(cwd),
+            tuple(str(p) for p in (allowed_paths or [])),
+            model,
+            permission_mode,
+        )
+        if self._client is None:
+            from claude_agent_sdk import ClaudeSDKClient  # lazy: SDK only on the run side
+            options = self.build_options(
                 cwd=cwd,
                 allowed_paths=allowed_paths,
                 model=model,
                 permission_mode=permission_mode,
-                **context,
             )
-        from claude_agent_sdk import ClaudeSDKClient  # lazy: SDK only on the run side
-
-        from .utils import claude_send
-
+            logger.info("opening persistent session for agent '%s'", self.name)
+            self._client = ClaudeSDKClient(options=options)
+            await self._client.connect()
+            self._client_options_key = key
+        elif key != self._client_options_key:
+            logger.warning(
+                "agent '%s' re-dispatched with different session params; "
+                "reusing existing session (params ignored)",
+                self.name,
+            )
         body = self.build_task_prompt(**context)
-        options = self.build_options(
-            cwd=cwd,
-            allowed_paths=allowed_paths,
-            model=model,
-            permission_mode=permission_mode,
-        )
-        logger.info("dispatching agent '%s' in-process", self.name)
-        client = ClaudeSDKClient(options=options)
-        await client.connect()
+        logger.info("dispatching agent '%s' (turn on persistent session)", self.name)
+        return await claude_send(self._client, body)
+
+    async def close(self) -> None:
+        """Disconnect the cached Claude session, if any. Idempotent."""
+        if self._client is None:
+            return
+        logger.info("closing persistent session for agent '%s'", self.name)
         try:
-            return await claude_send(client, body)
+            await self._client.disconnect()
         finally:
-            await client.disconnect()
+            self._client = None
+            self._client_options_key = None
 
 
 def build_permission_router(*, allowed_paths: list[Path] | None):

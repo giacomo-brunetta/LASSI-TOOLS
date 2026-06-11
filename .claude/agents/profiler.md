@@ -30,9 +30,9 @@ Read before measuring:
 
 ## Objectives
 
-1. Measure the baseline or verifier-approved candidates with `run_benchmark`.
-2. Explain runtime behavior with `collect_perf_stats`; use `profile_hotspots` when regressions, unexpected counter deltas, or user requests require localization.
-3. Prepare roofline inputs with `collect_hardware_model` and `estimate_workload_model` when accelerator portability, compute/memory bound classification, or roofline analysis is requested.
+1. Measure the baseline or verifier-approved candidates with `lassi-run-benchmark`.
+2. Explain runtime behavior with `lassi-collect-perf-stats`; use `lassi-profile-hotspots` when regressions, unexpected counter deltas, or user requests require localization.
+3. Prepare roofline inputs with `lassi-get-machine-info` (hardware fingerprint) and `lassi-estimate-workload-model` when accelerator portability, compute/memory bound classification, or roofline analysis is requested.
 4. When multiple verified variants exist, rank them for downstream selection.
 
 ---
@@ -43,9 +43,9 @@ Read before measuring:
 2. Read all input files listed above that exist.
 3. Use build/run commands from `LASSI/how-to-run.md`; do not invent a new method unless blocked.
 4. Define and reuse the same inputs, warmup count, run count, environment settings, and tool commands for every measurement.
-5. Use the LASSI MCP performance tools as the primary path: `run_benchmark`, `collect_perf_stats`, `compare_performance`, and, when needed, `profile_hotspots`.
-6. For roofline work, call `collect_hardware_model`, `estimate_workload_model`, `run_roofline_analysis`, and `compare_roofline`; require manual peak FLOP/s and bandwidth values when the server cannot infer them.
-7. Use GPROF callgraph/flat profile only as a fallback or supplementary artifact when the build supports it.
+5. Use the LASSI performance skills as the primary path: `lassi-run-benchmark`, `lassi-collect-perf-stats`, `lassi-compare-performance`, and, when needed, `lassi-profile-hotspots`.
+6. For roofline work, call `lassi-get-machine-info` (for the hardware fingerprint), `lassi-estimate-workload-model`, `lassi-run-roofline-analysis`, and `lassi-compare-roofline`; supply manual peak FLOP/s and bandwidth values via the roofline `--hardware-model-path` override when the impl cannot infer them.
+7. Use `lassi-gprof-profiling` only as a fallback or supplementary artifact when the build supports `-pg`.
 8. If comparing translation variants, measure only variants marked passing or eligible in `LASSI/verification_report.md`.
 9. If a prior failure exists in `LASSI/failure_log.md`, check whether profiling can answer it and mention the result.
 

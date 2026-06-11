@@ -47,9 +47,9 @@ You are the orchestrator for the general LASSI performance optimization workflow
 3. In every delegated subtask, specify the working directory explicitly and list only the files the agent must read or update.
 4. Require each agent to consume prior summaries/reports without restating them unless a blocker depends on them.
 5. Require agent chat replies to stay short: status, files touched, decision, blocker only.
-6. For verification tasks, require the verifier to use the verification MCP sequence where applicable: `build_sanitized`, `synthesize_common_harness`, `generate_assertion_suite`, `run_assertion_suite`, `run_random_equivalence_tests`, `run_robustness_fuzzer`, `run_differential_fuzzer`, and `synthesize_verification_report`.
-7. For verification tasks involving numeric outputs, require file-based CSV artifacts when feasible and direct agents to use `summarize_csv`, `compare_csv_outputs`, and `diff_csv_outputs` instead of ad hoc stdout parsing.
-8. For profiling tasks, require the performance MCP sequence where applicable: `run_benchmark`, `collect_perf_stats`, `compare_performance`, `profile_hotspots`, `collect_hardware_model`, `estimate_workload_model`, `run_roofline_analysis`, and `compare_roofline`.
+6. For verification tasks, require the verifier to use the verification skill sequence where applicable: `lassi-build-sanitized`, `lassi-synthesize-common-harness`, `lassi-generate-assertion-suite`, `lassi-run-assertion-suite`, `lassi-run-random-equivalence-tests`, `lassi-run-robustness-fuzzer`, `lassi-run-differential-fuzzer`, and `lassi-synthesize-verification-report`.
+7. For verification tasks involving numeric outputs, require file-based CSV artifacts when feasible and direct agents to use `lassi-summarize-csv` and `lassi-compare-csv-outputs` (default `--mode summary`; switch to `--mode elementwise` when investigating failures) instead of ad hoc stdout parsing.
+8. For profiling tasks, require the performance skill sequence where applicable: `lassi-run-benchmark`, `lassi-collect-perf-stats`, `lassi-compare-performance`, `lassi-profile-hotspots`, `lassi-get-machine-info`, `lassi-estimate-workload-model`, `lassi-run-roofline-analysis`, and `lassi-compare-roofline`.
 9. Enforce phase order; do not skip forward.
 10. Apply recovery loops:
    - If verification fails, return to Coding Agent.

@@ -20,7 +20,7 @@ class PlannerAgent(Agent):
 
     name = "planner"
     model = "inherit"
-    allowed_skills: list[str] = []
+    allowed_skills: list[str] = ["lassi-get-machine-info"]
     access_mode = "read"
 
     def build_task_prompt(
@@ -28,6 +28,7 @@ class PlannerAgent(Agent):
         *,
         # Mode 1: message pipeline
         context_message: str | None = None,
+        context_summary: str = "",
         # Mode 2: perf re-plan
         original_path: Path | None = None,
         optimized_path: Path | None = None,
@@ -38,8 +39,15 @@ class PlannerAgent(Agent):
     ) -> str:
         if context_message is not None:
             body = (
+                "This is a fresh task session. Read the context summary first and "
+                "silently compress it into: current state, prior attempts, measured "
+                "evidence, constraints, and the next task. Treat that summary as "
+                "authoritative over any assumptions.\n\n"
+                f"{context_summary.strip()}\n\n"
                 "Pipeline context message:\n\n"
                 f"{context_message.strip()}\n\n"
+                "Invoke `lassi-get-machine-info` before selecting any blocking, "
+                "vectorization, ISA, or cache-sensitive strategy.\n\n"
                 "Return the complete Markdown plan in your final reply."
             )
         elif (

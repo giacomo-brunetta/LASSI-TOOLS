@@ -56,15 +56,15 @@ Read before generating artifacts:
 4. Stop and update `failure_log.md` if the verified variant set is ambiguous or empty.
 5. Run the validation entrypoint before export unless an upstream exception is explicit.
 6. For each verified variant in scope, confirm input sensitivity before export when outputs should depend on inputs.
-7. Use LASSI MCP tools for artifact generation when available for each verified variant:
+7. Use the LASSI translation/synthesis skills for artifact generation for each verified variant:
 
-   * call `export_model_to_pt`
+   * call `lassi-export-model-to-pt`
    * verify the `.pt` file exists and is non-empty
-   * call `compile_torch_to_mlir` with the generated `.pt`
+   * call `lassi-compile-torch-to-mlir` with the generated `.pt`
    * verify the `.mlir` file exists and is non-empty
-   * call `synthesize_tosa_with_soda` on the output folder containing `01_tosa.mlir`
-   * default `build_mode` to `baseline`
-   * default `stage` to `bambu-verilog` unless the user explicitly asked to stop earlier
+   * call `lassi-synthesize-tosa-with-soda` on the output folder containing `01_tosa.mlir`
+   * default `--build-mode` to `baseline`
+   * default `--stage` to `bambu-verilog` unless the user explicitly asked to stop earlier
    * verify `log.txt` exists and is non-empty
    * verify the requested synthesis target exists and is non-empty
 
@@ -110,7 +110,7 @@ Create or update:
 
 * verified variants attempted
 * validation command/result
-* `get_toolchain_info` result summary
+* `lassi-get-toolchain-info` result summary
 * per-variant artifact-generation tool calls and arguments
 * per-variant artifact paths and non-empty checks
 * fallback decisions, if any

@@ -65,8 +65,9 @@ Common functions:
 
 ### `lassi.verification.csv_tools`
 Numeric CSV summarization, exact/tolerant comparison, and element-wise
-mismatch reporting. Backs the `lassi-summarize-csv`,
-`lassi-compare-csv-outputs`, and `lassi-diff-csv-outputs` CLIs.
+mismatch reporting. Backs the `lassi-summarize-csv` and
+`lassi-compare-csv-outputs` CLIs (the latter exposes both summary and
+elementwise modes via `--mode`).
 
 ### `lassi.integrations.torch_utils`
 Shared PyTorch helpers for model export, torch-mlir lowering, and
@@ -90,7 +91,7 @@ Common functions:
 ## CLIs vs Helpers
 - Use the `cli/lassi-*` scripts (via the matching skills) for authoritative
   runtime actions and toolchain access:
-  - `lassi-get-toolchain-info`
+  - `lassi-get-toolchain-info` (direct CLI — runs `python -c` + `clang --version` style probes)
   - `lassi-export-model-to-pt`
   - `lassi-compile-torch-to-mlir`
 - Use Python helpers for reusable in-repo script logic:

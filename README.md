@@ -132,15 +132,14 @@ Each former MCP tool is now a skill. Group → skill mapping:
 | `lassi-run-differential-fuzzer` | Run a differential libFuzzer target, preserve divergences |
 | `lassi-synthesize-verification-report` | Aggregate verification JSON into one report |
 | `lassi-summarize-csv` | Sanity-check a numeric CSV |
-| `lassi-compare-csv-outputs` | Golden-vs-candidate CSV comparison with rtol/atol |
-| `lassi-diff-csv-outputs` | Element-wise CSV mismatch report |
+| `lassi-compare-csv-outputs` | Golden-vs-candidate CSV comparison; `--mode summary` (default, rtol/atol verdict) or `--mode elementwise` (per-cell mismatches) |
 
 ### Toolchain & hardware
 | Skill | Purpose |
 |-------|---------|
 | `lassi-get-machine-info` | OS / CPU / ISA / RAM fingerprint |
-| `lassi-get-gpu-info` | GPU info via vendor tool (nvidia/rocm/xpu/macOS) |
-| `lassi-get-toolchain-info` | Python / torch / torch-mlir / LLVM versions |
+| `lassi-get-gpu-info` | GPU info via vendor tool (nvidia/rocm/xpu/macOS) — direct CLI, no wrapper |
+| `lassi-get-toolchain-info` | Python / torch / torch-mlir / LLVM versions — direct CLI, no wrapper |
 
 ### Translation & synthesis
 | Skill | Purpose |

@@ -1,9 +1,12 @@
 import shlex
+import logging
 from pathlib import Path
 from typing import Callable, Optional, Tuple, Type, List
 
 from lassi.core.utils import *
 from lassi.profiling.profiler import Profiler, Report, Timer
+
+logger = logging.getLogger(__name__)
 
 class WrongRetCode(Exception):
     pass
@@ -97,9 +100,7 @@ class ExecTool:
 
         cmd = list(map(str, [str(self.executable.resolve()), *shlex.split(args)]))
 
-        # Log to stderr so callers that pipe stdout (binary-stdout harnesses,
-        # CLI JSON output) aren't corrupted by progress messages.
-        print(f"Running with command: {' '.join(cmd)}", file=sys.stderr)
+        logger.info("run %s", " ".join(cmd))
 
         # Use provided profiler if available, otherwise fallback to default
         active_profiler = profiler if profiler is not None else self.profiler
@@ -116,11 +117,11 @@ class ExecTool:
 
         if dump_output:
             dump_path = Path(dump_output).resolve()
-            print(f"Dumping output to: {dump_path}", file=sys.stderr)
+            logger.info("dump output -> %s", dump_path)
             dump_path.write_text(completed_process.stdout)
 
         if validator:
-            print("Validating output", file=sys.stderr) # FIX 3: Safe logging
+            logger.info("validate output")
             validator.validate(completed_process)
 
         return completed_process

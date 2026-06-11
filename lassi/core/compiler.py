@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from typing import Union, Optional, Iterable
+import logging
 import subprocess
 from enum import Enum
-import sys
 import shlex
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 class InvalidLanguage(Exception):
     pass
@@ -197,10 +199,6 @@ class CompilerTool:
             for d in library_dirs:
                 libraries.extend(["-L", str(Path(d).resolve())])
 
-        lang_info = f" for language {self.language.value}" if self.language else ""
-        files_str = ", ".join(str(f) for f in files)
-        print(f"Compiling {files_str} using {self.compiler.value}{lang_info}...")
-
         # Build command
         cmd = [self.compiler.value]
         for f in files:
@@ -219,7 +217,13 @@ class CompilerTool:
             str(output_file),
         ])
 
-        print(f"DEBUG: Executing command: {' '.join(cmd)}", file=sys.stderr)
+        logger.info(
+            "compile %s -> %s (%s)",
+            files[0],
+            output_file,
+            self.compiler.value,
+        )
+        logger.debug("command: %s", " ".join(cmd))
 
         # Run compiler
         result = subprocess.run(cmd, capture_output=True, text=True)

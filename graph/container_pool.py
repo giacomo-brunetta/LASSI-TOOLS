@@ -6,16 +6,14 @@ inside the editable project can be overlaid read-only (e.g. the pipeline
 config and reference source), and a config that lives outside the project is
 mounted separately at `/run/lassi-graph-config.json`.
 
-The normal graph entrypoint executes the complete graph inside this container.
-The agent-dispatch methods remain available for callers that only want to
-delegate individual agents.
+The container hosts the entire graph: `exec_graph` runs the inner
+`graph_flow.py` invocation, which in turn talks to Claude in-process for
+every agent. There is no per-agent container dispatch.
 """
 
 from __future__ import annotations
 
 import asyncio
-import base64
-import json
 import logging
 import os
 import subprocess
@@ -23,14 +21,11 @@ import time
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import docker
-from docker.errors import APIError, ImageNotFound, NotFound
+from docker.errors import APIError, NotFound
 from docker.models.containers import Container
 from docker.types import Mount
-
-from agents import Agent
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +33,8 @@ CONTAINER_WORKSPACE = Path("/workspace")
 CONTAINER_REFERENCE = Path("/reference")
 EXTERNAL_CONFIG_MOUNT = Path("/run/lassi-graph-config.json")
 SETTINGS_MOUNT = "/run/claude-settings.json"
-AGENT_RUNNER = "/opt/lassi/graph/agent_runner.py"
 PYTHON_BIN = "/opt/lassi/.venv/bin/python"
 DEFAULT_IMAGE = "lassi-graph:latest"
-RESULT_SENTINEL = "__LASSI_RESULT__"
 
 FORWARDED_ENV = (
     "ANTHROPIC_API_KEY",
@@ -62,64 +55,8 @@ FORWARDED_ENV = (
 
 
 @dataclass
-class PathMapper:
-    """Translate absolute host paths under `project_root` to /workspace paths.
-
-    Paths registered with `add_external(host, container)` are mapped to a
-    fixed container destination (used for the external config file, which
-    lives outside the project tree).
-    """
-
-    project_root: Path
-    container_root: Path = CONTAINER_WORKSPACE
-    externals: dict[Path, Path] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        self.project_root = self.project_root.resolve()
-
-    def add_external(self, host: Path, container: Path) -> None:
-        self.externals[host.resolve()] = container
-
-    def to_container(self, p: Path) -> Path:
-        if not p.is_absolute():
-            return p
-        resolved = p.resolve()
-        if resolved in self.externals:
-            return self.externals[resolved]
-        try:
-            rel = resolved.relative_to(self.project_root)
-        except ValueError as exc:
-            raise ValueError(
-                f"path {resolved} is outside the project root {self.project_root}; "
-                f"add it as a read-only overlay or place it under {self.project_root}"
-            ) from exc
-        return self.container_root / rel
-
-
-def encode_value(value: Any, mapper: PathMapper) -> Any:
-    """Recursively encode a payload value, translating Paths through `mapper`."""
-    if isinstance(value, Path):
-        return {"__type__": "Path", "value": str(mapper.to_container(value))}
-    if isinstance(value, dict):
-        return {k: encode_value(v, mapper) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [encode_value(x, mapper) for x in value]
-    return value
-
-
-def _parse_envelope(stdout: str) -> dict:
-    for line in stdout.splitlines()[::-1]:
-        line = line.strip()
-        if line.startswith(RESULT_SENTINEL):
-            return json.loads(line[len(RESULT_SENTINEL):])
-    raise RuntimeError(
-        f"agent runner did not emit a {RESULT_SENTINEL} envelope; raw stdout:\n{stdout}"
-    )
-
-
-@dataclass
 class AgentContainer:
-    """One hardened container for a graph run or delegated agent dispatches."""
+    """One hardened container that hosts an entire graph run."""
 
     project_dir: Path
     reference_dir: Path | None = None
@@ -135,10 +72,9 @@ class AgentContainer:
     # overlaid read-only at the corresponding /workspace path.
     reference_overlays: list[Path] = field(default_factory=list)
     extra_env: dict[str, str] = field(default_factory=dict)
-    name_prefix: str = "lassi-graph-agents"
+    name_prefix: str = "lassi-graph"
 
     _client: docker.DockerClient = field(init=False, repr=False)
-    _mapper: PathMapper = field(init=False, repr=False)
     _container: Container | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -185,36 +121,51 @@ class AgentContainer:
             normalized_reference_overlays.append(rel)
         self.reference_overlays = normalized_reference_overlays
 
-        self._mapper = PathMapper(self.project_dir)
-        if self.external_config is not None:
-            self._mapper.add_external(self.external_config, EXTERNAL_CONFIG_MOUNT)
         self._client = docker.from_env()
 
     # ------------------------------------------------------------------ image
 
     def _ensure_image(self) -> None:
-        try:
-            self._client.images.get(self.image)
-            return
-        except ImageNotFound:
-            pass
+        # `graph_flow.py` runs from the copy baked into /opt/lassi, not from
+        # the selected project mount. Always pass the build context through
+        # Docker's cache before launching so local graph edits cannot be
+        # silently ignored by an existing image.
+        inspect = subprocess.run(
+            ["docker", "image", "inspect", self.image],
+            capture_output=True,
+        )
         if not self.auto_build:
+            if inspect.returncode == 0:
+                return
             raise RuntimeError(f"Docker image {self.image!r} not present and auto_build=False")
         if self.repo_root is None:
             raise RuntimeError(
                 f"cannot build image {self.image!r} without repo_root"
             )
-        logger.info("building image %s from %s/graph/Dockerfile", self.image, self.repo_root)
+        logger.info(
+            "refreshing image %s from %s/graph/Dockerfile",
+            self.image, self.repo_root,
+        )
         cmd = [
             "docker", "build",
+            "--quiet",
             "--build-arg", "REQUIREMENTS_FILE=requirements/requirements_graph.txt",
             "-f", "graph/Dockerfile",
             "-t", self.image,
             ".",
         ]
-        result = subprocess.run(cmd, cwd=str(self.repo_root))
+        result = subprocess.run(
+            cmd,
+            cwd=str(self.repo_root),
+            capture_output=True,
+            text=True,
+        )
         if result.returncode != 0:
-            raise RuntimeError(f"docker build failed (exit {result.returncode})")
+            diagnostics = (result.stderr or result.stdout or "").strip()
+            raise RuntimeError(
+                f"docker build failed (exit {result.returncode}):\n{diagnostics}"
+            )
+        logger.info("image ready: %s", self.image)
 
     # --------------------------------------------------------------- container
 
@@ -328,112 +279,55 @@ class AgentContainer:
 
     # ----------------------------------------------------------------- dispatch
 
-    def _encode_payload(
-        self,
-        *,
-        cwd: Path,
-        allowed_paths: list[Path] | None,
-        model: str | None,
-        permission_mode: str,
-        context: dict[str, Any],
-    ) -> str:
-        container_cwd = (
-            self._mapper.to_container(cwd) if cwd.is_absolute() else CONTAINER_WORKSPACE
-        )
-        translated_allowed: list[dict] | None = None
-        if allowed_paths is not None:
-            translated_allowed = [encode_value(p, self._mapper) for p in allowed_paths]
-
-        payload = {
-            "cwd": {"__type__": "Path", "value": str(container_cwd)},
-            "allowed_paths": translated_allowed,
-            "model": model,
-            "permission_mode": permission_mode,
-            "context": encode_value(context, self._mapper),
-        }
-        return base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
-
-    async def dispatch(self, agent: Agent, **kwargs: Any) -> str:
-        if self._container is None:
-            raise RuntimeError("AgentContainer not started; call .start() first")
-
-        cwd: Path = kwargs.pop("cwd")
-        allowed_paths: list[Path] | None = kwargs.pop("allowed_paths", None)
-        model: str | None = kwargs.pop("model", None)
-        permission_mode: str = kwargs.pop("permission_mode", "acceptEdits")
-
-        payload_b64 = self._encode_payload(
-            cwd=cwd,
-            allowed_paths=allowed_paths,
-            model=model,
-            permission_mode=permission_mode,
-            context=kwargs,
-        )
-
-        cmd = [
-            PYTHON_BIN, AGENT_RUNNER,
-            "--agent", agent.name,
-            "--payload-b64", payload_b64,
-        ]
-        logger.info(
-            "exec'ing agent '%s' in %s (payload=%d bytes)",
-            agent.name, self._container.name, len(payload_b64),
-        )
-
-        loop = asyncio.get_event_loop()
-        exec_result = await loop.run_in_executor(
-            None,
-            lambda: self._container.exec_run(
-                cmd=cmd, demux=True, stdout=True, stderr=True,
-            ),
-        )
-
-        exit_code = exec_result.exit_code
-        stdout_raw, stderr_raw = exec_result.output or (b"", b"")
-        stdout = (stdout_raw or b"").decode("utf-8", errors="replace")
-        stderr = (stderr_raw or b"").decode("utf-8", errors="replace")
-
-        if stderr.strip():
-            for line in stderr.rstrip().splitlines():
-                logger.info("[%s] %s", agent.name, line)
-
-        try:
-            envelope = _parse_envelope(stdout)
-        except RuntimeError:
-            raise RuntimeError(
-                f"agent '{agent.name}' produced no parsable envelope "
-                f"(exit={exit_code}); stderr was:\n{stderr}"
-            )
-
-        if not envelope.get("ok", False):
-            raise RuntimeError(
-                f"agent '{agent.name}' failed: {envelope.get('error', '<no error>')}"
-            )
-        return envelope["result"]
-
     async def exec_graph(self, args: list[str]) -> str:
-        """Execute the complete graph inside the hardened container."""
+        """Execute the complete graph inside the hardened container, streaming
+        stdout/stderr to the host TTY as it arrives.
+
+        We bypass `Container.exec_run(stream=True)` (which mixes streams in a
+        way that's awkward to demux) and drive the low-level Docker API
+        directly so we get separate stdout/stderr chunks and a final exit code.
+        """
         if self._container is None:
             raise RuntimeError("AgentContainer not started; call .start() first")
 
         cmd = [PYTHON_BIN, "/opt/lassi/graph/graph_flow.py", *args]
-        loop = asyncio.get_event_loop()
-        exec_result = await loop.run_in_executor(
-            None,
-            lambda: self._container.exec_run(
-                cmd=cmd, demux=True, stdout=True, stderr=True,
-            ),
+        api = self._client.api
+        exec_handle = api.exec_create(
+            self._container.id,
+            cmd=cmd,
+            stdout=True,
+            stderr=True,
+            tty=False,
         )
-        stdout_raw, stderr_raw = exec_result.output or (b"", b"")
-        stdout = (stdout_raw or b"").decode("utf-8", errors="replace")
-        stderr = (stderr_raw or b"").decode("utf-8", errors="replace")
-        if stderr:
-            print(stderr, end="", file=os.sys.stderr)
-        if stdout:
-            print(stdout, end="")
-        if exec_result.exit_code != 0:
+
+        loop = asyncio.get_event_loop()
+        stdout_buf: list[str] = []
+        stderr_buf: list[str] = []
+
+        def _drain() -> None:
+            stream = api.exec_start(exec_handle["Id"], stream=True, demux=True)
+            for chunk in stream:
+                if not chunk:
+                    continue
+                out_chunk, err_chunk = chunk
+                if out_chunk:
+                    text = out_chunk.decode("utf-8", errors="replace")
+                    stdout_buf.append(text)
+                    print(text, end="", flush=True)
+                if err_chunk:
+                    text = err_chunk.decode("utf-8", errors="replace")
+                    stderr_buf.append(text)
+                    print(text, end="", file=os.sys.stderr, flush=True)
+
+        await loop.run_in_executor(None, _drain)
+
+        info = api.exec_inspect(exec_handle["Id"])
+        exit_code = info.get("ExitCode", 0)
+        stdout = "".join(stdout_buf)
+        stderr = "".join(stderr_buf)
+        if exit_code != 0:
             raise RuntimeError(
-                f"graph container exited {exec_result.exit_code}; stderr:\n{stderr}"
+                f"graph container exited {exit_code}; last stderr:\n{stderr[-2000:]}"
             )
         return stdout
 
@@ -457,12 +351,3 @@ class AgentContainer:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.stop()
-
-
-def make_backend(container: AgentContainer):
-    """Adapter turning the container into a dispatch backend callable."""
-
-    async def docker_dispatch_backend(agent: Agent, **kwargs):
-        return await container.dispatch(agent, **kwargs)
-
-    return docker_dispatch_backend

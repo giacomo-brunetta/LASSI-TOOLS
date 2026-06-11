@@ -33,7 +33,7 @@ Read before running checks:
 ## Objectives
 
 1. Verify candidate behavior against the baseline/oracle with identical inputs.
-2. Use the LASSI verification MCP tools as the primary verification path when inputs/artifacts fit their schemas.
+2. Use the LASSI verification skills (the `lassi-*` CLIs) as the primary verification path when inputs/artifacts fit their schemas.
 3. Use CSV artifacts and CSV comparison tools for numeric outputs whenever feasible.
 4. Produce concise pass/fail evidence for the next agent.
 5. Preserve failure details in `LASSI/failure_log.md` when verification fails.
@@ -46,21 +46,21 @@ Read before running checks:
 2. Read all input files listed above that exist.
 3. Identify the baseline/oracle command and candidate command(s) from prior artifacts.
 4. Use deterministic seeds/settings when applicable.
-5. For C/C++ sources, call `build_sanitized` before semantic checks unless an upstream artifact proves the sanitized build already passed.
-6. When source/artifact interfaces are unclear, call `synthesize_common_harness` and record whether it supports the candidate interface.
-7. Generate and run shared assertions with `generate_assertion_suite` and `run_assertion_suite` when an entrypoint and artifacts are available.
-8. Run `run_random_equivalence_tests` for C↔C and C↔Torch comparisons when scalar, tensor, or Python/shared-library artifacts can be described by an input schema.
-9. Run `run_robustness_fuzzer` for any source or existing libFuzzer target where fuzzing is in scope and budget remains.
-10. Run `run_differential_fuzzer` when a differential libFuzzer artifact exists.
-11. Aggregate MCP verification evidence with `synthesize_verification_report` and cite its report paths.
+5. For C/C++ sources, call `lassi-build-sanitized` before semantic checks unless an upstream artifact proves the sanitized build already passed.
+6. When source/artifact interfaces are unclear, call `lassi-synthesize-common-harness` and record whether it supports the candidate interface.
+7. Generate and run shared assertions with `lassi-generate-assertion-suite` and `lassi-run-assertion-suite` when an entrypoint and artifacts are available.
+8. Run `lassi-run-random-equivalence-tests` for C↔C and C↔Torch comparisons when scalar, tensor, or Python/shared-library artifacts can be described by an input schema.
+9. Run `lassi-run-robustness-fuzzer` for any source or existing libFuzzer target where fuzzing is in scope and budget remains.
+10. Run `lassi-run-differential-fuzzer` when a differential libFuzzer artifact exists.
+11. Aggregate verification evidence with `lassi-synthesize-verification-report` and cite its report paths.
 12. For numeric outputs, write:
 
    * `LASSI/golden.csv` for the oracle/baseline
    * one candidate CSV per candidate or variant
 
-13. Call `summarize_csv` on numeric CSV outputs when available.
-14. Call `compare_csv_outputs` for oracle-vs-candidate numeric comparisons when available.
-15. Call `diff_csv_outputs` when exact equality fails and preserve the mismatch artifact path.
+13. Call `lassi-summarize-csv` on numeric CSV outputs when available.
+14. Call `lassi-compare-csv-outputs` (default `--mode summary`) for oracle-vs-candidate numeric comparisons.
+15. Re-run `lassi-compare-csv-outputs --mode elementwise` when exact equality fails and preserve the mismatch artifact path (via `--output-path`).
 16. If CSV output is infeasible, document why and use the most reproducible alternative.
 17. For translation candidates, verify every candidate in `translation_variants.json` directly against the original C/C++ oracle unless an upstream exception is explicit.
 18. Run an input-sensitivity check when candidate outputs should depend on inputs.
@@ -96,7 +96,7 @@ Create or update:
 * baseline/oracle command and artifact path
 * candidate commands and artifact paths
 * tolerance used
-* verification MCP calls, JSON verdicts, and report artifact paths
+* verification skill calls, JSON verdicts, and report artifact paths
 * CSV summary/comparison results
 * mismatch report paths, if any
 * per-candidate verdict table

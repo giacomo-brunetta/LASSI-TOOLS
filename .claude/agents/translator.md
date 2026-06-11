@@ -45,7 +45,7 @@ Read before editing:
 2. Read all input files listed above that exist.
 3. Identify source kernel inputs, outputs, dtypes, shapes, and tolerances from prior artifacts.
 4. If `failure_log.md` exists, address the recorded translation/export blocker first.
-5. Call `get_toolchain_info` when available and record Python, torch, torch-mlir, and LLVM versions.
+5. Call `lassi-get-toolchain-info` when available and record Python, torch, torch-mlir, and LLVM versions.
 6. Enumerate every material PyTorch function/op for each candidate variant in `forward` or equivalent execution paths, including helper functions that affect export/lowering.
 7. Check compatibility for each variant-specific op set with the wiki MCP resources on the `lassi` MCP server before finalizing operator choices:
 
@@ -75,7 +75,7 @@ Create or update:
 * source kernel path
 * translation files changed
 * semantic assumptions
-* toolchain versions from `get_toolchain_info`, or why unavailable
+* toolchain versions from `lassi-get-toolchain-info`, or why unavailable
 * per-variant function/op inventory checked against the compatibility wiki
 * exact compatibility wiki URIs consulted and their status for each variant
 * high-risk ops used or avoided
