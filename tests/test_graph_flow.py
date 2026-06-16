@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import graph.graph_flow as graph_flow
+from agents import AgentTurn
 from graph.graph_flow import (
     CODER_AGENT,
     CONFIG_BUILDER_AGENT,
@@ -304,12 +305,16 @@ def test_graph_passes_messages_without_handoff_files(monkeypatch, tmp_path, capl
     async def fake_planner_dispatch(**kwargs):
         seen["context"] = kwargs["context_message"]
         seen["planner_candidate"] = optimized.read_text()
-        return "# Plan\n\n## Strategy 1\n- change: add an explanatory comment"
+        return AgentTurn(
+            text="# Plan\n\n## Strategy 1\n- change: add an explanatory comment"
+        )
 
     async def fake_coder_dispatch(**kwargs):
         seen["plan"] = kwargs["plan_message"]
         optimized.write_text(original.read_text() + "/* optimized */\n")
-        return "# Changes\n\n## Files changed\n- optimized.c: added comment"
+        return AgentTurn(
+            text="# Changes\n\n## Files changed\n- optimized.c: added comment"
+        )
 
     async def noop_close():
         return None

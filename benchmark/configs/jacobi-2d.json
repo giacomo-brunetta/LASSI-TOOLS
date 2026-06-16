@@ -1,0 +1,50 @@
+{
+  "sources": {
+    "original": "stencils/jacobi-2d/jacobi-2d.c",
+    "optimized": "stencils/jacobi-2d/jacobi-2d_opt.c"
+  },
+  "compiler": "clang",
+  "scope": [
+    "stencils/jacobi-2d",
+    ".verify"
+  ],
+  "flags": {
+    "performance": "-O3 -DLARGE_DATASET -DPOLYBENCH_TIME -I utilities -I stencils/jacobi-2d utilities/polybench.c -lm"
+  },
+  "safety": {
+    "mode": "asan",
+    "groups": [0]
+  },
+  "arguments": {
+    "benchmark": "",
+    "benchmark_runs": 5,
+    "target_speedup": 50.0,
+    "correctness": [
+      {
+        "compile_args": "-O0 -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I stencils/jacobi-2d utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O0 -DSMALL_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I stencils/jacobi-2d utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O0 -DMEDIUM_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I stencils/jacobi-2d utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O3 -DLARGE_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I stencils/jacobi-2d utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O3 -DEXTRALARGE_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I stencils/jacobi-2d utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      }
+    ]
+  }
+}

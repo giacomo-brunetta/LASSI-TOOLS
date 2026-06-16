@@ -1,0 +1,50 @@
+{
+  "sources": {
+    "original": "linear-algebra/blas/gemm/gemm.c",
+    "optimized": "linear-algebra/blas/gemm/gemm_opt.c"
+  },
+  "compiler": "clang",
+  "scope": [
+    "linear-algebra/blas/gemm",
+    ".verify"
+  ],
+  "flags": {
+    "performance": "-O3 -DLARGE_DATASET -DPOLYBENCH_TIME -I utilities -I linear-algebra/blas/gemm utilities/polybench.c -lm"
+  },
+  "safety": {
+    "mode": "asan",
+    "groups": [0]
+  },
+  "arguments": {
+    "benchmark": "",
+    "benchmark_runs": 5,
+    "target_speedup": 50.0,
+    "correctness": [
+      {
+        "compile_args": "-O0 -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I linear-algebra/blas/gemm utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O0 -DSMALL_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I linear-algebra/blas/gemm utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O0 -DMEDIUM_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I linear-algebra/blas/gemm utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O3 -DLARGE_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I linear-algebra/blas/gemm utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      },
+      {
+        "compile_args": "-O3 -DEXTRALARGE_DATASET -DPOLYBENCH_DUMP_ARRAYS -I utilities -I linear-algebra/blas/gemm utilities/polybench.c -lm",
+        "golden": [],
+        "differential": [""]
+      }
+    ]
+  }
+}

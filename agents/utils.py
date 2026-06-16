@@ -3,10 +3,53 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from claude_agent_sdk import ClaudeSDKClient, ToolUseBlock, SystemMessage
+
+
+@dataclass
+class AgentTurn:
+    """One round-trip on a Claude session: final text + usage snapshot.
+
+    `usage` is normalized from `ResultMessage.usage` (which is an open dict) so
+    callers can rely on the keys below being present (zero when the API does
+    not report them, e.g. no cache hits).
+    """
+
+    text: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    duration_ms: int = 0
+    total_cost_usd: float = 0.0
+
+    def merge(self, other: "AgentTurn") -> "AgentTurn":
+        """Return a new turn with summed usage (used to aggregate per role)."""
+        return AgentTurn(
+            text=other.text or self.text,
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cache_read_input_tokens=self.cache_read_input_tokens + other.cache_read_input_tokens,
+            cache_creation_input_tokens=(
+                self.cache_creation_input_tokens + other.cache_creation_input_tokens
+            ),
+            duration_ms=self.duration_ms + other.duration_ms,
+            total_cost_usd=self.total_cost_usd + other.total_cost_usd,
+        )
+
+    def usage_dict(self) -> dict[str, Any]:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_read_input_tokens": self.cache_read_input_tokens,
+            "cache_creation_input_tokens": self.cache_creation_input_tokens,
+            "duration_ms": self.duration_ms,
+            "total_cost_usd": self.total_cost_usd,
+        }
 # ///////////////////////////////////////////////////////////////////////////////
 #                              LOGGING UTILS
 # ///////////////////////////////////////////////////////////////////////////////
@@ -66,8 +109,13 @@ def _log_system_message(message: "SystemMessage") -> None:
 #                              Agent Invocation Helper
 # ///////////////////////////////////////////////////////////////////////////////
 
-async def claude_send(client: "ClaudeSDKClient", prompt: str) -> str:
-    """Send `prompt` on a connected ClaudeSDKClient; return the final text."""
+async def claude_send(client: "ClaudeSDKClient", prompt: str) -> AgentTurn:
+    """Send `prompt` on a connected ClaudeSDKClient; return text + usage.
+
+    The returned `AgentTurn` carries both the final response text and the
+    normalized token usage from the SDK's `ResultMessage`. Usage fields are
+    zero when the API does not report them (e.g. caches not populated).
+    """
     from claude_agent_sdk import (
         AssistantMessage,
         ResultMessage,
@@ -78,6 +126,7 @@ async def claude_send(client: "ClaudeSDKClient", prompt: str) -> str:
 
     await client.query(prompt)
     final_text = ""
+    turn = AgentTurn(text="")
     async for message in client.receive_response():
 
         if isinstance(message, SystemMessage):
@@ -93,10 +142,26 @@ async def claude_send(client: "ClaudeSDKClient", prompt: str) -> str:
         elif isinstance(message, ResultMessage):
             if message.result:
                 final_text = message.result
-            logger.info(
-                "claude turn finished: stop_reason=%s duration_ms=%s cost=%s",
-                getattr(message, "stop_reason", None),
-                getattr(message, "duration_ms", None),
-                getattr(message, "total_cost_usd", None),
+            usage = getattr(message, "usage", None) or {}
+            turn.input_tokens = int(usage.get("input_tokens", 0) or 0)
+            turn.output_tokens = int(usage.get("output_tokens", 0) or 0)
+            turn.cache_read_input_tokens = int(
+                usage.get("cache_read_input_tokens", 0) or 0
             )
-    return final_text
+            turn.cache_creation_input_tokens = int(
+                usage.get("cache_creation_input_tokens", 0) or 0
+            )
+            turn.duration_ms = int(getattr(message, "duration_ms", 0) or 0)
+            turn.total_cost_usd = float(getattr(message, "total_cost_usd", 0.0) or 0.0)
+            logger.info(
+                "claude turn finished: stop_reason=%s duration_ms=%d "
+                "tokens_in=%d tokens_out=%d cache_read=%d cost=%.4f",
+                getattr(message, "stop_reason", None),
+                turn.duration_ms,
+                turn.input_tokens,
+                turn.output_tokens,
+                turn.cache_read_input_tokens,
+                turn.total_cost_usd,
+            )
+    turn.text = final_text
+    return turn

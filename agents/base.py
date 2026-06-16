@@ -21,6 +21,7 @@ from typing import Any, Mapping, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from claude_agent_sdk import ClaudeSDKClient
+    from .utils import AgentTurn
 
 # claude_agent_sdk is only required inside the graph container. Import lazily
 # so the host side (which only needs to launch the container) doesn't pull
@@ -165,7 +166,8 @@ class Agent(ABC):
         model: str | None = None,
         permission_mode: str = "acceptEdits",
         **context: Any,
-    ) -> str:
+    ) -> "AgentTurn":
+        """Run one turn on the persistent session; return text + usage."""
         from .utils import claude_send
 
         key = (

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
+import datetime as _dt
 import json
 import logging
 import os
@@ -9,16 +11,18 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from statistics import mean, median, stdev
-from typing import Literal
+from typing import Iterator, Literal
 
 from pydantic_graph import GraphBuilder, StepContext, TypeExpression
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agents import (
+    AgentTurn,
     CoderAgent,
     ConfigBuilderAgent,
     PlannerAgent,
@@ -92,8 +96,21 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "graph_code_test.json"
 BUILD_ROOT = Path(os.environ.get("LASSI_BUILD_ROOT", ".verify/refactoring"))
+# Benchmark logs live OUTSIDE BUILD_ROOT on purpose: the planner has read
+# access to `.verify` (it's in most configs' `scope`), so anything under
+# BUILD_ROOT — including prior-run strategy/speedup records — is visible to
+# the planner of the next run. lassi_runs/ is a sibling that no scope entry
+# names, so logs accumulate for cross-run aggregation without leaking into
+# the next planner's context.
+LOG_ROOT = Path(os.environ.get("LASSI_LOG_ROOT", "lassi_runs/logs"))
 REFERENCE_ROOT = Path(os.environ.get("LASSI_REFERENCE_ROOT", "."))
 CLAUDE_MODEL = "claude-opus-4-7"
+
+# Gates in the canonical order used by the pass@k ladder and the gate_reached
+# label. Each attempt advances through the list in sequence; an attempt's
+# `gate_reached` is the *last cleared* gate (so a correctness-failing attempt
+# stays at "compile" even though correctness was attempted).
+GATE_ORDER = ["compile", "correctness", "safety", "speedup"]
 
 
 def _log(category: str, message: str, *args) -> None:
@@ -311,6 +328,16 @@ class PipelineStage:
     optimized_latencies: list[float] = field(default_factory=list)
     attempts: list[AttemptRecord] = field(default_factory=list)
     error: str | None = None
+    # Observability bookkeeping.
+    pipeline_started_at: float = 0.0          # perf_counter at pipeline start
+    pipeline_started_at_iso: str = ""         # wall-clock ISO at start
+    # Planner runs *before* the AttemptRecord exists; we stash usage/timing
+    # here and attribute them to the next attempt created in code_refactor.
+    pending_planner_seconds: float = 0.0
+    pending_planner_usage: dict | None = None
+    # config-builder fires at startup and has no attempt; recorded directly
+    # for inclusion in the run totals.
+    config_builder_usage: dict | None = None
 
 
 @dataclass
@@ -334,6 +361,67 @@ class AttemptRecord:
     original_stats: BenchmarkStats | None = None
     optimized_stats: BenchmarkStats | None = None
     speedup_pct: float | None = None
+    # Gate ladder. Each boolean is True iff *this* attempt cleared that gate
+    # (a skipped gate counts as cleared so the ladder reflects what the
+    # pipeline would accept). `gate_reached` is the deepest cleared label.
+    compile_ok: bool = False
+    correctness_ok: bool = False
+    safety_ok: bool = False
+    speedup_ok: bool = False
+    gate_reached: str = "none"  # none | compile | correctness | safety | speedup | accepted
+    # Correctness / safety detail counters.
+    goldens_passed: int = 0
+    goldens_total: int = 0
+    differentials_passed: int = 0
+    differentials_total: int = 0
+    asan_findings: int = 0
+    # Wall-clock per stage (seconds). Keys: planner, coder, test, safety, profile.
+    stage_seconds: dict[str, float] = field(default_factory=dict)
+    # Per-role token usage. Keys: planner, coder. Values: AgentTurn.usage_dict().
+    token_usage: dict[str, dict] = field(default_factory=dict)
+
+
+@dataclass
+class RunRecord:
+    """One end-to-end pipeline execution.
+
+    Written to LOG_ROOT/run_<timestamp>.json on completion (success or
+    failure), and appended as a one-line summary to LOG_ROOT/runs.jsonl.
+    """
+    config_path: str
+    kernel: str
+    started_at: str  # ISO-8601, UTC
+    finished_at: str
+    wall_seconds: float
+    final_outcome: str  # accepted | exhausted_coder | exhausted_planner | hard_failed
+    planner_rounds: int
+    coder_rounds: int
+    safety_mode: str
+    profile_enabled: bool
+    target_speedup_pct: float
+    attempts: list[dict] = field(default_factory=list)
+    # gate -> [0/1 for k=1..K], cumulative pass@k for this run
+    pass_at_k: dict[str, list[int]] = field(default_factory=dict)
+    # gate -> first attempt index (1-based) where the gate was cleared, or None
+    first_cleared_at: dict[str, int | None] = field(default_factory=dict)
+    # Aggregate cost. config_builder usage is included here (it has no attempt).
+    totals: dict[str, float | int] = field(default_factory=dict)
+    error: str | None = None
+
+    def summary_dict(self) -> dict:
+        """Compact one-line shape for runs.jsonl."""
+        return {
+            "kernel": self.kernel,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "wall_seconds": round(self.wall_seconds, 3),
+            "final_outcome": self.final_outcome,
+            "attempts": len(self.attempts),
+            "planner_rounds": self.planner_rounds,
+            "coder_rounds": self.coder_rounds,
+            "first_cleared_at": self.first_cleared_at,
+            "totals": self.totals,
+        }
 
 
 def _project_relative_path(value: str, label: str) -> Path:
@@ -625,6 +713,12 @@ def _task_context_summary(state: PipelineStage, *, role: str) -> str:
         f"- compiler: {cfg.compiler.value}\n"
         f"- performance flags: {cfg.performance_flags}\n"
         f"- acceptance gate: mean speedup strictly greater than {cfg.target_speedup:.2f}%\n"
+        "- hardware execution model: SINGLE-CORE ONLY. No OpenMP parallel/"
+        "for/sections/task/target, no pthreads, no std::thread/std::async, "
+        "no MPI/OpenACC/TBB/GPU offload. Build flags do not include "
+        "`-fopenmp`, so `#pragma omp simd` is silently dropped — do not use "
+        "it. SIMD via clang/GCC vectorization pragmas, target-ISA "
+        "intrinsics, `restrict`, and aligned allocation IS encouraged.\n"
         f"- planner round: {state.planner_iterations}; coder round: {state.coder_iterations}\n"
         f"- latest feedback: "
         f"{_compact_text(state.code_feedback or state.plan_feedback or '(none)')}\n"
@@ -644,6 +738,236 @@ def _write_benchmark_history(state: PipelineStage) -> Path:
     }
     path.write_text(json.dumps(payload, indent=2) + "\n")
     return path
+
+
+# ---------------------------------------------------------------------------
+# Observability helpers
+# ---------------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def _stage_timer(attempt: AttemptRecord | None, stage: str) -> Iterator[None]:
+    """Record elapsed wall-clock for `stage` on the given attempt (if any).
+
+    Safe to use when `attempt` is None (the planner runs before the attempt
+    record exists — that case is handled by the caller, which stashes the
+    elapsed time on the pipeline state and consumes it in code_refactor).
+    """
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - t0
+        if attempt is not None:
+            attempt.stage_seconds[stage] = attempt.stage_seconds.get(stage, 0.0) + elapsed
+
+
+def _advance_gate(attempt: AttemptRecord) -> None:
+    """Recompute `gate_reached` as the last cleared gate in GATE_ORDER.
+
+    "accepted" is set only when *every* gate in GATE_ORDER has been cleared
+    (skipped gates are marked cleared at the call site, so this still works
+    when safety_mode=off or profile_enabled=False).
+    """
+    flags = {
+        "compile": attempt.compile_ok,
+        "correctness": attempt.correctness_ok,
+        "safety": attempt.safety_ok,
+        "speedup": attempt.speedup_ok,
+    }
+    reached = "none"
+    for gate in GATE_ORDER:
+        if flags[gate]:
+            reached = gate
+        else:
+            break
+    if reached == GATE_ORDER[-1]:
+        reached = "accepted"
+    attempt.gate_reached = reached
+
+
+def _compute_pass_at_k(
+    attempts: list[AttemptRecord],
+) -> tuple[dict[str, list[int]], dict[str, int | None]]:
+    """Return (pass_at_k, first_cleared_at) over the gate ladder.
+
+    `pass_at_k[gate][k-1] = 1` iff some attempt with index <= k cleared that
+    gate. `first_cleared_at[gate]` is the 1-based index of the first attempt
+    that cleared the gate, or None if no attempt did.
+    """
+    n = len(attempts)
+    pass_at_k: dict[str, list[int]] = {gate: [0] * n for gate in GATE_ORDER}
+    first_cleared_at: dict[str, int | None] = {gate: None for gate in GATE_ORDER}
+    flags_by_attempt = [
+        {
+            "compile": a.compile_ok,
+            "correctness": a.correctness_ok,
+            "safety": a.safety_ok,
+            "speedup": a.speedup_ok,
+        }
+        for a in attempts
+    ]
+    for gate in GATE_ORDER:
+        cleared = 0
+        for k, flags in enumerate(flags_by_attempt, start=1):
+            if flags[gate]:
+                cleared = 1
+                if first_cleared_at[gate] is None:
+                    first_cleared_at[gate] = k
+            pass_at_k[gate][k - 1] = cleared
+    return pass_at_k, first_cleared_at
+
+
+def _aggregate_totals(state: PipelineStage) -> dict[str, float | int]:
+    """Sum per-attempt token usage with the config-builder one-shot."""
+    totals = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "llm_duration_ms": 0,
+        "cost_usd": 0.0,
+    }
+    sources: list[dict] = []
+    if state.config_builder_usage is not None:
+        sources.append(state.config_builder_usage)
+    for attempt in state.attempts:
+        sources.extend(attempt.token_usage.values())
+    for usage in sources:
+        totals["input_tokens"] += int(usage.get("input_tokens", 0) or 0)
+        totals["output_tokens"] += int(usage.get("output_tokens", 0) or 0)
+        totals["cache_read_input_tokens"] += int(usage.get("cache_read_input_tokens", 0) or 0)
+        totals["cache_creation_input_tokens"] += int(usage.get("cache_creation_input_tokens", 0) or 0)
+        totals["llm_duration_ms"] += int(usage.get("duration_ms", 0) or 0)
+        totals["cost_usd"] += float(usage.get("total_cost_usd", 0.0) or 0.0)
+    totals["cost_usd"] = round(totals["cost_usd"], 6)
+    return totals
+
+
+def _build_run_record(
+    state: PipelineStage, *, final_outcome: str, error: str | None,
+) -> RunRecord:
+    cfg = state.config
+    pass_at_k, first_cleared_at = _compute_pass_at_k(state.attempts)
+    finished_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    wall = (
+        time.perf_counter() - state.pipeline_started_at
+        if state.pipeline_started_at else 0.0
+    )
+    return RunRecord(
+        config_path=str(state.config_path),
+        kernel=str(cfg.optimized_path) if cfg else "",
+        started_at=state.pipeline_started_at_iso,
+        finished_at=finished_iso,
+        wall_seconds=round(wall, 3),
+        final_outcome=final_outcome,
+        planner_rounds=state.planner_iterations,
+        coder_rounds=state.coder_iterations,
+        safety_mode=cfg.safety_mode if cfg else "unknown",
+        profile_enabled=state.profile_enabled,
+        target_speedup_pct=cfg.target_speedup if cfg else 0.0,
+        attempts=[asdict(a) for a in state.attempts],
+        pass_at_k=pass_at_k,
+        first_cleared_at=first_cleared_at,
+        totals=_aggregate_totals(state),
+        error=error,
+    )
+
+
+def _write_run_record(record: RunRecord, repo_path: Path) -> tuple[Path, Path]:
+    """Write full RunRecord to logs/run_<ts>.json and append a summary to runs.jsonl."""
+    log_dir = repo_path / LOG_ROOT
+    log_dir.mkdir(parents=True, exist_ok=True)
+    # Filesystem-safe timestamp derived from finished_at.
+    ts = record.finished_at.replace(":", "").replace("-", "").replace(".", "_")
+    full = log_dir / f"run_{ts}.json"
+    full.write_text(json.dumps(asdict(record), indent=2, default=str) + "\n")
+    jsonl = log_dir / "runs.jsonl"
+    with jsonl.open("a") as f:
+        f.write(json.dumps(record.summary_dict(), default=str) + "\n")
+    return full, jsonl
+
+
+def _format_attempts_table(state: PipelineStage) -> str:
+    """Render one row per attempt with timing + token usage + outcome."""
+    if not state.attempts:
+        return "  (no attempts recorded)"
+    headers = [
+        "#", "plan", "coder", "strategy", "reached", "outcome",
+        "speedup", "t_plan", "t_code", "t_test", "t_safe", "t_perf",
+        "tok_in/out",
+    ]
+    rows: list[list[str]] = []
+    for i, a in enumerate(state.attempts, start=1):
+        speedup = f"{a.speedup_pct:+.2f}%" if a.speedup_pct is not None else "-"
+        def _t(stage: str) -> str:
+            v = a.stage_seconds.get(stage)
+            return f"{v:.1f}s" if v is not None else "-"
+        tok_in = sum(int(u.get("input_tokens", 0) or 0) for u in a.token_usage.values())
+        tok_out = sum(int(u.get("output_tokens", 0) or 0) for u in a.token_usage.values())
+        def _k(n: int) -> str:
+            return f"{n/1000:.1f}k" if n >= 1000 else str(n)
+        rows.append([
+            str(i),
+            str(a.planner_round),
+            str(a.coder_round),
+            (a.strategy or "")[:32],
+            a.gate_reached,
+            (a.outcome or "")[:24],
+            speedup,
+            _t("planner"),
+            _t("coder"),
+            _t("test"),
+            _t("safety"),
+            _t("profile"),
+            f"{_k(tok_in)}/{_k(tok_out)}",
+        ])
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+    fmt_row = lambda cells: "  " + "  ".join(c.ljust(w) for c, w in zip(cells, widths))
+    return "\n".join([fmt_row(headers), fmt_row(["-" * w for w in widths]), *(fmt_row(r) for r in rows)])
+
+
+def _format_pass_at_k(
+    pass_at_k: dict[str, list[int]],
+    first_cleared_at: dict[str, int | None],
+    *,
+    profile_enabled: bool,
+    safety_mode: str,
+) -> str:
+    """Render the cumulative pass@k table."""
+    if not pass_at_k or not any(pass_at_k.values()):
+        return "  (no attempts to score)"
+    n = len(next(iter(pass_at_k.values())))
+    header = ["gate"] + [f"k={k}" for k in range(1, n + 1)] + ["first cleared"]
+    widths = [max(len("correctness"), len(header[0]))] + [3] * n + [len(header[-1])]
+    rows = []
+    for gate in GATE_ORDER:
+        label = gate
+        if gate == "safety" and safety_mode == "off":
+            label = "safety (off)"
+        if gate == "speedup" and not profile_enabled:
+            label = "speedup (disabled)"
+        first = first_cleared_at.get(gate)
+        cells = [label] + [str(v) for v in pass_at_k.get(gate, [0] * n)] + [
+            str(first) if first is not None else "-"
+        ]
+        widths = [max(w, len(c)) for w, c in zip(widths, cells)]
+        rows.append(cells)
+    widths = [max(w, len(h)) for w, h in zip(widths, header)]
+    fmt_row = lambda cells: "  " + "  ".join(c.ljust(w) for c, w in zip(cells, widths))
+    return "\n".join([fmt_row(header), fmt_row(["-" * w for w in widths]), *(fmt_row(r) for r in rows)])
+
+
+def _format_totals(record: RunRecord) -> str:
+    t = record.totals
+    return (
+        f"  wall: {record.wall_seconds:.1f}s   "
+        f"tokens in/out: {t.get('input_tokens', 0):,} / {t.get('output_tokens', 0):,}   "
+        f"cache_read: {t.get('cache_read_input_tokens', 0):,}   "
+        f"cost: ${t.get('cost_usd', 0.0):.4f}\n"
+        f"  final: {record.final_outcome} "
+        f"(planner={record.planner_rounds}, coder={record.coder_rounds})"
+    )
 
 
 def _ensure_candidate_seeded(
@@ -971,7 +1295,7 @@ async def _generate_config_only(
         return
     state = PipelineStage(config_path=config_path, repo_path=repo_path)
     try:
-        result = await CONFIG_BUILDER_AGENT.dispatch_agent(
+        turn = await CONFIG_BUILDER_AGENT.dispatch_agent(
             **_session_kwargs(state),
             repo_path=repo_path,
             target_path=target_path,
@@ -980,8 +1304,8 @@ async def _generate_config_only(
                 else _target_hint_from_config_path(config_path)
             ),
         )
-        _write_generated_config(config_path, result)
-        _record_report(state, "config-builder", result.strip())
+        _write_generated_config(config_path, turn.text)
+        _record_report(state, "config-builder", turn.text.strip())
     finally:
         await CONFIG_BUILDER_AGENT.close()
 
@@ -1122,7 +1446,7 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
         logger.info("asking config-builder to generate %s for repo %s", cfg_path, repo)
         target_path = _resolve_target_path(getattr(args, "target", None), repo)
         try:
-            ctx.state.llm_result = await CONFIG_BUILDER_AGENT.dispatch_agent(
+            turn = await CONFIG_BUILDER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
                 repo_path=repo,
                 target_path=target_path,
@@ -1131,6 +1455,8 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
                     else _target_hint_from_config_path(cfg_path)
                 ),
             )
+            ctx.state.llm_result = turn.text
+            ctx.state.config_builder_usage = turn.usage_dict()
             _write_generated_config(cfg_path, ctx.state.llm_result)
             _record_report(ctx.state, "config-builder", ctx.state.llm_result.strip())
             return "ok"
@@ -1325,6 +1651,18 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
                 f"- benchmark args: {cfg.benchmark_args!r}\n"
                 f"- benchmark runs: {cfg.benchmark_runs}\n"
                 f"- target speedup (strict, %): > {cfg.target_speedup:.2f}\n\n"
+                "## Hardware execution model\n"
+                "- single-core only: NO OpenMP `#pragma omp parallel`/`for`/"
+                "`sections`/`task`/`target`, NO pthreads, NO `std::thread`/"
+                "`std::async`, NO MPI/OpenACC/TBB/GPU offload. Build flags do not "
+                "include `-fopenmp`, so `#pragma omp simd` is silently ignored — "
+                "do not use it.\n"
+                "- SIMD is encouraged: clang/GCC vectorization pragmas "
+                "(`#pragma clang loop vectorize(enable)`, `#pragma GCC ivdep`), "
+                "target-ISA intrinsics (e.g. `<immintrin.h>` on x86, "
+                "`<arm_neon.h>` on ARM), `restrict` qualifiers, aligned "
+                "allocation, and vectorization-friendly loop shape are all "
+                "expected sources of speedup.\n\n"
                 "## Correctness regimes\n"
                 f"Every test step compiles the source once per group with that group's "
                 f"`compile_args`, then runs that group's goldens (stdout+stderr+returncode "
@@ -1358,12 +1696,18 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
             # Every graph task starts a fresh agent session. The explicit
             # summary below is the only retry/re-plan context it should need.
             await PLANNER_AGENT.close()
-            ctx.state.llm_result = await PLANNER_AGENT.dispatch_agent(
+            t0 = time.perf_counter()
+            turn: AgentTurn = await PLANNER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
                 context_message=ctx.state.context_message,
                 context_summary=_task_context_summary(ctx.state, role="planner"),
                 notes=notes,
             )
+            # Planner runs *before* this round's AttemptRecord exists. Stash
+            # timing + usage; code_refactor consumes them when creating it.
+            ctx.state.pending_planner_seconds = time.perf_counter() - t0
+            ctx.state.pending_planner_usage = turn.usage_dict()
+            ctx.state.llm_result = turn.text
             ctx.state.plan_message = _validate_report(
                 ctx.state.llm_result,
                 stage="planner",
@@ -1416,7 +1760,8 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
             candidate_before = optimized_full.read_bytes()
 
             await CODER_AGENT.close()
-            ctx.state.llm_result = await CODER_AGENT.dispatch_agent(
+            t0 = time.perf_counter()
+            turn: AgentTurn = await CODER_AGENT.dispatch_agent(
                 **_session_kwargs(ctx.state),
                 plan_message=ctx.state.plan_message,
                 target_file=cfg.optimized_path,
@@ -1424,6 +1769,8 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
                 context_summary=_task_context_summary(ctx.state, role="coder"),
                 notes=notes,
             )
+            coder_seconds = time.perf_counter() - t0
+            ctx.state.llm_result = turn.text
 
             ctx.state.coder_report = _validate_report(
                 ctx.state.llm_result,
@@ -1431,13 +1778,23 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
                 heading="# Changes",
             )
             _record_report(ctx.state, "coder", ctx.state.coder_report)
-            ctx.state.attempts.append(
-                AttemptRecord(
-                    planner_round=ctx.state.planner_iterations,
-                    coder_round=ctx.state.coder_iterations,
-                    strategy=_extract_strategy(ctx.state.coder_report),
-                )
+            new_attempt = AttemptRecord(
+                planner_round=ctx.state.planner_iterations,
+                coder_round=ctx.state.coder_iterations,
+                strategy=_extract_strategy(ctx.state.coder_report),
             )
+            # Attribute planner cost from the most recent plan_refactor to
+            # this attempt. The same planner output may seed multiple coder
+            # retries; we only charge the planner cost once (to the first
+            # attempt that consumes it), leaving t_plan="-" for retries.
+            if ctx.state.pending_planner_usage is not None:
+                new_attempt.token_usage["planner"] = ctx.state.pending_planner_usage
+                new_attempt.stage_seconds["planner"] = ctx.state.pending_planner_seconds
+                ctx.state.pending_planner_usage = None
+                ctx.state.pending_planner_seconds = 0.0
+            new_attempt.token_usage["coder"] = turn.usage_dict()
+            new_attempt.stage_seconds["coder"] = coder_seconds
+            ctx.state.attempts.append(new_attempt)
             if not optimized_full.exists():
                 raise FileNotFoundError(f"coder removed {optimized_full}")
             if optimized_full.read_bytes() == candidate_before:
@@ -1474,6 +1831,7 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
         assert ctx.state.original is not None
         assert ctx.state.optimized is not None
         cfg = ctx.state.config
+        attempt = _latest_attempt(ctx.state)
         n_groups = len(cfg.correctness_groups)
         _log(
             "verify",
@@ -1481,94 +1839,118 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
             n_groups, cfg.total_goldens(), cfg.total_differentials(),
         )
 
-        # Only group 0 is built with --coverage. Reporting coverage across
-        # multiple groups fails: different #ifdef regimes shift the line of
-        # the same function, and gcovr can't reconcile them. Group 0 is the
-        # representative regime (smallest by config-builder convention).
-        # Stale .gcno/.gcda from any prior run poison the next gcovr report,
-        # so wipe BUILD_ROOT (where --coverage actually writes them) too.
-        build_dir = ctx.state.repo_path / BUILD_ROOT
-        for d in (ctx.state.repo_path, build_dir):
-            if d.is_dir():
-                for stale in list(d.glob("*.gcno")) + list(d.glob("*.gcda")):
-                    stale.unlink()
+        with _stage_timer(attempt, "test"):
+            # Only group 0 is built with --coverage. Reporting coverage across
+            # multiple groups fails: different #ifdef regimes shift the line of
+            # the same function, and gcovr can't reconcile them. Group 0 is the
+            # representative regime (smallest by config-builder convention).
+            # Stale .gcno/.gcda from any prior run poison the next gcovr report,
+            # so wipe BUILD_ROOT (where --coverage actually writes them) too.
+            build_dir = ctx.state.repo_path / BUILD_ROOT
+            for d in (ctx.state.repo_path, build_dir):
+                if d.is_dir():
+                    for stale in list(d.glob("*.gcno")) + list(d.glob("*.gcda")):
+                        stale.unlink()
 
-        group_failures: list[str] = []
-        for i, group in enumerate(cfg.correctness_groups):
-            opt_flags = f"{group.compile_args} --coverage" if i == 0 else group.compile_args
-            orig_out = ctx.state.repo_path / BUILD_ROOT / f"original_correctness_g{i}"
-            opt_out = ctx.state.repo_path / BUILD_ROOT / f"optimized_correctness_g{i}"
-            ok_orig, err_orig = _compile_group(
-                ctx.state.original, compile_args=group.compile_args,
-                output_file=orig_out, in_reference_root=True,
-            )
-            ok_opt, err_opt = _compile_group(
-                ctx.state.optimized, compile_args=opt_flags,
-                output_file=opt_out, in_reference_root=False,
-            )
-            if not ok_orig:
-                # Oracle re-build broke under this group's flags — config bug, not coder.
-                group_failures.append(
-                    f"[group {i}] reference re-build failed under `{group.compile_args}`: {err_orig}"
+            group_failures: list[str] = []
+            any_optimized_compile_ok = False
+            goldens_passed = 0
+            goldens_total = 0
+            differentials_passed = 0
+            differentials_total = 0
+            for i, group in enumerate(cfg.correctness_groups):
+                opt_flags = f"{group.compile_args} --coverage" if i == 0 else group.compile_args
+                orig_out = ctx.state.repo_path / BUILD_ROOT / f"original_correctness_g{i}"
+                opt_out = ctx.state.repo_path / BUILD_ROOT / f"optimized_correctness_g{i}"
+                ok_orig, err_orig = _compile_group(
+                    ctx.state.original, compile_args=group.compile_args,
+                    output_file=orig_out, in_reference_root=True,
                 )
-                continue
-            if not ok_opt:
-                group_failures.append(
-                    f"[group {i}] optimized compile failed under `{opt_flags}`: {err_opt}"
+                ok_opt, err_opt = _compile_group(
+                    ctx.state.optimized, compile_args=opt_flags,
+                    output_file=opt_out, in_reference_root=False,
                 )
-                continue
-
-            # Goldens for this group, byte-exact validated against optimized binary.
-            case_failures: list[str] = []
-            for case in group.golden:
-                case_ok, diag = _run_test_case(ctx.state.optimized.executable, case)
-                if not case_ok:
-                    case_failures.append(diag)
-            if case_failures:
-                group_failures.append(
-                    f"[group {i}] {len(case_failures)}/{len(group.golden)} golden(s) "
-                    f"diverged (compile_args=`{group.compile_args}`):\n" + "\n".join(case_failures)
-                )
-
-            # Differentials for this group — compare both binaries directly.
-            if group.differential:
-                diffs = _run_differential_cases(
-                    ctx.state.original.executable,
-                    ctx.state.optimized.executable,
-                    group.differential,
-                )
-                if diffs:
+                if ok_opt:
+                    any_optimized_compile_ok = True
+                if not ok_orig:
+                    # Oracle re-build broke under this group's flags — config bug, not coder.
                     group_failures.append(
-                        f"[group {i}] {len(diffs)}/{len(group.differential)} differential(s) "
-                        f"diverged (compile_args=`{group.compile_args}`):\n" + "\n".join(diffs)
+                        f"[group {i}] reference re-build failed under `{group.compile_args}`: {err_orig}"
+                    )
+                    continue
+                if not ok_opt:
+                    group_failures.append(
+                        f"[group {i}] optimized compile failed under `{opt_flags}`: {err_opt}"
+                    )
+                    continue
+
+                # Goldens for this group, byte-exact validated against optimized binary.
+                case_failures: list[str] = []
+                goldens_total += len(group.golden)
+                for case in group.golden:
+                    case_ok, diag = _run_test_case(ctx.state.optimized.executable, case)
+                    if case_ok:
+                        goldens_passed += 1
+                    else:
+                        case_failures.append(diag)
+                if case_failures:
+                    group_failures.append(
+                        f"[group {i}] {len(case_failures)}/{len(group.golden)} golden(s) "
+                        f"diverged (compile_args=`{group.compile_args}`):\n" + "\n".join(case_failures)
                     )
 
-        summary = _gcovr_summary(
-            ctx.state.repo_path,
-            filter_source=ctx.state.repo_path / cfg.optimized_path,
-        )
-        if summary:
-            _log("verify", "optimized coverage (gcovr, group 0):\n%s", summary)
+                # Differentials for this group — compare both binaries directly.
+                if group.differential:
+                    differentials_total += len(group.differential)
+                    diffs = _run_differential_cases(
+                        ctx.state.original.executable,
+                        ctx.state.optimized.executable,
+                        group.differential,
+                    )
+                    differentials_passed += len(group.differential) - len(diffs)
+                    if diffs:
+                        group_failures.append(
+                            f"[group {i}] {len(diffs)}/{len(group.differential)} differential(s) "
+                            f"diverged (compile_args=`{group.compile_args}`):\n" + "\n".join(diffs)
+                        )
 
-        if group_failures:
-            feedback = (
-                f"Correctness tests failed for {cfg.optimized_path}:\n"
-                + "\n".join(group_failures)
-                + "\nFix the divergences. Keep behavior identical to the reference per group."
+            summary = _gcovr_summary(
+                ctx.state.repo_path,
+                filter_source=ctx.state.repo_path / cfg.optimized_path,
             )
-            ctx.state.code_feedback = feedback
-            attempt = _latest_attempt(ctx.state)
-            if attempt is not None:
-                attempt.outcome = "correctness failed"
-                attempt.feedback = feedback
-            return "fail"
+            if summary:
+                _log("verify", "optimized coverage (gcovr, group 0):\n%s", summary)
 
-        _log(
-            "verify",
-            "all correctness tests passed: %d golden(s) + %d differential(s) across %d group(s)",
-            cfg.total_goldens(), cfg.total_differentials(), n_groups,
-        )
-        return "ok"
+            if attempt is not None:
+                attempt.compile_ok = any_optimized_compile_ok
+                attempt.goldens_passed = goldens_passed
+                attempt.goldens_total = goldens_total
+                attempt.differentials_passed = differentials_passed
+                attempt.differentials_total = differentials_total
+
+            if group_failures:
+                feedback = (
+                    f"Correctness tests failed for {cfg.optimized_path}:\n"
+                    + "\n".join(group_failures)
+                    + "\nFix the divergences. Keep behavior identical to the reference per group."
+                )
+                ctx.state.code_feedback = feedback
+                if attempt is not None:
+                    attempt.outcome = "correctness failed"
+                    attempt.feedback = feedback
+                    _advance_gate(attempt)
+                return "fail"
+
+            if attempt is not None:
+                attempt.correctness_ok = True
+                _advance_gate(attempt)
+
+            _log(
+                "verify",
+                "all correctness tests passed: %d golden(s) + %d differential(s) across %d group(s)",
+                cfg.total_goldens(), cfg.total_differentials(), n_groups,
+            )
+            return "ok"
 
     @g.step
     async def safety_check_optimized(
@@ -1578,8 +1960,12 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
         assert ctx.state.config is not None
         assert ctx.state.optimized is not None
         cfg = ctx.state.config
+        attempt = _latest_attempt(ctx.state)
         if cfg.safety_mode == "off":
             _log("verify", "safety mode = off; skipping optimized safety check")
+            if attempt is not None:
+                attempt.safety_ok = True  # disabled gate counts as cleared
+                _advance_gate(attempt)
             return "skip"
         _log(
             "verify",
@@ -1587,70 +1973,96 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
             cfg.safety_mode, len(cfg.correctness_groups),
         )
 
-        if cfg.safety_mode == "cbmc":
-            ok, diag = _run_cbmc_check(
-                (ctx.state.repo_path / cfg.optimized_path).resolve(),
-                cbmc_args=cfg.cbmc_args,
-            )
-            if not ok:
+        with _stage_timer(attempt, "safety"):
+            if cfg.safety_mode == "cbmc":
+                ok, diag = _run_cbmc_check(
+                    (ctx.state.repo_path / cfg.optimized_path).resolve(),
+                    cbmc_args=cfg.cbmc_args,
+                )
+                if not ok:
+                    feedback = (
+                        f"The optimized variant failed the CBMC safety check.\n"
+                        f"{diag}\n"
+                        f"Fix the unsafe access / undefined behavior before reattempting."
+                    )
+                    ctx.state.code_feedback = feedback
+                    if attempt is not None:
+                        attempt.outcome = "safety failed"
+                        attempt.feedback = feedback
+                        attempt.asan_findings = 1
+                        _advance_gate(attempt)
+                    return "fail"
+                _log("verify", "safety check (optimized, CBMC) passed")
+                if attempt is not None:
+                    attempt.safety_ok = True
+                    _advance_gate(attempt)
+                return "ok"
+
+            selected = cfg.selected_safety_groups()
+            if not selected:
+                _log("verify", "safety.groups is empty; skipping optimized ASAN check")
+                if attempt is not None:
+                    attempt.safety_ok = True  # nothing to check counts as cleared
+                    _advance_gate(attempt)
+                return "skip"
+            group_failures: list[str] = []
+            total_findings = 0
+            for i, group in selected:
+                out = ctx.state.repo_path / BUILD_ROOT / f"optimized_safety_g{i}"
+                combined = f"{group.compile_args} {cfg.safety_flags}"
+                ok, err = _compile_group(
+                    ctx.state.optimized, compile_args=combined, output_file=out, in_reference_root=False,
+                )
+                if not ok:
+                    group_failures.append(f"[group {i}] sanitizer build failed: {err}")
+                    total_findings += 1
+                    continue
+                inputs = [c.args for c in group.golden] + list(group.differential)
+                asan_failures = _run_asan_over_inputs(ctx.state.optimized.executable, inputs)
+                total_findings += len(asan_failures)
+                if asan_failures:
+                    group_failures.append(
+                        f"[group {i}] sanitizer reported {len(asan_failures)} issue(s) "
+                        f"(compile_args=`{group.compile_args}`):\n" + "\n".join(asan_failures)
+                    )
+
+            if attempt is not None:
+                attempt.asan_findings = total_findings
+
+            if group_failures:
                 feedback = (
-                    f"The optimized variant failed the CBMC safety check.\n"
-                    f"{diag}\n"
-                    f"Fix the unsafe access / undefined behavior before reattempting."
+                    f"The optimized variant failed the ASAN+UBSan safety check.\n"
+                    + "\n".join(group_failures)
+                    + "\nFix the unsafe access / undefined behavior before reattempting."
                 )
                 ctx.state.code_feedback = feedback
-                attempt = _latest_attempt(ctx.state)
                 if attempt is not None:
                     attempt.outcome = "safety failed"
                     attempt.feedback = feedback
+                    _advance_gate(attempt)
                 return "fail"
-            _log("verify", "safety check (optimized, CBMC) passed")
-            return "ok"
 
-        selected = cfg.selected_safety_groups()
-        if not selected:
-            _log("verify", "safety.groups is empty; skipping optimized ASAN check")
-            return "skip"
-        group_failures: list[str] = []
-        for i, group in selected:
-            out = ctx.state.repo_path / BUILD_ROOT / f"optimized_safety_g{i}"
-            combined = f"{group.compile_args} {cfg.safety_flags}"
-            ok, err = _compile_group(
-                ctx.state.optimized, compile_args=combined, output_file=out, in_reference_root=False,
-            )
-            if not ok:
-                group_failures.append(f"[group {i}] sanitizer build failed: {err}")
-                continue
-            inputs = [c.args for c in group.golden] + list(group.differential)
-            asan_failures = _run_asan_over_inputs(ctx.state.optimized.executable, inputs)
-            if asan_failures:
-                group_failures.append(
-                    f"[group {i}] sanitizer reported {len(asan_failures)} issue(s) "
-                    f"(compile_args=`{group.compile_args}`):\n" + "\n".join(asan_failures)
-                )
-
-        if group_failures:
-            feedback = (
-                f"The optimized variant failed the ASAN+UBSan safety check.\n"
-                + "\n".join(group_failures)
-                + "\nFix the unsafe access / undefined behavior before reattempting."
-            )
-            ctx.state.code_feedback = feedback
-            attempt = _latest_attempt(ctx.state)
             if attempt is not None:
-                attempt.outcome = "safety failed"
-                attempt.feedback = feedback
-            return "fail"
-        _log("verify", "safety check (optimized, ASAN) passed across %d group(s)", len(selected))
-        return "ok"
+                attempt.safety_ok = True
+                _advance_gate(attempt)
+            _log("verify", "safety check (optimized, ASAN) passed across %d group(s)", len(selected))
+            return "ok"
 
     @g.step
     async def profile_refactor(
         ctx: StepContext[PipelineStage, None, object],
     ) -> Ok | Fail | Skip:
         _section("Performance", category="benchmark")
+        attempt = _latest_attempt(ctx.state)
         if not ctx.state.profile_enabled:
             _log("benchmark", "profile step disabled; skipping")
+            if attempt is not None:
+                # User-disabled gate counts as cleared so the pipeline's
+                # acceptance semantics (correctness+safety pass = accept)
+                # are reflected in pass@k.
+                attempt.speedup_ok = True
+                attempt.outcome = "accepted (profile disabled)"
+                _advance_gate(attempt)
             return "skip"
         assert ctx.state.config is not None
         assert ctx.state.original is not None
@@ -1661,87 +2073,96 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
             "profile_refactor: rebuilding both at %s and benchmarking with args %r over %d runs",
             cfg.performance_flags, cfg.benchmark_args, cfg.benchmark_runs,
         )
-        try:
-            _compile_reference(
-                ctx.state.original,
-                flags=cfg.performance_flags,
-                output_file=ctx.state.repo_path / BUILD_ROOT / "original_perf",
-            )
-            ctx.state.optimized.compile(
-                kwds=cfg.performance_flags,
-                output_file=ctx.state.repo_path / BUILD_ROOT / "optimized_perf",
-            )
-        except Exception as exc:
-            feedback = (
-                f"The optimized variant {cfg.optimized_path} did not compile with "
-                f"`{cfg.compiler.value} {cfg.performance_flags}`:\n{exc}"
-            )
-            ctx.state.code_feedback = feedback
-            attempt = _latest_attempt(ctx.state)
-            if attempt is not None:
-                attempt.outcome = "performance build failed"
-                attempt.feedback = feedback
-            return "fail"
-        try:
-            (
-                ctx.state.original_latencies,
-                ctx.state.optimized_latencies,
-            ) = _benchmark_pair(
-                ctx.state.original,
-                ctx.state.optimized,
-                args=cfg.benchmark_args,
-                runs=cfg.benchmark_runs,
-            )
-        except Exception as exc:
-            feedback = f"Benchmark execution failed: {exc}"
-            ctx.state.code_feedback = feedback
-            attempt = _latest_attempt(ctx.state)
-            if attempt is not None:
-                attempt.outcome = "benchmark failed"
-                attempt.feedback = feedback
-            return "fail"
+        with _stage_timer(attempt, "profile"):
+            try:
+                _compile_reference(
+                    ctx.state.original,
+                    flags=cfg.performance_flags,
+                    output_file=ctx.state.repo_path / BUILD_ROOT / "original_perf",
+                )
+                ctx.state.optimized.compile(
+                    kwds=cfg.performance_flags,
+                    output_file=ctx.state.repo_path / BUILD_ROOT / "optimized_perf",
+                )
+            except Exception as exc:
+                feedback = (
+                    f"The optimized variant {cfg.optimized_path} did not compile with "
+                    f"`{cfg.compiler.value} {cfg.performance_flags}`:\n{exc}"
+                )
+                ctx.state.code_feedback = feedback
+                if attempt is not None:
+                    attempt.outcome = "performance build failed"
+                    attempt.feedback = feedback
+                    _advance_gate(attempt)
+                _write_benchmark_history(ctx.state)
+                return "fail"
+            try:
+                (
+                    ctx.state.original_latencies,
+                    ctx.state.optimized_latencies,
+                ) = _benchmark_pair(
+                    ctx.state.original,
+                    ctx.state.optimized,
+                    args=cfg.benchmark_args,
+                    runs=cfg.benchmark_runs,
+                )
+            except Exception as exc:
+                feedback = f"Benchmark execution failed: {exc}"
+                ctx.state.code_feedback = feedback
+                if attempt is not None:
+                    attempt.outcome = "benchmark failed"
+                    attempt.feedback = feedback
+                    _advance_gate(attempt)
+                _write_benchmark_history(ctx.state)
+                return "fail"
 
-        original_stats = _benchmark_stats(ctx.state.original_latencies)
-        optimized_stats = _benchmark_stats(ctx.state.optimized_latencies)
-        original = original_stats.mean
-        optimized = optimized_stats.mean
-        if optimized <= 0:
-            ctx.state.code_feedback = f"Invalid optimized latency: {optimized}"
-            return "fail"
-        speedup = original / optimized
-        speedup_pct = (speedup - 1.0) * 100.0
-        attempt = _latest_attempt(ctx.state)
-        if attempt is not None:
-            attempt.original_stats = original_stats
-            attempt.optimized_stats = optimized_stats
-            attempt.speedup_pct = speedup_pct
-        _log(
-            "benchmark",
-            "profile:\n%s\n%s\nmean speedup=%.3fx (%+.2f%%) target>%.2f%%; "
-            "samples=%d interleaved",
-            _format_benchmark_stats("original", original_stats),
-            _format_benchmark_stats("optimized", optimized_stats),
-            speedup, speedup_pct, cfg.target_speedup, len(original_stats.samples),
-        )
-        if speedup_pct > cfg.target_speedup:
+            original_stats = _benchmark_stats(ctx.state.original_latencies)
+            optimized_stats = _benchmark_stats(ctx.state.optimized_latencies)
+            original = original_stats.mean
+            optimized = optimized_stats.mean
+            if optimized <= 0:
+                ctx.state.code_feedback = f"Invalid optimized latency: {optimized}"
+                if attempt is not None:
+                    attempt.outcome = "benchmark failed"
+                    _advance_gate(attempt)
+                _write_benchmark_history(ctx.state)
+                return "fail"
+            speedup = original / optimized
+            speedup_pct = (speedup - 1.0) * 100.0
             if attempt is not None:
-                attempt.outcome = "accepted"
+                attempt.original_stats = original_stats
+                attempt.optimized_stats = optimized_stats
+                attempt.speedup_pct = speedup_pct
+            _log(
+                "benchmark",
+                "profile:\n%s\n%s\nmean speedup=%.3fx (%+.2f%%) target>%.2f%%; "
+                "samples=%d interleaved",
+                _format_benchmark_stats("original", original_stats),
+                _format_benchmark_stats("optimized", optimized_stats),
+                speedup, speedup_pct, cfg.target_speedup, len(original_stats.samples),
+            )
+            if speedup_pct > cfg.target_speedup:
+                if attempt is not None:
+                    attempt.outcome = "accepted"
+                    attempt.speedup_ok = True
+                    _advance_gate(attempt)
+                _write_benchmark_history(ctx.state)
+                return "ok"
+            feedback = (
+                f"Speedup {speedup_pct:.2f}% did not exceed target "
+                f"{cfg.target_speedup:.2f}% (original={original:.6f}s, "
+                f"optimized={optimized:.6f}s).\n"
+                f"{_format_benchmark_stats('original', original_stats)}\n"
+                f"{_format_benchmark_stats('optimized', optimized_stats)}\n"
+                "Pick a different optimization that actually moves the runtime."
+            )
+            ctx.state.code_feedback = feedback
+            if attempt is not None:
+                attempt.outcome = "performance rejected"
+                attempt.feedback = feedback
+                _advance_gate(attempt)
             _write_benchmark_history(ctx.state)
-            return "ok"
-        feedback = (
-            f"Speedup {speedup_pct:.2f}% did not exceed target "
-            f"{cfg.target_speedup:.2f}% (original={original:.6f}s, "
-            f"optimized={optimized:.6f}s).\n"
-            f"{_format_benchmark_stats('original', original_stats)}\n"
-            f"{_format_benchmark_stats('optimized', optimized_stats)}\n"
-            "Pick a different optimization that actually moves the runtime."
-        )
-        ctx.state.code_feedback = feedback
-        if attempt is not None:
-            attempt.outcome = "performance rejected"
-            attempt.feedback = feedback
-        _write_benchmark_history(ctx.state)
-        return "fail"
+            return "fail"
 
     @g.step
     async def coder_retry_gate(
@@ -1789,6 +2210,15 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
         _section("Complete")
         assert ctx.state.config is not None
         cfg = ctx.state.config
+        record = _build_run_record(
+            ctx.state, final_outcome="accepted", error=None,
+        )
+        try:
+            full_path, jsonl_path = _write_run_record(record, ctx.state.repo_path)
+        except Exception as exc:
+            logger.warning("failed to write run record: %s", exc)
+            full_path = jsonl_path = None
+
         reports = "\n".join(
             f"    {i}. {stage}"
             for i, (stage, _) in enumerate(ctx.state.reports, start=1)
@@ -1807,6 +2237,10 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
                 f"  {_format_benchmark_stats('optimized', optimized_stats)}\n"
                 f"  benchmarks:  {ctx.state.repo_path / BUILD_ROOT / 'benchmark_history.json'}\n"
             )
+        log_line = (
+            f"  run record:  {full_path}\n  summary log: {jsonl_path}\n"
+            if full_path else ""
+        )
         return (
             "Refactoring pipeline complete.\n"
             f"  config:      {ctx.state.config_path}\n"
@@ -1819,15 +2253,70 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
             f"  planner:     {ctx.state.planner_iterations} re-plan round(s)\n"
             f"  coder:       {ctx.state.coder_iterations} retry round(s)\n"
             + perf_line
-            + "  attempts:\n"
-            + _attempt_history_summary(ctx.state).replace("\n", "\n    ")
-            + "\n"
+            + log_line
+            + "\nATTEMPTS\n"
+            + _format_attempts_table(ctx.state)
+            + "\n\nPASS@k (intra-run, gate-decomposed)\n"
+            + _format_pass_at_k(
+                record.pass_at_k,
+                record.first_cleared_at,
+                profile_enabled=ctx.state.profile_enabled,
+                safety_mode=cfg.safety_mode,
+            )
+            + "\n\nTOTALS\n"
+            + _format_totals(record)
+            + "\n\n"
             + f"  message reports ({len(ctx.state.reports)}):\n{reports}\n"
         )
 
     @g.step
     async def failed(ctx: StepContext[PipelineStage, None, object]) -> str:
-        return f"Pipeline failed: {ctx.state.error}"
+        _section("Failed")
+        # Classify the failure into one of the standard final-outcome buckets.
+        if not ctx.state.attempts:
+            final_outcome = "hard_failed"
+        elif ctx.state.planner_iterations >= ctx.state.max_planner_iterations and (
+            ctx.state.coder_iterations >= ctx.state.max_coder_iterations
+        ):
+            final_outcome = "exhausted_planner"
+        elif ctx.state.coder_iterations >= ctx.state.max_coder_iterations:
+            final_outcome = "exhausted_coder"
+        else:
+            final_outcome = "hard_failed"
+
+        record = _build_run_record(
+            ctx.state, final_outcome=final_outcome, error=ctx.state.error,
+        )
+        try:
+            full_path, jsonl_path = _write_run_record(record, ctx.state.repo_path)
+            log_line = (
+                f"  run record:  {full_path}\n  summary log: {jsonl_path}\n"
+            )
+        except Exception as exc:
+            logger.warning("failed to write run record: %s", exc)
+            log_line = ""
+
+        cfg = ctx.state.config
+        # When the failure happened before config-load the table machinery
+        # still works (no attempts -> "(no attempts recorded)").
+        body = (
+            f"Pipeline failed: {ctx.state.error}\n"
+            + log_line
+            + "\nATTEMPTS\n"
+            + _format_attempts_table(ctx.state)
+        )
+        if ctx.state.attempts and cfg is not None:
+            body += (
+                "\n\nPASS@k (intra-run, gate-decomposed)\n"
+                + _format_pass_at_k(
+                    record.pass_at_k,
+                    record.first_cleared_at,
+                    profile_enabled=ctx.state.profile_enabled,
+                    safety_mode=cfg.safety_mode,
+                )
+            )
+        body += "\n\nTOTALS\n" + _format_totals(record) + "\n"
+        return body
 
     # ----- decisions -----
 
@@ -1922,6 +2411,15 @@ async def _run_graph(args: argparse.Namespace, config_path: Path, repo_path: Pat
         repo_path=repo_path,
         profile_enabled=not args.no_profile,
     )
+    state.pipeline_started_at = time.perf_counter()
+    state.pipeline_started_at_iso = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    # Run-isolation: benchmark_history.json sits inside BUILD_ROOT (=.verify),
+    # which is in the planner's `scope` for most configs. Leaving last run's
+    # strategy/speedup history in place lets the next planner browse it and
+    # bias its plan. Wipe at the entry boundary so each run starts blind.
+    _stale_history = repo_path / BUILD_ROOT / "benchmark_history.json"
+    if _stale_history.exists():
+        _stale_history.unlink()
     # print(graph.render())
 
     try:
