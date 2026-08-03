@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Status, Usage
-from .validation import OracleResult, validate_candidate
+from .validation import OracleResult, fixture_relative_path, validate_candidate
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from .config import RunConfig
+    from .execution import ExecutionContext
 
 PLANNER_SYSTEM = """Role: senior scientific-computing architect and numerical-methods reviewer.
 
@@ -70,8 +71,13 @@ Repair responsibilities:
   add low-precision compensation to conceal an FP64 semantic error.
 
 Use lassi-x-translate-kernel for initial generation. During corrections, use
-lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate. Use file and terminal
-tools only as needed for the assigned target and its verification."""
+lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate.
+
+Workspace access:
+- Your only access to files and commands is the assigned workspace toolset (list_resources,
+  run_command, write_file, read_file, list_files). All paths are workspace-relative.
+- Call list_resources first when choosing where to run commands; pass the chosen resource
+  name to later calls, or omit it to use the default machine."""
 
 
 def _source_context(config: RunConfig) -> str:
@@ -290,11 +296,43 @@ Source context:
     }
 
 
+async def _stage_reference(
+    config: RunConfig, execution: ExecutionContext, workspace: str
+) -> list[str]:
+    """Stage the reference kernel, context files, and fixture into a workspace.
+
+    With workspace-confined tools the agent cannot read project paths, so the
+    authoritative sources are staged under ``reference/`` inside the workspace
+    on every resource before the session starts.
+
+    Args:
+        config: Validated run configuration naming the reference and context files.
+        execution: Running execution context serving the workspace.
+        workspace: Workspace identifier.
+
+    Returns:
+        Workspace-relative paths of the staged source files.
+
+    """
+    staged = []
+    for relative in [config.kernel.reference, *config.kernel.context]:
+        source = config.resolve_project_path(relative)
+        destination = f"reference/{source.name}"
+        await execution.stage_bytes(workspace, destination, source.read_bytes())
+        staged.append(destination)
+    fixture = fixture_relative_path(config)
+    if fixture is not None and config.oracle.input_fixture is not None:
+        source = config.resolve_project_path(config.oracle.input_fixture)
+        await execution.stage_bytes(workspace, fixture, source.read_bytes())
+    return staged
+
+
 def _generation_prompt(
     config: RunConfig,
     candidate_id: str,
     strategy: str,
-    target: Path,
+    toolset: str,
+    staged_reference: list[str],
 ) -> str:
     """Build the implementation request for one arena candidate.
 
@@ -302,7 +340,8 @@ def _generation_prompt(
         config: Validated run configuration defining the kernel and oracle fixture.
         candidate_id: Stable identifier assigned to the candidate.
         strategy: Planner-produced name and implementation plan for this candidate.
-        target: Exact Python module path the agent is allowed to write.
+        toolset: Name of the workspace toolset assigned to this candidate.
+        staged_reference: Workspace-relative paths of the staged reference sources.
 
     Returns:
         A complete candidate-generation prompt containing paths, strategy, and module
@@ -310,14 +349,15 @@ def _generation_prompt(
 
     """
     fixture = (
-        str(config.resolve_project_path(config.oracle.input_fixture))
-        if config.oracle.input_fixture
-        else "none; reproduce the reference initialization exactly"
+        fixture_relative_path(config) or "none; reproduce the reference initialization exactly"
     )
+    reference_lines = "\n".join(f"- {path}" for path in staged_reference)
     return f"""Implement arena candidate {candidate_id}.
 
-Target file: {target}
-Reference file: {config.resolve_project_path(config.kernel.reference)}
+Workspace toolset: {toolset} (all paths below are workspace-relative)
+Target file: candidate.py
+Reference sources staged in your workspace:
+{reference_lines}
 Input fixture: {fixture}
 Kernel task: {config.kernel.task}
 
@@ -325,24 +365,25 @@ Assigned strategy:
 {strategy}
 
 Mandatory contract:
-- Write one complete Python module to the exact target file.
+- Write one complete Python module to candidate.py using write_file.
+- Write candidate.py on the default machine (omit the resource argument for write_file);
+  other machines are for exploration and scratch commands only.
 - Define build_inputs(device="cpu", dtype=torch.float64, fixture=None) returning a tuple.
 - Define make_model() returning torch.nn.Module.
 - forward(*inputs) returns a tensor or tuple of tensors in canonical reference order.
 - At FP64, output must match the original C/C++ reference, not merely the PyTorch code.
-- Define LASSI_PRECISION metadata with storage, operator, accumulator, and output fields.
 - Do not write benchmark, CSV, MLIR, or unrelated files.
-- Run python -m py_compile on the target before responding.
+- Define LASSI_PRECISION metadata with storage, operator, accumulator, and output fields.
+- Compile-check with run_command: python -m py_compile candidate.py before responding.
 
 Return a short plain-text implementation summary after writing the file.
 """
 
 
-def _repair_prompt(target: Path, diagnostic: str, round_number: int) -> str:
+def _repair_prompt(diagnostic: str, round_number: int) -> str:
     """Build a diagnosis-driven correction request for a rejected candidate.
 
     Args:
-        target: Existing candidate module that must be repaired in place.
         diagnostic: External validator evidence describing the failed gate.
         round_number: One-based correction round included in the agent context.
 
@@ -352,14 +393,15 @@ def _repair_prompt(target: Path, diagnostic: str, round_number: int) -> str:
     """
     return f"""Correction round {round_number}.
 
-The target remains: {target}
+The target remains candidate.py in your workspace.
 The external validator rejected the current implementation:
 
 {diagnostic}
 
 Inspect and repair the existing target in place. Fix the underlying algorithm or contract
 problem without weakening validation, changing tolerances, or fabricating reference output.
-Run python -m py_compile before returning. Return a short repair summary.
+Compile-check with run_command: python -m py_compile candidate.py before returning.
+Return a short repair summary.
 """
 
 
@@ -367,20 +409,24 @@ async def generate_candidate(
     config: RunConfig,
     oracle: OracleResult,
     run_dir: Path,
+    execution: ExecutionContext,
     index: int,
     strategy: str,
 ) -> Candidate:
     """Generate, validate, and optionally repair one arena candidate.
 
     One Hermes session owns the candidate across its initial implementation and all
-    correction rounds. Validation is performed externally after every turn. Agent or
-    validator exceptions are recorded on the candidate instead of escaping and
-    cancelling the other concurrently generated candidates.
+    correction rounds. The session's only filesystem and command access is its
+    header-pinned workspace toolset served by the run's MCP server, so every tool
+    call executes on the configured resources. Validation is performed externally
+    after every turn. Agent or validator exceptions are recorded on the candidate
+    instead of escaping and cancelling the other concurrently generated candidates.
 
     Args:
         config: Validated run configuration and correction policy.
         oracle: Authoritative output produced from the original C/C++ reference.
         run_dir: Root artifact directory for the current pipeline run.
+        execution: Running execution context serving workspace tool calls.
         index: One-based candidate position used to select its configured model.
         strategy: Planner-produced strategy assigned to this candidate.
 
@@ -389,26 +435,29 @@ async def generate_candidate(
 
     """
     candidate_id = f"c{index}"
-    workspace = run_dir / "candidates" / candidate_id
-    workspace.mkdir(parents=True, exist_ok=True)
-    target = workspace / "candidate.py"
+    mirror = execution.workspace_dir(candidate_id)
+    mirror.mkdir(parents=True, exist_ok=True)
+    staged_reference = await _stage_reference(config, execution, candidate_id)
+    toolset = execution.register_workspace(candidate_id)
     model = config.models.candidates[index - 1]
     candidate = Candidate(
         candidate_id=candidate_id,
         model=model.model,
         provider=model.provider,
         strategy=strategy,
-        module_path=target,
+        module_path=mirror / "candidate.py",
     )
     session = HermesSession(
         model,
-        cwd=workspace,
+        cwd=mirror,
         system_prompt=CANDIDATE_SYSTEM,
-        toolsets=["skills", "file", "terminal"],
+        toolsets=["skills", toolset],
         role=candidate_id,
     )
     try:
-        turn = await session.send(_generation_prompt(config, candidate_id, strategy, target))
+        turn = await session.send(
+            _generation_prompt(config, candidate_id, strategy, toolset, staged_reference)
+        )
         candidate.usage.add(turn.usage)
         candidate.turn_outcomes.append(
             {
@@ -417,12 +466,14 @@ async def generate_candidate(
                 "attempts": turn.attempts,
             }
         )
+        backend = execution.backend()
         for attempt in range(config.arena.correction_rounds + 1):
             validation_dir = run_dir / "diagnostics" / candidate_id / f"attempt-{attempt}"
             validation_dir.mkdir(parents=True, exist_ok=True)
-            result = await validate_candidate(config, target, oracle, validation_dir)
+            result = await validate_candidate(config, backend, candidate_id, oracle, validation_dir)
             if result.ok:
                 candidate.status = Status.OK
+                await execution.mirror_file(candidate_id, "candidate.py")
                 break
             if result.diagnostic is None:
                 raise RuntimeError("validator failed without a diagnostic")
@@ -432,7 +483,7 @@ async def generate_candidate(
                 break
             candidate.correction_rounds += 1
             turn = await session.send(
-                _repair_prompt(target, result.diagnostic.for_agent(), candidate.correction_rounds)
+                _repair_prompt(result.diagnostic.for_agent(), candidate.correction_rounds)
             )
             candidate.usage.add(turn.usage)
             candidate.turn_outcomes.append(
@@ -456,6 +507,7 @@ async def run_arena(
     config: RunConfig,
     oracle: OracleResult,
     run_dir: Path,
+    execution: ExecutionContext,
 ) -> tuple[list[Candidate], dict[str, Any]]:
     """Plan and execute the configured multi-candidate translation arena.
 
@@ -467,6 +519,7 @@ async def run_arena(
         config: Validated run configuration for planning and candidate generation.
         oracle: Authoritative output produced from the original C/C++ reference.
         run_dir: Root artifact directory shared by planner and candidate workspaces.
+        execution: Running execution context serving workspace tool calls.
 
     Returns:
         Completed candidate records and the auditable planner response record.
@@ -479,7 +532,7 @@ async def run_arena(
     strategies, planner_record = await plan_strategies(config, run_dir)
     candidates = await asyncio.gather(
         *(
-            generate_candidate(config, oracle, run_dir, index + 1, strategy)
+            generate_candidate(config, oracle, run_dir, execution, index + 1, strategy)
             for index, strategy in enumerate(strategies)
         )
     )

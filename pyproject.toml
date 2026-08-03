@@ -10,14 +10,28 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 dependencies = [
+  # Pinned exactly: both sides of a run must agree on the wire schema, and the
+  # hosted exchange (exchange.academy-agents.org) rejects 0.5.0 messages with
+  # HTTP 400. Bump only after verifying a self-ping against the exchange.
+  "academy-py==0.4.0",
   "hermes-agent==0.19.0",
+  "mcp>=2.0.0",
   "numpy>=2.0",
   "pydantic>=2.10",
   "PyYAML>=6.0",
   "torch>=2.5",
+  "uvicorn>=0.52.1",
 ]
 
 [project.optional-dependencies]
+globus = [
+  "globus-compute-sdk>=3.0",
+]
+# For the remote node only: runs the Globus Compute endpoint daemon inside the
+# same venv as lassi-x, so workers can deserialize the execution agent.
+endpoint = [
+  "globus-compute-endpoint>=3.0",
+]
 dev = [
   "mypy>=1.10",
   "pytest>=8.3",
@@ -69,8 +83,12 @@ exclude = ["build/", "runs/"]
 strict = true
 warn_return_any = true
 warn_unused_configs = true
-plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy", "academy.mypy_plugin"]
 
 [[tool.mypy.overrides]]
 module = "run_agent"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "globus_compute_sdk"
 ignore_missing_imports = true

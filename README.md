@@ -47,14 +47,52 @@ One immutable directory is written beneath the configured `runs_dir`:
 runs/<timestamp>-<kernel>/
 ├── resolved-config.yaml
 ├── oracle/
-├── candidates/
-├── variants/
+├── workspaces/
 ├── diagnostics/
 ├── measurements.jsonl
 ├── frontier.json
 ├── run.json
 └── summary.md
 ```
+
+`workspaces/` holds one confined directory per agent role: `c1`–`c3` for the
+arena candidates and one per compensation variant. Agent sessions reach their
+workspace only through a run-local MCP server whose tools execute on the
+configured `execution` resources (in-process by default, Academy execution
+agents in `academy` mode), with each Hermes session pinned to its workspace by
+a connection header.
+
+## Remote execution
+
+In `academy` mode with an `exchange_url`, resources carrying a Globus Compute
+`endpoint_id` run on that endpoint: reference sources and fixtures are staged
+into remote workspaces over the wire, candidate validation executes the runner
+on the endpoint and fetches its output back, and validated modules are mirrored
+into `workspaces/` for local measurement. Install the extra and verify
+connectivity before a run:
+
+```bash
+pip install -e '.[globus]'
+lassi-x execution doctor --config my-run.yaml
+```
+
+Two annotated examples cover a first remote deployment: the endpoint
+configuration for the remote node (standalone and Slurm variants) in
+[examples/globus-endpoint/config.yaml.example](examples/globus-endpoint/config.yaml.example),
+and the matching harness-side run configuration in
+[examples/run-remote-node.yaml.example](examples/run-remote-node.yaml.example).
+
+The doctor launches one execution agent per resource and reports the measured
+host facts (accelerators, toolchain, torch and lassi-x versions) that also land
+in `run.json` provenance. The endpoint environment must pin the same `lassi-x`
+version as the harness.
+
+Measurement cells run on their resources too: each `measure.backends` entry may
+name a `resource`, and the worker (with the candidate module, oracle output,
+and fixture pushed into a per-variant measurement workspace) executes there,
+judging device availability from the resource's measured handshake. Every
+measurement records its `resource`, so the Pareto frontier can legitimately mix
+points from different machines. Oracle builds still run on the harness machine.
 
 ## Flow
 

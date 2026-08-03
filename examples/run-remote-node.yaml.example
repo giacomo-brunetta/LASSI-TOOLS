@@ -1,0 +1,107 @@
+# Harness-side run configuration for one remote standalone node (no scheduler).
+#
+# Pairs with examples/globus-endpoint/config.yaml.example running on the node.
+# Copy, fill in the placeholders, then verify connectivity BEFORE a real run:
+#
+#   pip install -e '.[globus]'
+#   lassi-x execution doctor --config my-run.yaml
+#
+# The doctor launches the execution agent on the endpoint and prints its
+# measured handshake (hostname, GPUs, toolchain, lassi-x/torch versions).
+# The first invocation triggers the Globus login flow in your browser.
+
+version: 1
+
+project:
+  root: /absolute/path/to/PolyBenchC-4.2.1
+
+kernel:
+  name: 3mm
+  reference: linear-algebra/kernels/3mm/3mm.c
+  context:
+    - linear-algebra/kernels/3mm/3mm.h
+  task: Translate PolyBench 3mm into a semantically equivalent PyTorch module.
+
+# The oracle still builds and runs on THIS machine; only agent tool calls,
+# candidate validation, and measurement execute on the remote node.
+oracle:
+  build:
+    - gcc
+    - -O3
+    - -DDATA_TYPE_IS_DOUBLE
+    - -DPOLYBENCH_DUMP_ARRAYS
+    - "{reference}"
+    - utilities/polybench.c
+    - -Iutilities
+    - -lm
+    - -o
+    - "{oracle_dir}/reference"
+  run:
+    - "{oracle_dir}/reference"
+  output: oracle.csv
+  capture: stderr
+  format: polybench
+  timeout_s: 600
+
+arena:
+  candidates: 3
+  correction_rounds: 2
+  equivalence:
+    rtol: 0.001
+    atol: 0.000001
+
+# Hermes runs locally and needs its own provider credentials (hermes model).
+models:
+  planner:
+    provider: nous
+    model: anthropic/claude-sonnet-4.6
+  candidates:
+    - {provider: nous, model: openai/gpt-5.2}
+    - {provider: nous, model: google/gemini-3-pro-preview}
+    - {provider: nous, model: anthropic/claude-sonnet-4.6}
+  compensation:
+    provider: nous
+    model: openai/gpt-5.2
+
+execution:
+  mode: academy
+  exchange_url: https://exchange.academy-agents.org
+  auth: globus
+  default_resource: node
+  resources:
+    node:
+      # From: globus-compute-endpoint list   (on the remote node)
+      endpoint_id: 00000000-0000-0000-0000-000000000000
+      # Writable directory ON THE NODE; the agent creates it at startup.
+      workspace_root: /home/me/lassi-x-work
+      labels: [cuda]
+  # Per-tool-call timeout written into the Hermes MCP entries; must cover the
+  # longest single command an agent may run remotely.
+  mcp_timeout_s: 900
+
+measure:
+  precisions: [fp64, fp32, fp16, bf16]
+  warmup: 3
+  iterations: 20
+  stochastic_seeds: [0, 1, 2, 3, 4]
+  backends:
+    # Cells run on the remote node (resource defaults to default_resource;
+    # stated explicitly here for clarity). Device availability is checked
+    # against the node's measured handshake, so a cuda backend on a
+    # CPU-only node reports UNSUPPORTED instead of failing.
+    - type: torch
+      name: node-cpu
+      device: cpu
+      resource: node
+      precisions: [fp64, fp32, bf16]
+    - type: torch
+      name: node-cuda
+      device: cuda
+      resource: node
+      precisions: [fp64, fp32, fp16, bf16]
+
+compensation:
+  enabled: true
+  correction_rounds: 2
+
+runs_dir: runs

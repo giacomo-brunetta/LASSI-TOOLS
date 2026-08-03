@@ -73,11 +73,12 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
         config: object,
         oracle: object,
         run_dir: Path,
+        execution: object,
         base: Candidate,
         weak: Measurement,
         backend: object,
     ) -> CompensationVariant:
-        del config, oracle, backend
+        del config, oracle, execution, backend
         assert base is candidate
         assert weak is base_point
         target = run_dir / "variant.py"
@@ -107,7 +108,7 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
     monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
     monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
     monkeypatch.setattr(pipeline, "run_arena", fake_arena)
-    monkeypatch.setattr(pipeline, "build_backends", lambda _: [])
+    monkeypatch.setattr(pipeline, "build_backends", lambda *_: [])
     monkeypatch.setattr(pipeline, "measure_variants", fake_measure_base)
     monkeypatch.setattr(pipeline, "generate_compensation", fake_compensation)
     monkeypatch.setattr(pipeline, "measure_compensation_variants", fake_measure_compensation)

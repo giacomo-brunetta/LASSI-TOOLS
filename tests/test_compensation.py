@@ -8,6 +8,7 @@ import yaml
 
 import lassi_x.compensation as compensation
 from lassi_x.config import RunConfig
+from lassi_x.execution import ExecutionContext
 from lassi_x.hermes import HermesTurn
 from lassi_x.types import Candidate, Measurement, Status, Usage
 from lassi_x.validation import OracleResult
@@ -98,15 +99,23 @@ def test_noop_compensation_is_rejected_before_validation(
 
     monkeypatch.setattr(compensation, "HermesSession", NoOpSession)
     monkeypatch.setattr(compensation, "validate_candidate", unexpected_validation)
-    variant = asyncio.run(
-        compensation.generate_compensation(
-            config,
-            oracle,
-            tmp_path / "run",
-            base,
-            weak,
-            config.measure.backends[0],
-        )
-    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    async def run() -> compensation.CompensationVariant:
+        async with await ExecutionContext.start(
+            config, run_dir, hermes_home=tmp_path / "hermes"
+        ) as execution:
+            return await compensation.generate_compensation(
+                config,
+                oracle,
+                run_dir,
+                execution,
+                base,
+                weak,
+                config.measure.backends[0],
+            )
+
+    variant = asyncio.run(run())
     assert variant.status == Status.REJECTED
     assert variant.diagnostics[0].gate == "compensation-change"

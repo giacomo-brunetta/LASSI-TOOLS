@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
 from lassi_x.config import ModelConfig
 from lassi_x.hermes import HermesSession
 from lassi_x.hermes_worker import scrub_sensitive
+from lassi_x.protocol import (
+    TurnUsage,
+    WireModel,
+    WorkerFailure,
+    WorkerResponse,
+    WorkerTurn,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,25 +35,24 @@ class RetrySession(HermesSession):
             role="test",
         )
         self.reads = 0
-        self.writes: list[dict[str, Any]] = []
+        self.writes: list[WireModel] = []
 
     async def start(self) -> None:
         return None
 
-    async def _write(self, payload: dict[str, Any]) -> None:
-        self.writes.append(payload)
+    async def _write(self, message: WireModel) -> None:
+        self.writes.append(message)
 
-    async def _read(self) -> dict[str, Any]:
+    async def _read(self) -> WorkerResponse:
         self.reads += 1
         if self.reads == 1:
-            return {"ok": False, "error": "HTTP 503 service unavailable"}
-        return {
-            "ok": True,
-            "text": "finished",
-            "completed": False,
-            "exit_reason": "max_iterations_reached(2/2)",
-            "usage": {"input_tokens": 3, "output_tokens": 4},
-        }
+            return WorkerFailure(error="HTTP 503 service unavailable")
+        return WorkerTurn(
+            text="finished",
+            completed=False,
+            exit_reason="max_iterations_reached(2/2)",
+            usage=TurnUsage(input_tokens=3, output_tokens=4),
+        )
 
 
 def test_agent_turn_retries_and_preserves_exit_reason(tmp_path: Path) -> None:
@@ -75,9 +81,9 @@ class TimeoutSession(RetrySession):
         self.model.turn_timeout_s = 0.01
         self.closed = False
 
-    async def _read(self) -> dict[str, Any]:
+    async def _read(self) -> WorkerResponse:
         await asyncio.sleep(1)
-        return {"ok": True}
+        return WorkerTurn(text="late", usage=TurnUsage())
 
     async def close(self) -> None:
         self.closed = True

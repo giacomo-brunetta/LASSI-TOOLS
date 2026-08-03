@@ -9,20 +9,21 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 import yaml
 
 import lassi_x.measurement as measurement
 from lassi_x.config import BackendConfig, RunConfig
-from lassi_x.measurement import Backend, GroqBackend
+from lassi_x.execution import LocalExecutionBackend
+from lassi_x.measurement import Backend, GroqBackend, TorchBackend
 from lassi_x.types import Measurement, Status
-from lassi_x.validation import OracleResult
+from lassi_x.validation import OracleResult, build_oracle
 
 from .test_config import minimal_config
+from .test_validation import C_REFERENCE, GOOD_MODULE
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
 
 def setup_run(tmp_path: Path) -> tuple[RunConfig, Path, OracleResult]:
@@ -46,6 +47,17 @@ def groq_spec(queue: Path) -> BackendConfig:
         healthcheck_max_age_s=10,
         stale_request_s=60,
     )
+
+
+def _setup_torch(tmp_path: Path) -> tuple[RunConfig, OracleResult, Path]:
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(minimal_config(tmp_path)))
+    config = RunConfig.load(config_path)
+    oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
+    module = tmp_path / "candidate.py"
+    module.write_text(GOOD_MODULE)
+    return config, oracle, module
 
 
 def test_groq_backend_fails_fast_without_live_worker(tmp_path: Path) -> None:
@@ -164,3 +176,65 @@ def test_compensation_measurement_defaults_to_target_cell(tmp_path: Path) -> Non
     assert len(results) == 1
     assert cpu.calls == ["fp16"]
     assert other.calls == []
+
+
+def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> None:
+    config, oracle, module = _setup_torch(tmp_path)
+    execution_root = tmp_path / "exec"
+    backend = TorchBackend(
+        config.measure.backends[0], LocalExecutionBackend(execution_root, "here"), "here"
+    )
+    result = asyncio.run(
+        backend.measure(
+            config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp64",
+            compensation="none",
+        )
+    )
+    assert result.status == Status.OK
+    assert result.resource == "here"
+    assert result.latency_s is not None and result.latency_s > 0
+    assert result.worker_wall_s is not None and result.worker_wall_s > result.latency_s
+    workspace = execution_root / "m-c1-base"
+    assert (workspace / "candidate.py").is_file()
+    assert (workspace / "oracle.csv").is_file()
+
+
+def test_torch_backend_reports_unavailable_device_from_handshake(tmp_path: Path) -> None:
+    config, oracle, module = _setup_torch(tmp_path)
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"][0]["device"] = "cuda:0"
+    cuda_config = RunConfig.model_validate(data)
+    backend = TorchBackend(
+        cuda_config.measure.backends[0],
+        LocalExecutionBackend(tmp_path / "exec", "cpu-box"),
+        "cpu-box",
+    )
+    result = asyncio.run(
+        backend.measure(
+            cuda_config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp64",
+            compensation="none",
+        )
+    )
+    if result.status == Status.OK:
+        pytest.skip("host actually has CUDA")
+    assert result.status == Status.UNSUPPORTED
+    assert "cpu-box" in result.notes
+
+
+def test_backend_resource_must_be_configured(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"][0]["resource"] = "nvidia"
+    with pytest.raises(ValueError, match="unknown execution resources"):
+        RunConfig.model_validate(data)
+    data["execution"] = {"mode": "academy", "resources": {"nvidia": {}}}
+    assert RunConfig.model_validate(data).measure.backends[0].resource == "nvidia"

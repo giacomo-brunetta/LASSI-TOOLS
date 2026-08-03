@@ -102,6 +102,7 @@ class BackendConfig(StrictModel):
     type: Literal["torch", "groq"]
     name: str
     device: str | None = None
+    resource: str | None = None
     queue_dir: Path | None = None
     precisions: list[Literal["fp64", "fp32", "fp16", "bf16"]]
     timeout_s: float = 600.0
@@ -139,6 +140,56 @@ class MeasureConfig(StrictModel):
     serialize_torch_backends: bool = True
 
 
+class ResourceConfig(StrictModel):
+    """One compute resource that can serve execution requests."""
+
+    endpoint_id: str | None = None
+    workspace_root: Path | None = None
+    labels: list[str] = Field(default_factory=list)
+
+
+class ExecutionConfig(StrictModel):
+    """Where agent tool calls and harness commands execute.
+
+    ``local`` runs everything in-process against the run directory. ``academy``
+    launches one ExecutionAgent per resource through an Academy manager: with
+    no ``exchange_url`` the agents run on a local exchange (single machine,
+    used for development and tests); with an ``exchange_url`` and per-resource
+    ``endpoint_id`` values they run on remote Globus Compute endpoints.
+    """
+
+    mode: Literal["local", "academy"] = "local"
+    exchange_url: str | None = None
+    auth: Literal["none", "globus"] = "none"
+    resources: dict[str, ResourceConfig] = Field(default_factory=dict)
+    default_resource: str | None = None
+    mcp_timeout_s: float = Field(default=900.0, gt=0.0)
+
+    @model_validator(mode="after")
+    def consistent_targets(self) -> ExecutionConfig:
+        if self.default_resource is not None and self.default_resource not in self.resources:
+            raise ValueError("execution.default_resource must name a configured resource")
+        if self.exchange_url is not None and self.mode != "academy":
+            raise ValueError("execution.exchange_url requires mode: academy")
+        endpoints = [name for name, spec in self.resources.items() if spec.endpoint_id]
+        if endpoints and self.exchange_url is None:
+            raise ValueError(
+                "resources with endpoint_id require execution.exchange_url "
+                f"(offending: {', '.join(sorted(endpoints))})"
+            )
+        missing_roots = [
+            name
+            for name, spec in self.resources.items()
+            if spec.endpoint_id and spec.workspace_root is None
+        ]
+        if missing_roots:
+            raise ValueError(
+                "endpoint resources require a site-local workspace_root "
+                f"(offending: {', '.join(sorted(missing_roots))})"
+            )
+        return self
+
+
 class CompensationConfig(StrictModel):
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
@@ -173,14 +224,25 @@ class RunConfig(StrictModel):
     models: ModelsConfig
     measure: MeasureConfig
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
+    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     runs_dir: Path = Path("runs")
 
     @model_validator(mode="after")
-    def candidate_model_count_matches_arena(self) -> RunConfig:
+    def cross_section_references_are_consistent(self) -> RunConfig:
         if len(self.models.candidates) != self.arena.candidates:
             raise ValueError(
                 "models.candidates length must equal arena.candidates "
                 f"({len(self.models.candidates)} != {self.arena.candidates})"
+            )
+        known = set(self.execution.resources) or {"local"}
+        unknown = sorted(
+            spec.resource
+            for spec in self.measure.backends
+            if spec.resource is not None and spec.resource not in known
+        )
+        if unknown:
+            raise ValueError(
+                "measure.backends name unknown execution resources: " + ", ".join(unknown)
             )
         return self
 

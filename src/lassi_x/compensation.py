@@ -3,18 +3,23 @@ from __future__ import annotations
 import ast
 import json
 import re
-import shutil
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Measurement, Status, Usage
-from .validation import OracleResult, validate_candidate, validate_fp32_collapse
+from .validation import (
+    OracleResult,
+    fixture_relative_path,
+    validate_candidate,
+    validate_fp32_collapse,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from .config import BackendConfig, RunConfig
+    from .execution import ExecutionContext
 
 COMPENSATION_SYSTEM = """Role: senior numerical analyst specializing in low-precision
 scientific computing and compensated arithmetic.
@@ -35,7 +40,11 @@ Engineering responsibilities:
 
 Never weaken validators, change tolerances, read or embed oracle output, return constants, or
 claim an improvement that was not measured. A comment-only, formatting-only, metadata-only, or
-otherwise no-op edit is not compensation."""
+otherwise no-op edit is not compensation.
+
+Workspace access: your only access to files and commands is the assigned workspace
+toolset (list_resources, run_command, write_file, read_file, list_files). All paths
+are workspace-relative. Call list_resources when choosing where to run commands."""
 
 
 TECHNIQUE_SUMMARY = {
@@ -288,6 +297,7 @@ async def generate_compensation(
     config: RunConfig,
     oracle: OracleResult,
     run_dir: Path,
+    execution: ExecutionContext,
     base: Candidate,
     weak: Measurement,
     backend: BackendConfig,
@@ -304,6 +314,7 @@ async def generate_compensation(
         config: Validated run configuration and compensation policy.
         oracle: Authoritative output produced from the original C/C++ reference.
         run_dir: Root artifact directory for the current pipeline run.
+        execution: Running execution context serving workspace tool calls.
         base: Semantically valid arena candidate to copy and compensate.
         weak: Low-precision measurement motivating this variant.
         backend: Backend whose numerical capabilities constrain the implementation.
@@ -316,11 +327,20 @@ async def generate_compensation(
         OSError: If the variant workspace or initial candidate copy cannot be created.
 
     """
-    slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
-    workspace = run_dir / "variants" / slug
-    workspace.mkdir(parents=True, exist_ok=True)
-    target = workspace / "candidate.py"
-    shutil.copy2(base.module_path, target)
+    raw_slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
+    slug = re.sub(r"[^A-Za-z0-9._-]", "-", raw_slug)
+    mirror = execution.workspace_dir(slug)
+    mirror.mkdir(parents=True, exist_ok=True)
+    toolset = execution.register_workspace(slug)
+    target = mirror / "candidate.py"
+    await execution.stage_bytes(slug, "candidate.py", base.module_path.read_bytes())
+    fixture = fixture_relative_path(config)
+    if fixture is not None and config.oracle.input_fixture is not None:
+        await execution.stage_bytes(
+            slug,
+            fixture,
+            config.resolve_project_path(config.oracle.input_fixture).read_bytes(),
+        )
     allowed = [name for name in config.compensation.techniques if name in TECHNIQUE_SUMMARY]
     variant = CompensationVariant(
         candidate_id=base.candidate_id,
@@ -333,8 +353,8 @@ async def generate_compensation(
     technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
     prompt = f"""Compensate this weak low-precision point.
 
-Base module: {base.module_path}
-Target copy to edit: {target}
+Workspace toolset: {toolset} (all paths below are workspace-relative)
+Target copy to edit: candidate.py (already contains the validated base translation)
 Backend: {backend.name}
 Backend capabilities: {_backend_capabilities(backend)}
 Target precision: {weak.precision}
@@ -356,9 +376,9 @@ After editing and byte-compiling the target, return JSON only:
 """
     session = HermesSession(
         config.models.compensation,
-        cwd=workspace,
+        cwd=mirror,
         system_prompt=COMPENSATION_SYSTEM,
-        toolsets=["skills", "file", "terminal"],
+        toolsets=["skills", toolset],
         role=f"compensation-{slug}",
     )
     try:
@@ -373,9 +393,11 @@ After editing and byte-compiling the target, return JSON only:
         )
         variant.technique = _parse_technique(turn.text, allowed)
         base_fingerprint = _semantic_fingerprint(base.module_path)
+        execution_backend = execution.backend()
         for attempt in range(config.compensation.correction_rounds + 1):
             diagnostic_dir = run_dir / "diagnostics" / "variants" / slug / f"attempt-{attempt}"
             diagnostic_dir.mkdir(parents=True, exist_ok=True)
+            await execution.mirror_file(slug, "candidate.py")
             try:
                 changed = _semantic_fingerprint(target) != base_fingerprint
             except (OSError, SyntaxError):
@@ -392,15 +414,24 @@ After editing and byte-compiling the target, return JSON only:
                     ),
                 )
             else:
-                external = await validate_candidate(config, target, oracle, diagnostic_dir)
+                external = await validate_candidate(
+                    config, execution_backend, slug, oracle, diagnostic_dir
+                )
                 collapse = (
-                    await validate_fp32_collapse(config, base.module_path, target, diagnostic_dir)
+                    await validate_fp32_collapse(
+                        config,
+                        execution_backend,
+                        base.candidate_id,
+                        slug,
+                        diagnostic_dir,
+                    )
                     if external.ok
                     else None
                 )
                 diagnostic = external.diagnostic or (collapse.diagnostic if collapse else None)
             if external is not None and external.ok and collapse is not None and collapse.ok:
                 variant.status = Status.OK
+                await execution.mirror_file(slug, "candidate.py")
                 break
             if diagnostic is None:
                 diagnostic = Diagnostic(
@@ -412,7 +443,7 @@ After editing and byte-compiling the target, return JSON only:
                 break
             variant.correction_rounds += 1
             repair = f"""Correction round {variant.correction_rounds}.
-The compensation target {target} failed:
+The compensation target candidate.py in your workspace failed:
 
 {diagnostic.for_agent()}
 

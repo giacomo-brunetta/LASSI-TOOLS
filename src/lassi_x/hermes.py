@@ -2,15 +2,27 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import os
 import random
 import signal
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
+from pydantic import ValidationError
+
+from .protocol import (
+    WireModel,
+    WorkerClose,
+    WorkerFailure,
+    WorkerInit,
+    WorkerReady,
+    WorkerResponse,
+    WorkerSend,
+    WorkerTurn,
+    parse_worker_response,
+)
 from .types import Usage
 
 if TYPE_CHECKING:
@@ -70,13 +82,13 @@ class HermesSession:
         """Start and initialize the worker process if it is not already running.
 
         The worker is launched with the package source on ``PYTHONPATH`` and receives one
-        initialization message containing model, credential-source, prompt, and toolset
-        configuration.
+        :class:`~lassi_x.protocol.WorkerInit` message containing model, credential-source,
+        prompt, and toolset configuration.
 
         Raises:
             OSError: If the Python worker process cannot be created.
             RuntimeError: If the worker rejects initialization or exits unexpectedly.
-            json.JSONDecodeError: If the worker returns malformed protocol data.
+            pydantic.ValidationError: If the worker returns malformed protocol data.
 
         """
         if self._process is not None:
@@ -96,29 +108,31 @@ class HermesSession:
             start_new_session=True,
         )
         await self._write(
-            {
-                "op": "init",
-                "model": self.model.model,
-                "provider": self.model.provider,
-                "base_url": self.model.base_url,
-                "api_mode": self.model.api_mode,
-                "api_key_env": self.model.api_key_env,
-                "claude_settings": (
+            WorkerInit(
+                model=self.model.model,
+                provider=self.model.provider,
+                base_url=self.model.base_url,
+                api_mode=self.model.api_mode,
+                api_key_env=self.model.api_key_env,
+                claude_settings=(
                     str(self.model.claude_settings.expanduser())
                     if self.model.claude_settings
                     else None
                 ),
-                "max_iterations": self.model.max_iterations,
-                "max_tokens": self.model.max_tokens,
-                "system_prompt": self.system_prompt,
-                "toolsets": self.toolsets,
-                "role": self.role,
-            }
+                max_iterations=self.model.max_iterations,
+                max_tokens=self.model.max_tokens,
+                system_prompt=self.system_prompt,
+                toolsets=self.toolsets,
+                role=self.role,
+            )
         )
         response = await self._read()
-        if not response.get("ok"):
+        if isinstance(response, WorkerFailure):
             await self.close()
-            raise RuntimeError(response.get("error", "Hermes worker initialization failed"))
+            raise RuntimeError(response.error)
+        if not isinstance(response, WorkerReady):
+            await self.close()
+            raise RuntimeError(f"unexpected worker initialization response: {response.kind}")
 
     async def send(self, prompt: str) -> HermesTurn:
         """Send one user prompt through the persistent agent conversation.
@@ -131,34 +145,38 @@ class HermesSession:
 
         Raises:
             RuntimeError: If the worker rejects the turn or terminates unexpectedly.
-            json.JSONDecodeError: If the worker returns malformed protocol data.
+            pydantic.ValidationError: If the worker returns malformed protocol data.
 
         """
-        response: dict[str, Any] | None = None
+        response: WorkerTurn | None = None
         last_error: Exception | None = None
         retry_usage = Usage()
         for attempt in range(self.model.turn_retries + 1):
             try:
                 await self.start()
-                await self._write({"op": "send", "prompt": prompt})
-                response = await asyncio.wait_for(self._read(), timeout=self.model.turn_timeout_s)
-                if not response.get("ok"):
-                    raw_failed = response.get("usage") or {}
+                await self._write(WorkerSend(prompt=prompt))
+                raw_response = await asyncio.wait_for(
+                    self._read(), timeout=self.model.turn_timeout_s
+                )
+                if isinstance(raw_response, WorkerFailure):
                     retry_usage.add(
                         Usage(
-                            input_tokens=int(raw_failed.get("input_tokens") or 0),
-                            output_tokens=int(raw_failed.get("output_tokens") or 0),
-                            estimated_cost_usd=float(raw_failed.get("estimated_cost_usd") or 0.0),
+                            input_tokens=raw_response.usage.input_tokens,
+                            output_tokens=raw_response.usage.output_tokens,
+                            estimated_cost_usd=raw_response.usage.estimated_cost_usd,
                         )
                     )
-                    raise RuntimeError(response.get("error", "Hermes turn failed"))
+                    raise RuntimeError(raw_response.error)
+                if not isinstance(raw_response, WorkerTurn):
+                    raise RuntimeError(f"unexpected worker turn response: {raw_response.kind}")
+                response = raw_response
                 break
             except (
                 BrokenPipeError,
                 ConnectionError,
-                json.JSONDecodeError,
                 OSError,
                 RuntimeError,
+                ValidationError,
             ) as exc:
                 last_error = exc
                 if (
@@ -177,18 +195,17 @@ class HermesSession:
                 await asyncio.sleep(delay)
         if response is None:
             raise RuntimeError("Hermes turn failed without a response") from last_error
-        raw = response.get("usage") or {}
         usage = Usage(
-            input_tokens=int(raw.get("input_tokens") or 0),
-            output_tokens=int(raw.get("output_tokens") or 0),
-            estimated_cost_usd=float(raw.get("estimated_cost_usd") or 0.0),
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            estimated_cost_usd=response.usage.estimated_cost_usd,
         )
         usage.add(retry_usage)
         return HermesTurn(
-            text=str(response.get("text") or ""),
+            text=response.text,
             usage=usage,
-            completed=bool(response.get("completed", True)),
-            exit_reason=str(response.get("exit_reason") or "unknown"),
+            completed=response.completed,
+            exit_reason=response.exit_reason,
             attempts=attempt + 1,
         )
 
@@ -229,7 +246,7 @@ class HermesSession:
             return
         if process.returncode is None:
             try:
-                await self._write_to(process, {"op": "close"})
+                await self._write_to(process, WorkerClose())
                 await asyncio.wait_for(process.wait(), timeout=5)
             except OSError:
                 with contextlib.suppress(ProcessLookupError):
@@ -241,11 +258,11 @@ class HermesSession:
                         os.killpg(process.pid, signal.SIGKILL)
                     await process.wait()
 
-    async def _write(self, payload: dict[str, Any]) -> None:
+    async def _write(self, message: WireModel) -> None:
         """Write a protocol message to the active worker.
 
         Args:
-            payload: JSON-serializable worker request.
+            message: Validated worker request message.
 
         Raises:
             RuntimeError: If the session has no active worker process.
@@ -253,15 +270,15 @@ class HermesSession:
         """
         if self._process is None:
             raise RuntimeError("Hermes worker is not running")
-        await self._write_to(self._process, payload)
+        await self._write_to(self._process, message)
 
     @staticmethod
-    async def _write_to(process: asyncio.subprocess.Process, payload: dict[str, Any]) -> None:
+    async def _write_to(process: asyncio.subprocess.Process, message: WireModel) -> None:
         """Serialize one JSONL request to a specific worker process.
 
         Args:
             process: Worker process whose standard input receives the request.
-            payload: JSON-serializable worker request.
+            message: Validated worker request message.
 
         Raises:
             RuntimeError: If the worker standard-input pipe is unavailable.
@@ -269,18 +286,18 @@ class HermesSession:
         """
         if process.stdin is None:
             raise RuntimeError("Hermes worker stdin is unavailable")
-        process.stdin.write((json.dumps(payload) + "\n").encode())
+        process.stdin.write((message.model_dump_json() + "\n").encode())
         await process.stdin.drain()
 
-    async def _read(self) -> dict[str, Any]:
-        """Read and decode one JSONL response from the active worker.
+    async def _read(self) -> WorkerResponse:
+        """Read and validate one JSONL response from the active worker.
 
         Returns:
-            Decoded worker response object.
+            Validated worker response message.
 
         Raises:
             RuntimeError: If no readable worker exists or the worker exits early.
-            json.JSONDecodeError: If the response line is not valid JSON.
+            pydantic.ValidationError: If the response line is not a valid message.
 
         """
         if self._process is None or self._process.stdout is None:
@@ -291,7 +308,7 @@ class HermesSession:
             if self._process.stderr is not None:
                 stderr = (await self._process.stderr.read()).decode(errors="replace")
             raise RuntimeError(f"Hermes worker exited unexpectedly: {stderr[-4000:]}")
-        return cast("dict[str, Any]", json.loads(line))
+        return parse_worker_response(line)
 
     async def __aenter__(self) -> HermesSession:
         """Start the worker and enter the asynchronous session context.

@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-import numpy as np
 import yaml
 
-import lassi_x.validation as validation
 from lassi_x.config import RunConfig
+from lassi_x.execution import LocalExecutionBackend
+from lassi_x.protocol import ExecRequest, ExecResult
 from lassi_x.validation import (
     build_oracle,
     scrape_polybench_dump,
@@ -52,36 +52,56 @@ def make_model():
 BAD_MODULE = GOOD_MODULE.replace("return x\n", "return x + 1\n")
 
 
-def _setup(tmp_path: Path) -> tuple[RunConfig, Path, Path]:
+def _setup(tmp_path: Path) -> tuple[RunConfig, LocalExecutionBackend]:
     (tmp_path / "tiny.c").write_text(C_REFERENCE)
-    good = tmp_path / "good.py"
-    bad = tmp_path / "bad.py"
-    good.write_text(GOOD_MODULE)
-    bad.write_text(BAD_MODULE)
+    root = tmp_path / "workspaces"
+    for workspace, module in (("good", GOOD_MODULE), ("bad", BAD_MODULE)):
+        (root / workspace).mkdir(parents=True)
+        (root / workspace / "candidate.py").write_text(module)
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(minimal_config(tmp_path)))
-    return RunConfig.load(config_path), good, bad
+    return RunConfig.load(config_path), LocalExecutionBackend(root, "test")
 
 
 def test_original_c_reference_is_authoritative(tmp_path: Path) -> None:
-    config, good, bad = _setup(tmp_path)
+    config, backend = _setup(tmp_path)
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
     assert (tmp_path / "run" / "oracle" / "build.stderr").is_file()
     assert (tmp_path / "run" / "oracle" / "run.stderr").is_file()
-    accepted = asyncio.run(validate_candidate(config, good, oracle, tmp_path / "good-artifacts"))
-    rejected = asyncio.run(validate_candidate(config, bad, oracle, tmp_path / "bad-artifacts"))
+    accepted = asyncio.run(
+        validate_candidate(config, backend, "good", oracle, tmp_path / "good-artifacts")
+    )
+    rejected = asyncio.run(
+        validate_candidate(config, backend, "bad", oracle, tmp_path / "bad-artifacts")
+    )
     assert accepted.ok
     assert not rejected.ok
     assert rejected.diagnostic is not None
     assert rejected.diagnostic.gate == "equivalence"
+    assert (tmp_path / "good-artifacts" / "fp64.npy").is_file()
+
+
+def test_missing_module_reports_write_gate(tmp_path: Path) -> None:
+    config, backend = _setup(tmp_path)
+    oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
+    result = asyncio.run(
+        validate_candidate(config, backend, "good", oracle, tmp_path / "a", module_name="nope.py")
+    )
+    assert not result.ok
+    assert result.diagnostic is not None
+    assert result.diagnostic.gate == "write"
 
 
 def test_fp32_self_consistency_does_not_replace_c_oracle(tmp_path: Path) -> None:
-    config, _, bad = _setup(tmp_path)
+    config, backend = _setup(tmp_path)
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
     # A biased module agrees with itself at FP32.
-    collapse = asyncio.run(validate_fp32_collapse(config, bad, bad, tmp_path / "collapse"))
-    authoritative = asyncio.run(validate_candidate(config, bad, oracle, tmp_path / "authoritative"))
+    collapse = asyncio.run(
+        validate_fp32_collapse(config, backend, "bad", "bad", tmp_path / "collapse")
+    )
+    authoritative = asyncio.run(
+        validate_candidate(config, backend, "bad", oracle, tmp_path / "authoritative")
+    )
     assert collapse.ok
     assert not authoritative.ok
 
@@ -97,16 +117,24 @@ def test_polybench_dump_parser_ignores_labels() -> None:
 def test_compile_timeout_is_a_structured_diagnostic(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    config, good, _ = _setup(tmp_path)
-    oracle_path = tmp_path / "oracle.npy"
-    oracle_path.write_bytes(b"")
-    oracle = validation.OracleResult(oracle_path, np.asarray([1.0, 2.0, 3.0]))
+    config, backend = _setup(tmp_path)
+    oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
+    original_execute = backend.execute
 
-    async def timeout(*_: object, **__: object) -> tuple[int, str, str]:
-        raise TimeoutError
+    async def timeout(request: ExecRequest) -> ExecResult:
+        if "py_compile" in request.argv:
+            return ExecResult(
+                workspace=request.workspace,
+                exit_code=None,
+                timed_out=True,
+                duration_s=config.arena.timeout_s,
+            )
+        return await original_execute(request)
 
-    monkeypatch.setattr(validation, "_run", timeout)
-    result = asyncio.run(validate_candidate(config, good, oracle, tmp_path / "artifacts"))
+    monkeypatch.setattr(backend, "execute", timeout)
+    result = asyncio.run(
+        validate_candidate(config, backend, "good", oracle, tmp_path / "artifacts")
+    )
     assert not result.ok
     assert result.diagnostic is not None
     assert result.diagnostic.gate == "compile"

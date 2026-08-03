@@ -1,0 +1,74 @@
+# Globus Compute endpoint configuration for a LASSI-X execution resource.
+#
+# IMPORTANT: install the endpoint INTO the same virtual environment as
+# lassi-x. An isolated install (pipx, uv tool) runs workers inside its own
+# environment, and agent deserialization fails there with
+# "ModuleNotFoundError: No module named 'academy'".
+#
+# Install on the remote node by cloning the repo (the .python-version pin
+# keeps Python at 3.12 to match the harness - dill cannot deserialize
+# functions across differing minor versions):
+#   git clone <repo> ~/LASSI-TOOLS && cd ~/LASSI-TOOLS
+#   uv sync --all-extras          # includes the 'endpoint' extra
+#   source .venv/bin/activate
+#   globus-compute-endpoint configure lassi-x
+# then replace ~/.globus_compute/lassi-x/config.yaml with this file (edited),
+# and start it:
+#   globus-compute-endpoint start lassi-x
+#   globus-compute-endpoint list        # copy the endpoint UUID into run.yaml
+#
+# Requirements for the worker environment (worker_init below):
+# - the SAME lassi-x and academy-py versions as the harness (pickled
+#   protocol models must resolve identically on both sides)
+# - the same Python minor version as the harness (3.12)
+# - a torch build matching the node's accelerators AND driver: check the
+#   "CUDA Version" that nvidia-smi reports and install the matching wheel
+#   flavor, e.g. for a 12.x driver:
+#     uv pip install --reinstall torch --index-url https://download.pytorch.org/whl/cu128
+#   (the default PyPI wheel may target a newer CUDA major than the driver
+#   supports - the handshake then reports accelerators: [] - and uv sync
+#   reverts to the locked default, so re-run this after every sync)
+# - the compilers the kernels need (gcc, nvcc, ...) on PATH
+# - outbound HTTPS to the Academy exchange (exchange.academy-agents.org);
+#   the execution agent holds a long-lived SSE connection to it
+#
+# One persistent ExecutionAgent occupies one worker slot for the entire
+# pipeline run and multiplexes commands as subprocesses, so a single worker
+# is all a run needs.
+
+# --- Simple standalone node (no scheduler) ---------------------------------
+engine:
+    type: GlobusComputeEngine
+    max_workers_per_node: 1
+    provider:
+        type: LocalProvider
+        worker_init: "source ~/LASSI-TOOLS/.venv/bin/activate"
+        init_blocks: 1
+        min_blocks: 1
+        max_blocks: 1
+
+# --- Slurm cluster variant -------------------------------------------------
+# Replace the engine block above with this one on a scheduled system. The
+# walltime must cover the WHOLE pipeline run (planning, three candidates with
+# repair rounds, compensation, measurement), not a single task, because the
+# execution agent is persistent. Compute nodes must be able to reach the
+# exchange; if they have no outbound HTTPS, keep the LocalProvider block so
+# workers run on the login node instead.
+#
+# engine:
+#     type: GlobusComputeEngine
+#     max_workers_per_node: 1
+#     address:
+#         type: address_by_interface
+#         ifname: ib0
+#     provider:
+#         type: SlurmProvider
+#         partition: gpu
+#         account: your-allocation
+#         launcher:
+#             type: SrunLauncher
+#         worker_init: "source ~/LASSI-TOOLS/.venv/bin/activate"
+#         init_blocks: 1
+#         min_blocks: 0
+#         max_blocks: 1
+#         walltime: "04:00:00"

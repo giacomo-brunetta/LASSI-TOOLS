@@ -61,6 +61,9 @@ measure:
     - type: torch
       name: cuda
       device: cuda
+      # Optional: run this backend's cells on a named execution resource
+      # (defaults to the run's default resource).
+      # resource: nvidia
       precisions: [fp64, fp32, fp16, bf16]
     - type: groq
       name: groq
@@ -84,5 +87,27 @@ compensation:
   error_metric: max_rel_error
   comparison_scope: same_candidate
   measurement_scope: target
+
+# Where agent tool calls and commands execute. The default (local) runs
+# everything in-process. "academy" launches one execution agent per resource:
+# resources without endpoint_id run on this machine over a local exchange;
+# resources with endpoint_id run on their Globus Compute endpoint, reached
+# through the Globus-authenticated cloud exchange. Endpoint resources need a
+# site-local workspace_root, and the endpoint environment must pin the same
+# lassi-x version. Verify connectivity with: lassi-x execution doctor --config run.yaml
+# execution:
+#   mode: academy
+#   exchange_url: https://exchange.academy-agents.org
+#   auth: globus
+#   default_resource: nvidia
+#   resources:
+#     nvidia:
+#       endpoint_id: 00000000-0000-0000-0000-000000000000
+#       workspace_root: /scratch/me/lassi-x
+#       labels: [cuda, h100]
+#     xpu:
+#       endpoint_id: 11111111-1111-1111-1111-111111111111
+#       workspace_root: /lus/me/lassi-x
+#       labels: [xpu, pvc]
 
 runs_dir: runs

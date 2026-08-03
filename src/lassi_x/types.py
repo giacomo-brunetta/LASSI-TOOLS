@@ -102,6 +102,7 @@ class Measurement:
     operator_precision: str
     accumulator_precision: str
     output_precision: str
+    resource: str = ""
     latency_s: float | None = None
     min_s: float | None = None
     worker_wall_s: float | None = None
