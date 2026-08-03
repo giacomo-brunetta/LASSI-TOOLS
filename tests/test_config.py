@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from lassi_x.config import RunConfig
 from lassi_x.hermes_worker import resolve_api_key
+from lassi_x.protocol import WorkerInit
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -71,4 +72,5 @@ def test_backend_requirements(tmp_path: Path) -> None:
 def test_claude_settings_credential_helper(tmp_path: Path) -> None:
     settings = tmp_path / "settings.json"
     settings.write_text('{"apiKeyHelper": "printf test-credential"}')
-    assert resolve_api_key({"claude_settings": str(settings)}) == "test-credential"
+    init = WorkerInit(model="planner", role="planner", claude_settings=str(settings))
+    assert resolve_api_key(init) == "test-credential"

@@ -10,21 +10,34 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
+from lassi_x.protocol import (
+    TurnUsage,
+    WorkerFailure,
+    WorkerInit,
+    WorkerReady,
+    WorkerResponse,
+    WorkerSend,
+    WorkerTurn,
+    parse_worker_request,
+)
+
 PROTOCOL_STREAM = sys.stdout
 
 
-def emit(payload: dict[str, Any]) -> None:
-    """Write one response object to the worker's JSONL protocol stream.
+def emit(response: WorkerResponse) -> None:
+    """Write one response message to the worker's JSONL protocol stream.
 
     Args:
-        payload: JSON-serializable response returned to the parent session.
+        response: Validated protocol response returned to the parent session.
 
     """
-    PROTOCOL_STREAM.write(json.dumps(payload) + "\n")
+    PROTOCOL_STREAM.write(response.model_dump_json() + "\n")
     PROTOCOL_STREAM.flush()
 
 
-def resolve_api_key(request: dict[str, Any]) -> str | None:
+def resolve_api_key(request: WorkerInit) -> str | None:
     """Resolve an API credential from the configured external source.
 
     Environment-variable configuration takes precedence. For Argo-compatible setups,
@@ -33,7 +46,7 @@ def resolve_api_key(request: dict[str, Any]) -> str | None:
     the JSONL protocol.
 
     Args:
-        request: Worker initialization request containing credential-source settings.
+        request: Worker initialization message containing credential-source settings.
 
     Returns:
         The resolved credential, or ``None`` when the provider needs no explicit key.
@@ -43,16 +56,14 @@ def resolve_api_key(request: dict[str, Any]) -> str | None:
             command, or helper output is unavailable or invalid.
 
     """
-    env_name = request.get("api_key_env")
-    if env_name:
-        value = os.environ.get(str(env_name), "").strip()
+    if request.api_key_env:
+        value = os.environ.get(request.api_key_env, "").strip()
         if not value:
-            raise RuntimeError(f"credential environment variable {env_name!r} is unset")
+            raise RuntimeError(f"credential environment variable {request.api_key_env!r} is unset")
         return value
-    settings_value = request.get("claude_settings")
-    if not settings_value:
+    if not request.claude_settings:
         return None
-    settings_path = Path(str(settings_value)).expanduser()
+    settings_path = Path(request.claude_settings).expanduser()
     try:
         settings = json.loads(settings_path.read_text())
         helper = str(settings["apiKeyHelper"]).strip()
@@ -82,13 +93,15 @@ def resolve_api_key(request: dict[str, Any]) -> str | None:
 def main() -> int:
     """Run the stateful Hermes SDK worker over a standard-input JSONL protocol.
 
-    The worker accepts ``init``, ``send``, and ``close`` operations. One ``AIAgent`` and
-    its conversation history persist across send operations, while token usage is
-    reported as a per-turn delta. Operational exceptions are converted to protocol error
-    responses so the parent process can record them as candidate diagnostics.
+    The worker accepts :class:`WorkerInit`, :class:`WorkerSend`, and
+    :class:`WorkerClose` messages. One ``AIAgent`` and its conversation history
+    persist across send operations, while token usage is reported as a per-turn
+    delta. Malformed lines and operational exceptions are converted to
+    :class:`WorkerFailure` responses so the parent process can record them as
+    candidate diagnostics.
 
     Returns:
-        Zero after receiving a close operation or reaching end-of-input.
+        Zero after receiving a close message or reaching end-of-input.
 
     """
     agent = None
@@ -96,41 +109,44 @@ def main() -> int:
     previous_usage = (0, 0, 0.0)
     for line in sys.stdin:
         try:
-            request = json.loads(line)
-            op = request.get("op")
-            if op == "init":
+            request = parse_worker_request(line)
+        except ValidationError as exc:
+            emit(WorkerFailure(error=f"ValidationError: {exc}"))
+            continue
+        try:
+            if isinstance(request, WorkerInit):
                 with contextlib.redirect_stdout(sys.stderr):
                     # Hermes emits import-time output; keep it away from the JSONL protocol.
                     from run_agent import AIAgent  # noqa: PLC0415
 
                     api_key = resolve_api_key(request)
                     agent = AIAgent(
-                        model=request["model"],
-                        provider=request.get("provider"),
-                        base_url=request.get("base_url"),
+                        model=request.model,
+                        provider=request.provider,
+                        base_url=request.base_url,
                         api_key=api_key,
-                        api_mode=request.get("api_mode"),
-                        max_tokens=int(request.get("max_tokens", 16_384)),
-                        max_iterations=int(request.get("max_iterations", 90)),
-                        enabled_toolsets=request.get("toolsets") or [],
+                        api_mode=request.api_mode,
+                        max_tokens=request.max_tokens,
+                        max_iterations=request.max_iterations,
+                        enabled_toolsets=request.toolsets,
                         quiet_mode=True,
                         skip_memory=True,
                         skip_context_files=True,
                         save_trajectories=False,
-                        ephemeral_system_prompt=request.get("system_prompt"),
+                        ephemeral_system_prompt=request.system_prompt,
                     )
                 previous_usage = (
                     int(getattr(agent, "session_input_tokens", 0)),
                     int(getattr(agent, "session_output_tokens", 0)),
                     float(getattr(agent, "session_estimated_cost_usd", 0.0)),
                 )
-                emit({"ok": True})
-            elif op == "send":
+                emit(WorkerReady())
+            elif isinstance(request, WorkerSend):
                 if agent is None:
                     raise RuntimeError("worker has not been initialized")
                 with contextlib.redirect_stdout(sys.stderr):
                     result = agent.run_conversation(
-                        user_message=request["prompt"],
+                        user_message=request.prompt,
                         conversation_history=history,
                     )
                 history = result.get("messages") or history
@@ -139,24 +155,21 @@ def main() -> int:
                     int(getattr(agent, "session_output_tokens", 0)),
                     float(getattr(agent, "session_estimated_cost_usd", 0.0)),
                 )
-                usage = {
-                    "input_tokens": max(0, current[0] - previous_usage[0]),
-                    "output_tokens": max(0, current[1] - previous_usage[1]),
-                    "estimated_cost_usd": max(0.0, current[2] - previous_usage[2]),
-                }
+                usage = TurnUsage(
+                    input_tokens=max(0, current[0] - previous_usage[0]),
+                    output_tokens=max(0, current[1] - previous_usage[1]),
+                    estimated_cost_usd=max(0.0, current[2] - previous_usage[2]),
+                )
                 previous_usage = current
-                emit({"ok": True, "text": result.get("final_response", ""), "usage": usage})
-            elif op == "close":
-                break
+                emit(WorkerTurn(text=result.get("final_response", ""), usage=usage))
             else:
-                raise ValueError(f"unknown worker operation: {op!r}")
+                break
         except BaseException as exc:  # worker must return a protocol error
             emit(
-                {
-                    "ok": False,
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "traceback": traceback.format_exc()[-4000:],
-                }
+                WorkerFailure(
+                    error=f"{type(exc).__name__}: {exc}",
+                    traceback=traceback.format_exc()[-4000:],
+                )
             )
     return 0
 
