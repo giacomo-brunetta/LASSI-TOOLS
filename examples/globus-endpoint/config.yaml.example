@@ -1,0 +1,58 @@
+# Globus Compute endpoint configuration for a LASSI-X execution resource.
+#
+# Install on the remote node:
+#   python3 -m pipx install --include-deps globus-compute-endpoint
+#   globus-compute-endpoint configure lassi-x
+# then replace ~/.globus_compute/lassi-x/config.yaml with this file (edited),
+# and start it:
+#   globus-compute-endpoint start lassi-x
+#   globus-compute-endpoint list        # copy the endpoint UUID into run.yaml
+#
+# Requirements for the worker environment (worker_init below):
+# - the SAME lassi-x version as the harness (pickled protocol models must
+#   resolve identically on both sides)
+# - a torch build matching the node's accelerators (CUDA/XPU/CPU)
+# - the compilers the kernels need (gcc, nvcc, ...) on PATH
+# - outbound HTTPS to the Academy exchange (exchange.academy-agents.org);
+#   the execution agent holds a long-lived SSE connection to it
+#
+# One persistent ExecutionAgent occupies one worker slot for the entire
+# pipeline run and multiplexes commands as subprocesses, so a single worker
+# is all a run needs.
+
+# --- Simple standalone node (no scheduler) ---------------------------------
+engine:
+    type: GlobusComputeEngine
+    max_workers_per_node: 1
+    provider:
+        type: LocalProvider
+        worker_init: "source ~/lassi-x-env/bin/activate"
+        init_blocks: 1
+        min_blocks: 1
+        max_blocks: 1
+
+# --- Slurm cluster variant -------------------------------------------------
+# Replace the engine block above with this one on a scheduled system. The
+# walltime must cover the WHOLE pipeline run (planning, three candidates with
+# repair rounds, compensation, measurement), not a single task, because the
+# execution agent is persistent. Compute nodes must be able to reach the
+# exchange; if they have no outbound HTTPS, keep the LocalProvider block so
+# workers run on the login node instead.
+#
+# engine:
+#     type: GlobusComputeEngine
+#     max_workers_per_node: 1
+#     address:
+#         type: address_by_interface
+#         ifname: ib0
+#     provider:
+#         type: SlurmProvider
+#         partition: gpu
+#         account: your-allocation
+#         launcher:
+#             type: SrunLauncher
+#         worker_init: "source ~/lassi-x-env/bin/activate"
+#         init_blocks: 1
+#         min_blocks: 0
+#         max_blocks: 1
+#         walltime: "04:00:00"
