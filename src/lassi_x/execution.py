@@ -215,7 +215,10 @@ def _resource_executor(name: str, spec: ResourceConfig) -> Executor:
             f"resource {name!r} names Globus Compute endpoint {spec.endpoint_id} "
             "but globus-compute-sdk is not installed; install lassi-x[globus]"
         ) from exc
-    return GlobusComputeExecutor(spec.endpoint_id)
+    # Assigned to a typed name so mypy accepts this whether or not the
+    # optional globus-compute-sdk (untyped when absent) is installed.
+    executor: Executor = GlobusComputeExecutor(spec.endpoint_id)
+    return executor
 
 
 class ExecutionContext:
