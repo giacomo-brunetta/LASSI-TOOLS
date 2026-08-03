@@ -14,11 +14,16 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from .config import BackendConfig, RunConfig
+    from .execution import ExecutionContext
 
 COMPENSATION_SYSTEM = """You are the LASSI-X low-precision numerical specialist.
 Load and follow the lassi-x-fp16-compensate Hermes skill. Apply compensation to
 an already-correct translation without changing its high-precision semantics.
-Never weaken validators or copy reference outputs."""
+Never weaken validators or copy reference outputs.
+
+Workspace access: your only access to files and commands is the assigned workspace
+toolset (list_resources, run_command, write_file, read_file, list_files). All paths
+are workspace-relative. Call list_resources when choosing where to run commands."""
 
 
 TECHNIQUE_SUMMARY = {
@@ -188,6 +193,7 @@ async def generate_compensation(
     config: RunConfig,
     oracle: OracleResult,
     run_dir: Path,
+    execution: ExecutionContext,
     base: Candidate,
     weak: Measurement,
     backend: BackendConfig,
@@ -204,6 +210,7 @@ async def generate_compensation(
         config: Validated run configuration and compensation policy.
         oracle: Authoritative output produced from the original C/C++ reference.
         run_dir: Root artifact directory for the current pipeline run.
+        execution: Running execution context serving workspace tool calls.
         base: Semantically valid arena candidate to copy and compensate.
         weak: Low-precision measurement motivating this variant.
         backend: Backend whose numerical capabilities constrain the implementation.
@@ -216,9 +223,11 @@ async def generate_compensation(
         OSError: If the variant workspace or initial candidate copy cannot be created.
 
     """
-    slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
-    workspace = run_dir / "variants" / slug
+    raw_slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
+    slug = re.sub(r"[^A-Za-z0-9._-]", "-", raw_slug)
+    workspace = execution.workspace_dir(slug)
     workspace.mkdir(parents=True, exist_ok=True)
+    toolset = execution.register_workspace(slug)
     target = workspace / "candidate.py"
     shutil.copy2(base.module_path, target)
     allowed = [name for name in config.compensation.techniques if name in TECHNIQUE_SUMMARY]
@@ -233,8 +242,8 @@ async def generate_compensation(
     technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
     prompt = f"""Compensate this weak low-precision point.
 
-Base module: {base.module_path}
-Target copy to edit: {target}
+Workspace toolset: {toolset} (all paths below are workspace-relative)
+Target copy to edit: candidate.py (already contains the validated base translation)
 Backend: {backend.name}
 Backend capabilities: {_backend_capabilities(backend)}
 Target precision: {weak.precision}
@@ -258,7 +267,7 @@ After editing and byte-compiling the target, return JSON only:
         config.models.compensation,
         cwd=workspace,
         system_prompt=COMPENSATION_SYSTEM,
-        toolsets=["skills", "file", "terminal"],
+        toolsets=["skills", toolset],
         role=f"compensation-{slug}",
     )
     try:
@@ -288,7 +297,7 @@ After editing and byte-compiling the target, return JSON only:
                 break
             variant.correction_rounds += 1
             repair = f"""Correction round {variant.correction_rounds}.
-The compensation target {target} failed:
+The compensation target candidate.py in your workspace failed:
 
 {diagnostic.for_agent()}
 

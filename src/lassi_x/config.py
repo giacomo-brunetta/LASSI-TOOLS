@@ -125,6 +125,46 @@ class MeasureConfig(StrictModel):
     stochastic_seeds: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
 
 
+class ResourceConfig(StrictModel):
+    """One compute resource that can serve execution requests."""
+
+    endpoint_id: str | None = None
+    workspace_root: Path | None = None
+    labels: list[str] = Field(default_factory=list)
+
+
+class ExecutionConfig(StrictModel):
+    """Where agent tool calls and harness commands execute.
+
+    ``local`` runs everything in-process against the run directory. ``academy``
+    launches one ExecutionAgent per resource through an Academy manager: with
+    no ``exchange_url`` the agents run on a local exchange (single machine,
+    used for development and tests); with an ``exchange_url`` and per-resource
+    ``endpoint_id`` values they run on remote Globus Compute endpoints.
+    """
+
+    mode: Literal["local", "academy"] = "local"
+    exchange_url: str | None = None
+    auth: Literal["none", "globus"] = "none"
+    resources: dict[str, ResourceConfig] = Field(default_factory=dict)
+    default_resource: str | None = None
+    mcp_timeout_s: float = Field(default=900.0, gt=0.0)
+
+    @model_validator(mode="after")
+    def consistent_targets(self) -> ExecutionConfig:
+        if self.default_resource is not None and self.default_resource not in self.resources:
+            raise ValueError("execution.default_resource must name a configured resource")
+        if self.exchange_url is not None and self.mode != "academy":
+            raise ValueError("execution.exchange_url requires mode: academy")
+        endpoints = [name for name, spec in self.resources.items() if spec.endpoint_id]
+        if endpoints and self.exchange_url is None:
+            raise ValueError(
+                "resources with endpoint_id require execution.exchange_url "
+                f"(offending: {', '.join(sorted(endpoints))})"
+            )
+        return self
+
+
 class CompensationConfig(StrictModel):
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
@@ -153,6 +193,7 @@ class RunConfig(StrictModel):
     models: ModelsConfig
     measure: MeasureConfig
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
+    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     runs_dir: Path = Path("runs")
 
     @classmethod

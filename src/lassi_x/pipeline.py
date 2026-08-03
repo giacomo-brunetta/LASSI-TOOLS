@@ -16,6 +16,7 @@ from .artifacts import (
 )
 from .compensation import generate_compensation, select_weak_points
 from .config import RunConfig
+from .execution import ExecutionContext
 from .measurement import (
     build_backends,
     measure_compensation_variants,
@@ -138,102 +139,10 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
     started_at = dt.datetime.now(dt.UTC).isoformat()
     started = time.perf_counter()
     try:
-        # Phase 1: build the independent semantic oracle from the original C/C++ source.
-        oracle = await build_oracle(config, run_dir)
-
-        # Phase 2: plan three strategies, generate candidates concurrently, and repair
-        # each candidate until it passes FP64 validation or exhausts its correction budget.
-        candidates, planner_record = await run_arena(config, oracle, run_dir)
-        valid_candidates = [candidate for candidate in candidates if candidate.status == Status.OK]
-
-        # Phase 3: measure every accepted base candidate across configured backend and
-        # precision cells before selecting any low-precision intervention.
-        backends = build_backends(config)
-        base_variants = [
-            (
-                candidate.candidate_id,
-                f"{candidate.candidate_id}-base",
-                candidate.module_path,
-                "none",
-            )
-            for candidate in valid_candidates
-        ]
-        base_measurements = await measure_variants(config, oracle, base_variants, backends)
-
-        # Phase 4: identify weak FP16/BF16 cells and generate their compensation variants
-        # concurrently. Each variant runs its own sequential validation/repair loop.
-        compensation_variants = []
-        if config.compensation.enabled and valid_candidates:
-            weak = select_weak_points(base_measurements)
-            candidate_map = {candidate.candidate_id: candidate for candidate in valid_candidates}
-            backend_map = {backend.name: backend for backend in config.measure.backends}
-            compensation_variants = list(
-                await asyncio.gather(
-                    *(
-                        generate_compensation(
-                            config,
-                            oracle,
-                            run_dir,
-                            candidate_map[point.candidate_id],
-                            point,
-                            backend_map[point.backend],
-                        )
-                        for point in weak
-                    )
-                )
-            )
-
-        # Phase 5: measure only compensation variants that passed both authoritative FP64
-        # validation and the FP32-collapse gate.
-        valid_compensation = [
-            variant for variant in compensation_variants if variant.status == Status.OK
-        ]
-        generated_specs = [
-            (
-                variant.candidate_id,
-                variant.variant_id,
-                variant.module_path,
-                variant.technique,
-            )
-            for variant in valid_compensation
-        ]
-        generated_measurements = await measure_compensation_variants(
-            config, oracle, generated_specs, backends
-        )
-        measurements = base_measurements + generated_measurements
-
-        # Phase 6: compute the latency/error frontier and persist the complete experiment,
-        # including dominated points and failed attempts retained in their source records.
-        indices = frontier_indices(measurements)
-        frontier = [measurements[index].to_dict() for index in indices]
-        status = "ok" if frontier else "failed"
-        for measurement in measurements:
-            append_jsonl(run_dir / "measurements.jsonl", measurement.to_dict())
-        write_json(run_dir / "frontier.json", frontier)
-        record = {
-            "schema_version": 1,
-            "status": status,
-            "kernel": config.kernel.name,
-            "started_at": started_at,
-            "finished_at": dt.datetime.now(dt.UTC).isoformat(),
-            "wall_seconds": round(time.perf_counter() - started, 3),
-            "config_path": str(config_path.resolve()),
-            "oracle": {
-                "kind": "c_reference_fp64",
-                "reference_path": str(config.resolve_project_path(config.kernel.reference)),
-                "output_path": str(oracle.output_path),
-                "numel": int(oracle.values.size),
-            },
-            "skills": _skill_records(),
-            "planner": planner_record,
-            "candidates": [candidate.to_dict() for candidate in candidates],
-            "compensation_variants": [variant.to_dict() for variant in compensation_variants],
-            "measurements": [measurement.to_dict() for measurement in measurements],
-            "frontier": frontier,
-        }
-        write_json(run_dir / "run.json", record)
-        atomic_write(run_dir / "summary.md", _summary(record))
-        return (0 if frontier else 1), run_dir
+        # Phase 0: start execution backends and the MCP server, and pin one workspace
+        # toolset per agent role in the Hermes configuration for the duration of the run.
+        async with await ExecutionContext.start(config, run_dir) as execution:
+            return await _run_stages(config, config_path, run_dir, execution, started_at, started)
     except Exception as exc:
         # Preserve a terminal failure artifact once a run directory exists; callers can
         # distinguish execution failure from configuration or initialization failure.
@@ -253,3 +162,132 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
             f"- Status: **failed**\n- Error: `{record['error']}`\n",
         )
         return 1, run_dir
+
+
+async def _run_stages(
+    config: RunConfig,
+    config_path: Path,
+    run_dir: Path,
+    execution: ExecutionContext,
+    started_at: str,
+    started: float,
+) -> tuple[int, Path]:
+    """Run every pipeline stage inside a live execution context.
+
+    Args:
+        config: Validated run configuration.
+        config_path: Original configuration path recorded for provenance.
+        run_dir: Immutable run directory.
+        execution: Running execution context serving agent tool calls.
+        started_at: ISO timestamp of run start for the final record.
+        started: Monotonic start time for wall-clock accounting.
+
+    Returns:
+        A pair containing a process-style exit code and the run directory.
+
+    """
+    # Phase 1: build the independent semantic oracle from the original C/C++ source.
+    oracle = await build_oracle(config, run_dir)
+
+    # Phase 2: plan three strategies, generate candidates concurrently, and repair
+    # each candidate until it passes FP64 validation or exhausts its correction budget.
+    candidates, planner_record = await run_arena(config, oracle, run_dir, execution)
+    valid_candidates = [candidate for candidate in candidates if candidate.status == Status.OK]
+
+    # Phase 3: measure every accepted base candidate across configured backend and
+    # precision cells before selecting any low-precision intervention.
+    backends = build_backends(config)
+    base_variants = [
+        (
+            candidate.candidate_id,
+            f"{candidate.candidate_id}-base",
+            candidate.module_path,
+            "none",
+        )
+        for candidate in valid_candidates
+    ]
+    base_measurements = await measure_variants(config, oracle, base_variants, backends)
+
+    # Phase 4: identify weak FP16/BF16 cells and generate their compensation variants
+    # concurrently. Each variant runs its own sequential validation/repair loop.
+    compensation_variants = []
+    if config.compensation.enabled and valid_candidates:
+        weak = select_weak_points(base_measurements)
+        candidate_map = {candidate.candidate_id: candidate for candidate in valid_candidates}
+        backend_map = {backend.name: backend for backend in config.measure.backends}
+        compensation_variants = list(
+            await asyncio.gather(
+                *(
+                    generate_compensation(
+                        config,
+                        oracle,
+                        run_dir,
+                        execution,
+                        candidate_map[point.candidate_id],
+                        point,
+                        backend_map[point.backend],
+                    )
+                    for point in weak
+                )
+            )
+        )
+
+    # Phase 5: measure only compensation variants that passed both authoritative FP64
+    # validation and the FP32-collapse gate.
+    valid_compensation = [
+        variant for variant in compensation_variants if variant.status == Status.OK
+    ]
+    generated_specs = [
+        (
+            variant.candidate_id,
+            variant.variant_id,
+            variant.module_path,
+            variant.technique,
+        )
+        for variant in valid_compensation
+    ]
+    generated_measurements = await measure_compensation_variants(
+        config, oracle, generated_specs, backends
+    )
+    measurements = base_measurements + generated_measurements
+
+    # Phase 6: compute the latency/error frontier and persist the complete experiment,
+    # including dominated points and failed attempts retained in their source records.
+    indices = frontier_indices(measurements)
+    frontier = [measurements[index].to_dict() for index in indices]
+    status = "ok" if frontier else "failed"
+    for measurement in measurements:
+        append_jsonl(run_dir / "measurements.jsonl", measurement.to_dict())
+    write_json(run_dir / "frontier.json", frontier)
+    record = {
+        "schema_version": 1,
+        "status": status,
+        "kernel": config.kernel.name,
+        "started_at": started_at,
+        "finished_at": dt.datetime.now(dt.UTC).isoformat(),
+        "wall_seconds": round(time.perf_counter() - started, 3),
+        "config_path": str(config_path.resolve()),
+        "oracle": {
+            "kind": "c_reference_fp64",
+            "reference_path": str(config.resolve_project_path(config.kernel.reference)),
+            "output_path": str(oracle.output_path),
+            "numel": int(oracle.values.size),
+        },
+        "skills": _skill_records(),
+        "execution": {
+            "mode": config.execution.mode,
+            "default_resource": execution.default_resource,
+            "resources": {
+                name: report.model_dump(mode="json", exclude={"schema_version"})
+                for name, report in (await execution.handshakes()).items()
+            },
+        },
+        "planner": planner_record,
+        "candidates": [candidate.to_dict() for candidate in candidates],
+        "compensation_variants": [variant.to_dict() for variant in compensation_variants],
+        "measurements": [measurement.to_dict() for measurement in measurements],
+        "frontier": frontier,
+    }
+    write_json(run_dir / "run.json", record)
+    atomic_write(run_dir / "summary.md", _summary(record))
+    return (0 if frontier else 1), run_dir

@@ -69,6 +69,28 @@ def test_backend_requirements(tmp_path: Path) -> None:
         RunConfig.model_validate(data)
 
 
+def test_execution_defaults_to_local_mode(tmp_path: Path) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    assert config.execution.mode == "local"
+    assert config.execution.resources == {}
+
+
+def test_execution_validators_reject_inconsistent_targets(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["execution"] = {"default_resource": "gpu"}
+    with pytest.raises(ValidationError, match="must name a configured resource"):
+        RunConfig.model_validate(data)
+    data["execution"] = {"mode": "local", "exchange_url": "https://exchange.example"}
+    with pytest.raises(ValidationError, match="requires mode: academy"):
+        RunConfig.model_validate(data)
+    data["execution"] = {
+        "mode": "academy",
+        "resources": {"gpu": {"endpoint_id": "abc"}},
+    }
+    with pytest.raises(ValidationError, match="require execution.exchange_url"):
+        RunConfig.model_validate(data)
+
+
 def test_claude_settings_credential_helper(tmp_path: Path) -> None:
     settings = tmp_path / "settings.json"
     settings.write_text('{"apiKeyHelper": "printf test-credential"}')

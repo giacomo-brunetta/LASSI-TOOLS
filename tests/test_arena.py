@@ -9,8 +9,9 @@ import yaml
 
 import lassi_x.arena as arena
 from lassi_x.config import RunConfig
+from lassi_x.execution import ExecutionContext
 from lassi_x.hermes import HermesTurn
-from lassi_x.types import Status, Usage
+from lassi_x.types import Candidate, Status, Usage
 from lassi_x.validation import build_oracle
 
 from .test_config import minimal_config
@@ -100,9 +101,24 @@ def test_arena_generates_three_and_repairs_failures(
     config_path.write_text(yaml.safe_dump(minimal_config(tmp_path)))
     config = RunConfig.load(config_path)
     run_dir = tmp_path / "run"
-    oracle = asyncio.run(build_oracle(config, run_dir))
+    run_dir.mkdir()
     monkeypatch.setattr(arena, "HermesSession", FakeHermesSession)
-    candidates, _ = asyncio.run(arena.run_arena(config, oracle, run_dir))
+
+    async def run() -> list[Candidate]:
+        oracle = await build_oracle(config, run_dir)
+        async with await ExecutionContext.start(
+            config, run_dir, hermes_home=tmp_path / "hermes"
+        ) as execution:
+            candidates, _ = await arena.run_arena(config, oracle, run_dir, execution)
+        return candidates
+
+    candidates = asyncio.run(run())
     assert len(candidates) == 3
     assert all(candidate.status == Status.OK for candidate in candidates)
     assert [candidate.correction_rounds for candidate in candidates] == [0, 1, 1]
+    assert all(
+        candidate.module_path == run_dir / "workspaces" / candidate.candidate_id / "candidate.py"
+        for candidate in candidates
+    )
+    staged = run_dir / "workspaces" / "c1" / "reference" / "tiny.c"
+    assert staged.read_text() == C_REFERENCE

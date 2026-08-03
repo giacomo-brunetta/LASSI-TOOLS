@@ -78,4 +78,13 @@ compensation:
   enabled: true
   correction_rounds: 2
 
+# Where agent tool calls and commands execute. The default (local) runs
+# everything in-process. "academy" launches one execution agent per resource;
+# remote Globus Compute endpoints are configured with exchange_url and
+# per-resource endpoint_id values.
+# execution:
+#   mode: academy
+#   resources:
+#     local: {}
+
 runs_dir: runs

@@ -47,14 +47,20 @@ One immutable directory is written beneath the configured `runs_dir`:
 runs/<timestamp>-<kernel>/
 ├── resolved-config.yaml
 ├── oracle/
-├── candidates/
-├── variants/
+├── workspaces/
 ├── diagnostics/
 ├── measurements.jsonl
 ├── frontier.json
 ├── run.json
 └── summary.md
 ```
+
+`workspaces/` holds one confined directory per agent role: `c1`–`c3` for the
+arena candidates and one per compensation variant. Agent sessions reach their
+workspace only through a run-local MCP server whose tools execute on the
+configured `execution` resources (in-process by default, Academy execution
+agents in `academy` mode), with each Hermes session pinned to its workspace by
+a connection header.
 
 ## Flow
 

@@ -10,15 +10,24 @@ from typing import TYPE_CHECKING
 import pytest
 from academy.exchange import LocalExchangeFactory
 from academy.manager import Manager
+from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
+from mcp.shared._httpx_utils import create_mcp_http_client
+from yaml import safe_load
 
+from lassi_x.config import RunConfig
 from lassi_x.execution import (
     AcademyExecutionBackend,
     ExecutionBackend,
+    ExecutionContext,
     LocalExecutionBackend,
 )
+from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
 from lassi_x.remote import ExecutionAgent
 from lassi_x.remote.ops import resolve_member
+
+from .test_config import minimal_config
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -156,6 +165,40 @@ def test_ops_confine_paths_even_when_schema_validation_is_bypassed(tmp_path: Pat
     )
     with pytest.raises(ValueError, match="escapes the workspace"):
         asyncio.run(backend.get_file(hostile))
+
+
+def test_execution_context_serves_and_cleans_up_registered_workspaces(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["execution"] = {"mode": "academy"}
+    config = RunConfig.model_validate(data)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    home = tmp_path / "hermes"
+
+    async def run() -> None:
+        context = await ExecutionContext.start(config, run_dir, hermes_home=home)
+        try:
+            toolset = context.register_workspace("c9")
+            assert toolset == "lassi-x-c9"
+            registered = safe_load((home / "config.yaml").read_text())["mcp_servers"]
+            assert registered[toolset]["url"] == context.runner.url
+            assert registered[toolset]["headers"] == {WORKSPACE_HEADER: "c9"}
+            http = create_mcp_http_client(headers={WORKSPACE_HEADER: "c9"})
+            async with Client(
+                streamable_http_client(context.runner.url, http_client=http)
+            ) as client:
+                result = await client.call_tool(
+                    "write_file", {"path": "hello.txt", "content": "via academy"}
+                )
+                assert not result.is_error
+            assert context.workspace_dir("c9").joinpath("hello.txt").read_text() == "via academy"
+            handshakes = await context.handshakes()
+            assert set(handshakes) == {"local"}
+        finally:
+            await context.close()
+        assert safe_load((home / "config.yaml").read_text()).get("mcp_servers") is None
+
+    asyncio.run(run())
 
 
 def test_resolve_member_rejects_symlink_escape(tmp_path: Path) -> None:
