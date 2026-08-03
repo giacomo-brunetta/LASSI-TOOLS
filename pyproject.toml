@@ -27,6 +27,11 @@ dependencies = [
 globus = [
   "globus-compute-sdk>=3.0",
 ]
+# For the remote node only: runs the Globus Compute endpoint daemon inside the
+# same venv as lassi-x, so workers can deserialize the execution agent.
+endpoint = [
+  "globus-compute-endpoint>=3.0",
+]
 dev = [
   "mypy>=1.10",
   "pytest>=8.3",
