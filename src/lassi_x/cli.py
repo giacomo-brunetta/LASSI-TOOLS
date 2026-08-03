@@ -219,6 +219,22 @@ async def _execution_doctor_command(args: argparse.Namespace) -> int:
             return 3
         try:
             reports = await context.handshakes()
+        except Exception as exc:
+            emit(
+                "execution.doctor",
+                {
+                    "ok": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "hint": (
+                        "The resource agents could not be reached. Check that the "
+                        "endpoint is started and its worker environment activates a "
+                        "venv with the same lassi-x and academy-py versions as this "
+                        "machine, and that workers have outbound HTTPS to the exchange."
+                    ),
+                },
+                json_output=args.json,
+            )
+            return 3
         finally:
             await context.close()
     emit(

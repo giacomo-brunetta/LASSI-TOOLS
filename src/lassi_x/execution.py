@@ -11,12 +11,15 @@ switching a run between local and remote execution changes transport only.
 from __future__ import annotations
 
 import base64
+import logging
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from .protocol import MAX_INLINE_BYTES, FileGet, FilePut
 from .remote import ops
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
@@ -212,7 +215,7 @@ def _resource_executor(name: str, spec: ResourceConfig) -> Executor:
             f"resource {name!r} names Globus Compute endpoint {spec.endpoint_id} "
             "but globus-compute-sdk is not installed; install lassi-x[globus]"
         ) from exc
-    return GlobusComputeExecutor(spec.endpoint_id)  # type: ignore[no-any-return]
+    return GlobusComputeExecutor(spec.endpoint_id)
 
 
 class ExecutionContext:
@@ -470,7 +473,12 @@ class ExecutionContext:
         return {name: await self.mcp.handshake(name) for name in sorted(self.backends)}
 
     async def close(self) -> None:
-        """Remove Hermes entries and stop the MCP server and agents."""
+        """Remove Hermes entries and stop the MCP server and agents.
+
+        Cleanup is best-effort: a failure while shutting remote agents down
+        (for example when the exchange is unreachable) is logged and
+        suppressed so it never masks the error that ended the run.
+        """
         from .hermes_config import unregister_workspace_servers  # noqa: PLC0415
 
         if self.registered_servers:
@@ -491,6 +499,8 @@ class ExecutionContext:
             token = exchange_context.set(manager.exchange_client)
             try:
                 await manager.close()
+            except Exception as exc:  # noqa: BLE001  # cleanup must not mask run errors
+                logger.warning("execution manager shutdown failed: %s: %s", type(exc).__name__, exc)
             finally:
                 exchange_context.reset(token)
 

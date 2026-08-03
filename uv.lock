@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "academy-py"
-version = "0.5.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -22,9 +22,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "redis" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/b5/8060f36b53eded29dde5f7efc38565558a6f8ab1a6b914fbb89dbc3ff91d/academy_py-0.5.0.tar.gz", hash = "sha256:94ffa1d474057c5e3b1537f3c6a6de584e19f7dc739a55db3e2c945400e2543b", size = 531473, upload-time = "2026-05-20T16:50:08.71Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/ef/1c3ce80a4d8109db318f39eb0160ee7bc62f965b06cf40ca63cdeef6a130/academy_py-0.4.0.tar.gz", hash = "sha256:db91e4ffe82d133a0ee5b65a05650bb1f6b73323e4b914f864e069ea1ea286a9", size = 498169, upload-time = "2026-04-03T21:14:34.466Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/e6/0427d626505934d4d475839ae638272ccd3b980524caf84237cb14ecb6a5/academy_py-0.5.0-py3-none-any.whl", hash = "sha256:5c1992e5f7cbea39085492d6a9bec2b39d4a5b88a976b39574f7025d20d6cbb7", size = 120323, upload-time = "2026-05-20T16:50:06.768Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/d0/8c2f98ed26f101045e78e7f1718538b5e981bba4b0ee054547a21df8c8bf/academy_py-0.4.0-py3-none-any.whl", hash = "sha256:d0288fe98f6e2b22c38f494bc3d82d0654eb7c7c28408c8eeb4783ce4a580855", size = 100565, upload-time = "2026-04-03T21:14:33.105Z" },
 ]
 
 [[package]]
@@ -608,12 +608,33 @@ wheels = [
 ]
 
 [[package]]
+name = "dill"
+version = "0.3.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/43/86fe3f9e130c4137b0f1b50784dd70a5087b911fe07fa81e53e0c4c47fea/dill-0.3.9.tar.gz", hash = "sha256:81aa267dddf68cbfe8029c42ca9ec6a4ab3b22371d1c450abc54422577b4512c", size = 187000, upload-time = "2024-09-29T00:03:20.958Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/d1/e73b6ad76f0b1fb7f23c35c6d95dbc506a9c8804f43dda8cb5b0fa6331fd/dill-0.3.9-py3-none-any.whl", hash = "sha256:468dff3b89520b474c0397703366b7b95eebe6303f108adf9b19da1f702be87a", size = 119418, upload-time = "2024-09-29T00:03:19.344Z" },
+]
+
+[[package]]
 name = "distro"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722, upload-time = "2023-12-24T09:54:32.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
+]
+
+[[package]]
+name = "exceptiongroup"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598", size = 16740, upload-time = "2025-11-21T23:01:53.443Z" },
 ]
 
 [[package]]
@@ -749,6 +770,40 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/00/78/f34251dadb8f3921264a1d9b8946f5e542014ee2614b285261b4e40e6775/fsspec-2026.7.0.tar.gz", hash = "sha256:c803c40f4cf860b49dea58ee3e1c33cb9c790520e233537e1340049f89b82a88", size = 317040, upload-time = "2026-07-28T16:34:51.052Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/3c/6a2bf344106328fd04963664a60b9bb6496fc25df8e962fcdc1367285fb9/fsspec-2026.7.0-py3-none-any.whl", hash = "sha256:b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279", size = 206583, upload-time = "2026-07-28T16:34:49.538Z" },
+]
+
+[[package]]
+name = "globus-compute-common"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/30/5698213bb7994082c59df0724621d7f6a7cc115afdb6779c44d366ce6cff/globus_compute_common-1.0.0.tar.gz", hash = "sha256:ebe2d37da999cf056d2d651267414a523b56df603bc7a388e764a7179de41f0d", size = 24679, upload-time = "2026-06-22T19:59:29.02Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/3b/ac511729885a7e1863582b14bf54cb4d22dbf627d08a957e8d4cbcd287c2/globus_compute_common-1.0.0-py3-none-any.whl", hash = "sha256:27c256e9d89a4322529817a39cdfc7703056ddff810352bc4659fb2244840571", size = 34864, upload-time = "2026-06-22T19:59:28.107Z" },
+]
+
+[[package]]
+name = "globus-compute-sdk"
+version = "4.15.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama" },
+    { name = "dill" },
+    { name = "exceptiongroup" },
+    { name = "globus-compute-common" },
+    { name = "globus-sdk" },
+    { name = "packaging" },
+    { name = "pika" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "tblib" },
+    { name = "texttable" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a3/f7/e2d1fdc02119be6a560cb610d86c34618e887b61c92c3e7c3940246acabf/globus_compute_sdk-4.15.0.tar.gz", hash = "sha256:6e4937756fd0769948296ba909029e3df81f802e6d59f216e7f90305f6624f34", size = 65713, upload-time = "2026-07-15T20:24:43.117Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a5/ba/15e85dbc34e6aab5794165365ece4cc35621ea1ea91c11bda0bfe767e15a/globus_compute_sdk-4.15.0-py3-none-any.whl", hash = "sha256:ccde95af6711c62106353c4078429025b3f4f3d79e7f809f59876289ec9715bf", size = 74850, upload-time = "2026-07-15T20:24:41.67Z" },
 ]
 
 [[package]]
@@ -1061,10 +1116,14 @@ dev = [
     { name = "ruff" },
     { name = "types-pyyaml" },
 ]
+globus = [
+    { name = "globus-compute-sdk" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "academy-py", specifier = ">=0.5.0" },
+    { name = "academy-py", specifier = "==0.4.0" },
+    { name = "globus-compute-sdk", marker = "extra == 'globus'", specifier = ">=3.0" },
     { name = "hermes-agent", specifier = "==0.19.0" },
     { name = "mcp", specifier = ">=2.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
@@ -1078,7 +1137,7 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "uvicorn", specifier = ">=0.52.1" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["globus", "dev"]
 
 [[package]]
 name = "librt"
@@ -1694,6 +1753,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a", size = 135180, upload-time = "2026-04-27T01:46:08.907Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
+]
+
+[[package]]
+name = "pika"
+version = "1.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/db/d4102f356af18f316c67f2cead8ece307f731dd63140e2c71f170ddacf9b/pika-1.3.2.tar.gz", hash = "sha256:b2a327ddddf8570b4965b3576ac77091b850262d34ce8c1d8cb4e4146aa4145f", size = 145029, upload-time = "2023-05-05T14:25:43.368Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f9/f3/f412836ec714d36f0f4ab581b84c491e3f42c6b5b97a6c6ed1817f3c16d0/pika-1.3.2-py3-none-any.whl", hash = "sha256:0779a7c1fafd805672796085560d290213a465e4f6f76a6fb19e378d8041a14f", size = 155415, upload-time = "2023-05-05T14:25:41.484Z" },
 ]
 
 [[package]]
@@ -2489,6 +2557,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tblib"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/41/901ef2e81d7b1e834b9870d416cb09479e175a2be1c4aa1a9dcd0a555293/tblib-1.7.0.tar.gz", hash = "sha256:059bd77306ea7b419d4f76016aef6d7027cc8a0785579b5aad198803435f882c", size = 33074, upload-time = "2020-07-23T23:17:44.703Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/cd/2fad4add11c8837e72f50a30e2bda30e67a10d70462f826b291443a55c7d/tblib-1.7.0-py2.py3-none-any.whl", hash = "sha256:289fa7359e580950e7d9743eab36b0691f0310fce64dee7d9c31065b8f723e23", size = 12806, upload-time = "2020-07-23T23:17:43.191Z" },
+]
+
+[[package]]
 name = "tenacity"
 version = "9.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2504,6 +2581,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/46/79/cf31d7a93a8fdc6aa0fbb665be84426a8c5a557d9240b6239e9e11e35fc5/termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5", size = 14434, upload-time = "2025-12-29T12:55:21.882Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/d1/8bb87d21e9aeb323cc03034f5eaf2c8f69841e40e4853c2627edf8111ed3/termcolor-3.3.0-py3-none-any.whl", hash = "sha256:cf642efadaf0a8ebbbf4bc7a31cec2f9b5f21a9f726f4ccbb08192c9c26f43a5", size = 7734, upload-time = "2025-12-29T12:55:20.718Z" },
+]
+
+[[package]]
+name = "texttable"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/dc/0aff23d6036a4d3bf4f1d8c8204c5c79c4437e25e0ae94ffe4bbb55ee3c2/texttable-1.7.0.tar.gz", hash = "sha256:2d2068fb55115807d3ac77a4ca68fa48803e84ebb0ee2340f858107a36522638", size = 12831, upload-time = "2023-10-03T09:48:12.272Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl", hash = "sha256:72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917", size = 10768, upload-time = "2023-10-03T09:48:10.434Z" },
 ]
 
 [[package]]
