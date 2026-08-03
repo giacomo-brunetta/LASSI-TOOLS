@@ -76,8 +76,11 @@ pip install -e '.[globus]'
 lassi-x execution doctor --config my-run.yaml
 ```
 
-An annotated endpoint configuration (standalone node and Slurm variants) is in
-[examples/globus-endpoint/config.yaml.example](examples/globus-endpoint/config.yaml.example).
+Two annotated examples cover a first remote deployment: the endpoint
+configuration for the remote node (standalone and Slurm variants) in
+[examples/globus-endpoint/config.yaml.example](examples/globus-endpoint/config.yaml.example),
+and the matching harness-side run configuration in
+[examples/run-remote-node.yaml.example](examples/run-remote-node.yaml.example).
 
 The doctor launches one execution agent per resource and reports the measured
 host facts (accelerators, toolchain, torch and lassi-x versions) that also land
