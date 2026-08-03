@@ -5,14 +5,12 @@
 # environment, and agent deserialization fails there with
 # "ModuleNotFoundError: No module named 'academy'".
 #
-# Install on the remote node (Python version must match the harness; the
-# repo pins 3.12 in .python-version - dill cannot deserialize functions
-# across differing minor versions):
-#   uv venv ~/lassi-x-env --python 3.12
-#   source ~/lassi-x-env/bin/activate
-#   uv pip install 'git+https://<repo>/LASSI-TOOLS.git@<branch>' \
-#       globus-compute-endpoint
-#   # plus the torch build matching the node's accelerators
+# Install on the remote node by cloning the repo (the .python-version pin
+# keeps Python at 3.12 to match the harness - dill cannot deserialize
+# functions across differing minor versions):
+#   git clone <repo> ~/LASSI-TOOLS && cd ~/LASSI-TOOLS
+#   uv sync --all-extras          # includes the 'endpoint' extra
+#   source .venv/bin/activate
 #   globus-compute-endpoint configure lassi-x
 # then replace ~/.globus_compute/lassi-x/config.yaml with this file (edited),
 # and start it:
@@ -38,7 +36,7 @@ engine:
     max_workers_per_node: 1
     provider:
         type: LocalProvider
-        worker_init: "source ~/lassi-x-env/bin/activate"
+        worker_init: "source ~/LASSI-TOOLS/.venv/bin/activate"
         init_blocks: 1
         min_blocks: 1
         max_blocks: 1
@@ -63,7 +61,7 @@ engine:
 #         account: your-allocation
 #         launcher:
 #             type: SrunLauncher
-#         worker_init: "source ~/lassi-x-env/bin/activate"
+#         worker_init: "source ~/LASSI-TOOLS/.venv/bin/activate"
 #         init_blocks: 1
 #         min_blocks: 0
 #         max_blocks: 1
