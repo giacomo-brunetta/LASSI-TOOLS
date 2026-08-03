@@ -21,7 +21,13 @@
 # - the SAME lassi-x and academy-py versions as the harness (pickled
 #   protocol models must resolve identically on both sides)
 # - the same Python minor version as the harness (3.12)
-# - a torch build matching the node's accelerators (CUDA/XPU/CPU)
+# - a torch build matching the node's accelerators AND driver: check the
+#   "CUDA Version" that nvidia-smi reports and install the matching wheel
+#   flavor, e.g. for a 12.x driver:
+#     uv pip install --reinstall torch --index-url https://download.pytorch.org/whl/cu128
+#   (the default PyPI wheel may target a newer CUDA major than the driver
+#   supports - the handshake then reports accelerators: [] - and uv sync
+#   reverts to the locked default, so re-run this after every sync)
 # - the compilers the kernels need (gcc, nvcc, ...) on PATH
 # - outbound HTTPS to the Academy exchange (exchange.academy-agents.org);
 #   the execution agent holds a long-lived SSE connection to it
