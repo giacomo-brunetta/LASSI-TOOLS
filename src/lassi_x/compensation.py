@@ -1,0 +1,227 @@
+from __future__ import annotations
+
+import json
+import re
+import shutil
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any
+
+from .hermes import HermesSession
+from .types import Candidate, Diagnostic, Measurement, Status, Usage
+from .validation import OracleResult, validate_candidate, validate_fp32_collapse
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .config import BackendConfig, RunConfig
+
+COMPENSATION_SYSTEM = """You are the LASSI-X low-precision numerical specialist.
+Load and follow the lassi-x-fp16-compensate Hermes skill. Apply compensation to
+an already-correct translation without changing its high-precision semantics.
+Never weaken validators or copy reference outputs."""
+
+
+TECHNIQUE_SUMMARY = {
+    "fp32-accumulate": "Accumulate low-precision reductions in FP32.",
+    "pairwise": "Tree reduction for backends lacking an optimized reduction.",
+    "kahan": "Sequential compensated summation for manual reductions.",
+    "neumaier": "Kahan-Neumaier summation for mixed magnitudes and signs.",
+    "double-word": "Two FP16 words for approximately FP32-grade manual sums.",
+    "double-word-fp32": "Two FP32 words for approximately FP64-grade manual sums.",
+    "zero-center": "Store deviations from a known baseline.",
+    "scaling": "Power-of-two scaling to avoid overflow and underflow.",
+    "mixed-refine": "Low-precision operator with high-precision residual/state correction.",
+    "stochastic-round": "Unbiased rounding for long-term drift control.",
+}
+
+
+@dataclass(slots=True)
+class CompensationVariant:
+    candidate_id: str
+    variant_id: str
+    backend: str
+    precision: str
+    technique: str
+    module_path: Path
+    status: Status = Status.CRASHED
+    correction_rounds: int = 0
+    diagnostics: list[Diagnostic] = field(default_factory=list)
+    usage: Usage = field(default_factory=Usage)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["module_path"] = str(self.module_path)
+        data["status"] = self.status.value
+        return data
+
+
+def select_weak_points(measurements: list[Measurement]) -> list[Measurement]:
+    low = [point for point in measurements if point.precision in {"fp16", "bf16"}]
+    weak: list[Measurement] = []
+    for point in low:
+        if point.status in {Status.UNSUPPORTED, Status.NO_FIT, Status.TIMEOUT}:
+            continue
+        if point.status != Status.OK or point.latency_s is None or point.y_error is None:
+            weak.append(point)
+            continue
+        peers = [
+            other
+            for other in low
+            if other.backend == point.backend
+            and other.precision == point.precision
+            and other.status == Status.OK
+            and other.latency_s is not None
+            and other.y_error is not None
+            and other is not point
+        ]
+        dominated = False
+        for other in peers:
+            assert point.latency_s is not None
+            assert point.y_error is not None
+            assert other.latency_s is not None
+            assert other.y_error is not None
+            if (
+                other.latency_s <= point.latency_s
+                and other.y_error <= point.y_error
+                and (other.latency_s < point.latency_s or other.y_error < point.y_error)
+            ):
+                dominated = True
+                break
+        if dominated:
+            weak.append(point)
+    # One weak cell per base candidate/backend/precision.
+    unique: dict[tuple[str, str, str], Measurement] = {}
+    for point in weak:
+        unique.setdefault((point.candidate_id, point.backend, point.precision), point)
+    return list(unique.values())
+
+
+def _parse_technique(text: str, allowed: list[str]) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+    try:
+        parsed = json.loads(stripped)
+        chosen = str(parsed.get("technique") or "")
+        if chosen in allowed:
+            return chosen
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    for technique in allowed:
+        if technique in text:
+            return technique
+    return "agent-selected"
+
+
+def _backend_capabilities(spec: BackendConfig) -> str:
+    if spec.capabilities is not None:
+        return json.dumps(spec.capabilities.model_dump(mode="json"), sort_keys=True)
+    if spec.type == "groq":
+        return (
+            "Storage/elementwise precision is FP16; do not assume explicit FP32 tensor "
+            "operations. Matrix accumulation may be wider but is not directly controllable."
+        )
+    return (
+        f"Torch device {spec.device}; requested precisions={spec.precisions}. "
+        "Explicit FP32 tensor operations are available."
+    )
+
+
+async def generate_compensation(
+    config: RunConfig,
+    oracle: OracleResult,
+    run_dir: Path,
+    base: Candidate,
+    weak: Measurement,
+    backend: BackendConfig,
+) -> CompensationVariant:
+    slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
+    workspace = run_dir / "variants" / slug
+    workspace.mkdir(parents=True, exist_ok=True)
+    target = workspace / "candidate.py"
+    shutil.copy2(base.module_path, target)
+    allowed = [name for name in config.compensation.techniques if name in TECHNIQUE_SUMMARY]
+    variant = CompensationVariant(
+        candidate_id=base.candidate_id,
+        variant_id=slug,
+        backend=backend.name,
+        precision=weak.precision,
+        technique="pending",
+        module_path=target,
+    )
+    technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
+    prompt = f"""Compensate this weak low-precision point.
+
+Base module: {base.module_path}
+Target copy to edit: {target}
+Backend: {backend.name}
+Backend capabilities: {_backend_capabilities(backend)}
+Target precision: {weak.precision}
+Observed status: {weak.status.value}
+Observed max relative error: {weak.max_rel_error}
+Observed relative L2 error: {weak.relative_l2}
+Observed notes: {weak.notes}
+
+Allowed techniques:
+{technique_text}
+
+Choose one primary technique suited to the failure and backend. Edit the target copy.
+Import reusable arithmetic from lassi_x.precision where applicable. Update the module's
+LASSI_PRECISION metadata honestly. High-precision behavior must remain equivalent to the
+original C/C++ reference and the compensation must collapse to the base behavior at FP32.
+
+After editing and byte-compiling the target, return JSON only:
+{{"technique":"one allowed name","summary":"what changed"}}
+"""
+    session = HermesSession(
+        config.models.compensation,
+        cwd=workspace,
+        system_prompt=COMPENSATION_SYSTEM,
+        toolsets=["skills", "file", "terminal"],
+        role=f"compensation-{slug}",
+    )
+    try:
+        turn = await session.send(prompt)
+        variant.usage.add(turn.usage)
+        variant.technique = _parse_technique(turn.text, allowed)
+        for attempt in range(config.compensation.correction_rounds + 1):
+            diagnostic_dir = run_dir / "diagnostics" / "variants" / slug / f"attempt-{attempt}"
+            diagnostic_dir.mkdir(parents=True, exist_ok=True)
+            external = await validate_candidate(config, target, oracle, diagnostic_dir)
+            collapse = (
+                await validate_fp32_collapse(config, base.module_path, target, diagnostic_dir)
+                if external.ok
+                else None
+            )
+            if external.ok and collapse is not None and collapse.ok:
+                variant.status = Status.OK
+                break
+            diagnostic = external.diagnostic or (collapse.diagnostic if collapse else None)
+            if diagnostic is None:
+                diagnostic = Diagnostic(
+                    gate="compensation", message="compensation validation failed"
+                )
+            variant.diagnostics.append(diagnostic)
+            if attempt >= config.compensation.correction_rounds:
+                variant.status = Status.REJECTED
+                break
+            variant.correction_rounds += 1
+            repair = f"""Correction round {variant.correction_rounds}.
+The compensation target {target} failed:
+
+{diagnostic.for_agent()}
+
+Repair the target without changing tolerances, disabling compensation, or embedding oracle
+data. Preserve the selected technique where feasible. Return a short summary.
+"""
+            turn = await session.send(repair)
+            variant.usage.add(turn.usage)
+    except Exception as exc:
+        variant.status = Status.CRASHED
+        variant.diagnostics.append(
+            Diagnostic(gate="compensation-agent", message=f"{type(exc).__name__}: {exc}")
+        )
+    finally:
+        await session.close()
+    return variant

@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lassi-x"
+version = "0.1.0"
+description = "Hermes-powered low-precision scientific translation arena"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+dependencies = [
+  "hermes-agent==0.19.0",
+  "numpy>=2.0",
+  "pydantic>=2.10",
+  "PyYAML>=6.0",
+  "torch>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.10",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+  "ruff>=0.9",
+  "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+lassi-x = "lassi_x.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lassi_x = ["resources/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "hardware: requires real accelerator hardware",
+  "hermes: requires configured Hermes credentials",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["build", "runs"]
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "B",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PLC0415",
+  "SIM",
+  "TCH",
+  "UP",
+  "W",
+]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests", "examples/polybench-3mm/golden_candidate.py"]
+exclude = ["build/", "runs/"]
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "run_agent"
+ignore_missing_imports = true

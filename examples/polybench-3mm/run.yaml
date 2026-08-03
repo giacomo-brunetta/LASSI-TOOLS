@@ -1,0 +1,100 @@
+version: 1
+
+# This reproduction expects PolyBenchC-4.2.1 and LASSI-X to be sibling directories.
+project:
+  root: ../../../PolyBenchC-4.2.1
+
+kernel:
+  name: polybench-3mm-mini
+  reference: linear-algebra/kernels/3mm/3mm.c
+  context:
+    - linear-algebra/kernels/3mm/3mm.h
+  task: >-
+    Translate the PolyBench/C 4.2.1 3mm MINI kernel into a semantically
+    equivalent, export-friendly PyTorch module. Reproduce init_array exactly;
+    expose build_inputs(device, dtype) returning (A, B, C, D), make_model(),
+    and forward(A, B, C, D) returning G where E=A@B, F=C@D, and G=E@F.
+
+oracle:
+  build:
+    - gcc
+    - -O0
+    - -DPOLYBENCH_DUMP_ARRAYS
+    - -include
+    - ../LASSI-X/examples/polybench-3mm/oracle_precision.h
+    - "{reference}"
+    - utilities/polybench.c
+    - -Iutilities
+    - -Ilinear-algebra/kernels/3mm
+    - -lm
+    - -o
+    - "{oracle_dir}/reference"
+  run:
+    - "{oracle_dir}/reference"
+  output: oracle.csv
+  capture: stderr
+  format: polybench
+  timeout_s: 120
+
+arena:
+  candidates: 3
+  correction_rounds: 2
+  timeout_s: 600
+  equivalence:
+    # FP64 candidates must match the high-fidelity C dump closely. Lower
+    # precisions are measured for error but are not subjected to this gate.
+    rtol: 0.0000000001
+    atol: 0.000000000001
+    max_mismatches: 20
+
+models:
+  planner:
+    provider: custom
+    model: Claude Opus 4.8
+    base_url: https://apps.inside.anl.gov/argoapi/v1
+    api_mode: chat_completions
+    claude_settings: /home/gbrun/.claude/settings.json
+  candidates:
+    - provider: custom
+      model: GPT-4.1
+      base_url: https://apps.inside.anl.gov/argoapi/v1
+      api_mode: chat_completions
+      claude_settings: /home/gbrun/.claude/settings.json
+    - provider: custom
+      model: Gemini 2.5 Pro
+      base_url: https://apps.inside.anl.gov/argoapi/v1
+      api_mode: chat_completions
+      claude_settings: /home/gbrun/.claude/settings.json
+    - provider: custom
+      model: Claude Sonnet 5
+      base_url: https://apps.inside.anl.gov/argoapi/v1
+      api_mode: chat_completions
+      claude_settings: /home/gbrun/.claude/settings.json
+  compensation:
+    provider: custom
+    model: Claude Opus 4.7
+    base_url: https://apps.inside.anl.gov/argoapi/v1
+    api_mode: chat_completions
+    claude_settings: /home/gbrun/.claude/settings.json
+
+measure:
+  precisions: [fp64, fp32, fp16, bf16]
+  warmup: 3
+  iterations: 30
+  stochastic_seeds: [0, 1, 2, 3, 4]
+  backends:
+    - type: torch
+      name: cpu
+      device: cpu
+      precisions: [fp64, fp32, fp16, bf16]
+    - type: torch
+      name: cuda
+      device: cuda
+      precisions: [fp64, fp32, fp16, bf16]
+
+compensation:
+  enabled: true
+  correction_rounds: 2
+
+# Resolved relative to the PolyBench project root by LASSI-X.
+runs_dir: ../LASSI-X/runs/polybench-3mm
