@@ -37,6 +37,22 @@ TECHNIQUE_SUMMARY = {
 
 @dataclass(slots=True)
 class CompensationVariant:
+    """Record one agent-generated low-precision compensation variant.
+
+    Attributes:
+        candidate_id: Identifier of the base arena candidate.
+        variant_id: Unique identifier for this compensated implementation.
+        backend: Measurement backend targeted by the compensation.
+        precision: Low precision whose error the variant attempts to reduce.
+        technique: Selected compensation technique or provisional state.
+        module_path: Path to the copied candidate module edited by the agent.
+        status: Final validation status of the variant.
+        correction_rounds: Number of diagnosis-driven repairs requested.
+        diagnostics: Validator failures accumulated across attempts.
+        usage: Aggregate model tokens and estimated cost.
+
+    """
+
     candidate_id: str
     variant_id: str
     backend: str
@@ -49,6 +65,12 @@ class CompensationVariant:
     usage: Usage = field(default_factory=Usage)
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the variant to a JSON-serializable artifact record.
+
+        Returns:
+            Dictionary with normalized string values for paths and status.
+
+        """
         data = asdict(self)
         data["module_path"] = str(self.module_path)
         data["status"] = self.status.value
@@ -56,6 +78,20 @@ class CompensationVariant:
 
 
 def select_weak_points(measurements: list[Measurement]) -> list[Measurement]:
+    """Select low-precision measurements that merit agent compensation.
+
+    Unsupported, no-fit, and timed-out cells are excluded because source-level
+    numerical compensation cannot make those backends executable. Failed measurements
+    and successful points dominated in both latency and error are considered weak. At
+    most one point is returned for each candidate, backend, and precision combination.
+
+    Args:
+        measurements: Base-candidate measurements from all configured precision cells.
+
+    Returns:
+        Deduplicated FP16/BF16 measurements selected for compensation.
+
+    """
     low = [point for point in measurements if point.precision in {"fp16", "bf16"}]
     weak: list[Measurement] = []
     for point in low:
@@ -97,6 +133,17 @@ def select_weak_points(measurements: list[Measurement]) -> list[Measurement]:
 
 
 def _parse_technique(text: str, allowed: list[str]) -> str:
+    """Recover the compensation technique selected in an agent response.
+
+    Args:
+        text: Raw response expected to contain a JSON ``technique`` field.
+        allowed: Technique names permitted by the current run configuration.
+
+    Returns:
+        An allowed technique found in structured or free-form output, otherwise
+        ``"agent-selected"``.
+
+    """
     stripped = text.strip()
     if stripped.startswith("```"):
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
@@ -115,6 +162,15 @@ def _parse_technique(text: str, allowed: list[str]) -> str:
 
 
 def _backend_capabilities(spec: BackendConfig) -> str:
+    """Describe backend precision behavior for the compensation agent.
+
+    Args:
+        spec: Backend configuration and optional explicit capability declaration.
+
+    Returns:
+        A compact JSON or prose description suitable for inclusion in a model prompt.
+
+    """
     if spec.capabilities is not None:
         return json.dumps(spec.capabilities.model_dump(mode="json"), sort_keys=True)
     if spec.type == "groq":
@@ -136,6 +192,30 @@ async def generate_compensation(
     weak: Measurement,
     backend: BackendConfig,
 ) -> CompensationVariant:
+    """Generate and validate compensation for one weak low-precision point.
+
+    The base module is copied into an isolated variant workspace before an agent chooses
+    and implements one permitted technique. Every attempt is gated against both the
+    authoritative C/C++ FP64 oracle and the requirement that compensation collapse to
+    base behavior at FP32. Validation failures are returned to the same persistent agent
+    session for bounded correction rounds.
+
+    Args:
+        config: Validated run configuration and compensation policy.
+        oracle: Authoritative output produced from the original C/C++ reference.
+        run_dir: Root artifact directory for the current pipeline run.
+        base: Semantically valid arena candidate to copy and compensate.
+        weak: Low-precision measurement motivating this variant.
+        backend: Backend whose numerical capabilities constrain the implementation.
+
+    Returns:
+        Compensation record containing the selected technique, status, diagnostics,
+        usage, correction count, and generated module path.
+
+    Raises:
+        OSError: If the variant workspace or initial candidate copy cannot be created.
+
+    """
     slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
     workspace = run_dir / "variants" / slug
     workspace.mkdir(parents=True, exist_ok=True)

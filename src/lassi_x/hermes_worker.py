@@ -14,11 +14,35 @@ PROTOCOL_STREAM = sys.stdout
 
 
 def emit(payload: dict[str, Any]) -> None:
+    """Write one response object to the worker's JSONL protocol stream.
+
+    Args:
+        payload: JSON-serializable response returned to the parent session.
+
+    """
     PROTOCOL_STREAM.write(json.dumps(payload) + "\n")
     PROTOCOL_STREAM.flush()
 
 
 def resolve_api_key(request: dict[str, Any]) -> str | None:
+    """Resolve an API credential from the configured external source.
+
+    Environment-variable configuration takes precedence. For Argo-compatible setups,
+    the fallback reads a Claude settings file and executes its ``apiKeyHelper`` command.
+    The credential is returned only to the in-process Hermes SDK and is never emitted on
+    the JSONL protocol.
+
+    Args:
+        request: Worker initialization request containing credential-source settings.
+
+    Returns:
+        The resolved credential, or ``None`` when the provider needs no explicit key.
+
+    Raises:
+        RuntimeError: If the configured environment variable, settings file, helper
+            command, or helper output is unavailable or invalid.
+
+    """
     env_name = request.get("api_key_env")
     if env_name:
         value = os.environ.get(str(env_name), "").strip()
@@ -56,6 +80,17 @@ def resolve_api_key(request: dict[str, Any]) -> str | None:
 
 
 def main() -> int:
+    """Run the stateful Hermes SDK worker over a standard-input JSONL protocol.
+
+    The worker accepts ``init``, ``send``, and ``close`` operations. One ``AIAgent`` and
+    its conversation history persist across send operations, while token usage is
+    reported as a per-turn delta. Operational exceptions are converted to protocol error
+    responses so the parent process can record them as candidate diagnostics.
+
+    Returns:
+        Zero after receiving a close operation or reaching end-of-input.
+
+    """
     agent = None
     history: list[dict[str, Any]] | None = None
     previous_usage = (0, 0, 0.0)

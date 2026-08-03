@@ -14,30 +14,108 @@ if TYPE_CHECKING:
 
     from .config import RunConfig
 
-PLANNER_SYSTEM = """You are the LASSI-X scientific translation planner.
-You plan semantically faithful C/C++ to PyTorch translations. You never edit files.
-Use the lassi-x-machine-info and lassi-x-translate-kernel Hermes skills when available.
-Return only the requested JSON; do not wrap it in Markdown."""
+PLANNER_SYSTEM = """Role: senior scientific-computing architect and numerical-methods reviewer.
 
-CANDIDATE_SYSTEM = """You are a LASSI-X PyTorch translation engineer.
-Use the lassi-x-translate-kernel skill for generation and lassi-x-repair-candidate
-plus lassi-x-compare-outputs when correcting a failed validation gate. Work only on
-the explicitly named target file. Preserve the original algorithm and initialization."""
+Your job is to study an authoritative C/C++ scientific kernel and design three genuinely
+different, implementation-ready strategies for translating it to PyTorch. Another engineer
+must be able to implement each strategy without guessing what you intended.
+
+Planning responsibilities:
+- Treat the C/C++ program as the semantic authority. Account for array initialization,
+  dimensions, loop bounds, index expressions, update dependencies, reduction order,
+  boundary behavior, aliasing, and the order of live outputs.
+- Separate mathematical equivalence from implementation equivalence. Call out cases where
+  reassociation, broadcasting, in-place updates, or dtype conversion could change results.
+- Make the three strategies materially different in operator structure or dataflow, such as
+  direct tensor operations, contraction notation, batching, or carefully composed modules.
+  Renaming variables or making cosmetic syntax changes does not create a distinct strategy.
+- Keep every strategy feasible under the supplied module contract and suitable for later
+  FP16/BF16 measurement, while making FP64 semantic correctness the first priority.
+- Identify the important correctness risks and the concrete checks an implementer should
+  perform. Do not invent missing facts; state conservative assumptions in the plan.
+
+Tool and scope rules:
+- Consult the lassi-x-machine-info and lassi-x-translate-kernel skills when useful.
+- You are an architect, not the implementer: do not create, edit, or delete files.
+- Follow the requested JSON schema exactly. Return JSON only, with no Markdown fences,
+  commentary, preamble, or trailing explanation."""
+
+CANDIDATE_SYSTEM = """Role: senior scientific software engineer specializing in faithful
+C/C++-to-PyTorch translation and numerical debugging.
+
+You own one arena candidate from initial implementation through any correction rounds. The
+original C/C++ source is the semantic authority; the assigned strategy guides implementation
+structure but never overrides reference behavior.
+
+Engineering responsibilities:
+- Read the reference and supplied context before writing code. Trace initialization,
+  dimensions, loop bounds, index expressions, data dependencies, update order, reductions,
+  boundary conditions, and the canonical order of returned live outputs.
+- Implement the assigned strategy as clear, self-contained PyTorch. Preserve semantics before
+  optimizing, and avoid accidental broadcasting, unintended aliasing, and silent dtype changes.
+- Obey the requested module interface and precision metadata exactly. FP64 must reproduce the
+  original program; lower-precision optimization and compensation happen only after that gate.
+- Work only on the explicitly named target file. Do not create benchmark results, reference
+  outputs, generated datasets, MLIR, reports, or unrelated helper files.
+- Compile-check the target before reporting completion. Describe what you implemented briefly
+  and accurately; do not claim validation that you did not run.
+
+Repair responsibilities:
+- Treat validator diagnostics as evidence. Locate the earliest violated assumption and repair
+  its root cause rather than patching the reported symptom.
+- For syntax or runtime failures, restore the module contract first. For shape or numerical
+  failures, re-check initialization, indexing, update order, output ordering, and conversions
+  against the C/C++ source.
+- Never weaken tolerances, bypass validation, read or embed oracle output, return constants, or
+  add low-precision compensation to conceal an FP64 semantic error.
+
+Use lassi-x-translate-kernel for initial generation. During corrections, use
+lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate. Use file and terminal
+tools only as needed for the assigned target and its verification."""
 
 
 def _source_context(config: RunConfig) -> str:
+    """Load the reference kernel and supporting files for an agent prompt.
+
+    Each configured path is resolved relative to the project root. Individual files
+    are truncated to keep a single unexpectedly large source from overwhelming the
+    model context.
+
+    Args:
+        config: Validated run configuration containing the reference and context paths.
+
+    Returns:
+        Labeled source blocks joined into one prompt-ready string.
+
+    """
     paths = [config.kernel.reference, *config.kernel.context]
     blocks: list[str] = []
     for relative in paths:
         path = config.resolve_project_path(relative)
         text = path.read_text(errors="replace")
         if len(text) > 100_000:
-            text = text[:100_000] + "\n/* truncated by LASSI-X */\n"
+            text = text[:100_000] + "\n/* truncated by the orchestration layer */\n"
         blocks.append(f"===== {relative} =====\n{text}")
     return "\n\n".join(blocks)
 
 
 def _parse_json(text: str) -> list[object] | dict[str, object]:
+    """Extract a JSON array or object from a model response.
+
+    The parser first accepts a plain JSON response or a single fenced JSON block. If
+    the response also contains model commentary, it scans for embedded JSON values and
+    prefers the largest array because planner output is expected to be an array.
+
+    Args:
+        text: Raw text returned by a Hermes model turn.
+
+    Returns:
+        The decoded JSON array or object.
+
+    Raises:
+        json.JSONDecodeError: If the response contains no decodable JSON value.
+
+    """
     stripped = text.strip()
     if stripped.startswith("```"):
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
@@ -63,6 +141,25 @@ def _parse_json(text: str) -> list[object] | dict[str, object]:
 
 
 async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str], dict[str, Any]]:
+    """Ask the planner model for exactly three translation strategies.
+
+    The raw planner response is saved before parsing so malformed model output remains
+    available for diagnosis. Each accepted strategy is normalized into a name followed
+    by a self-contained implementation plan.
+
+    Args:
+        config: Validated run configuration, including the planner model selection.
+        workspace: Run directory used for the planner session and response artifact.
+
+    Returns:
+        A pair containing three normalized strategy strings and the planner response
+        record with token and estimated-cost metadata.
+
+    Raises:
+        json.JSONDecodeError: If the planner response contains no valid JSON.
+        ValueError: If the response is not exactly three well-formed strategy objects.
+
+    """
     prompt = f"""Create exactly three materially distinct PyTorch translation strategies.
 
 Kernel: {config.kernel.name}
@@ -111,6 +208,19 @@ def _generation_prompt(
     strategy: str,
     target: Path,
 ) -> str:
+    """Build the implementation request for one arena candidate.
+
+    Args:
+        config: Validated run configuration defining the kernel and oracle fixture.
+        candidate_id: Stable identifier assigned to the candidate.
+        strategy: Planner-produced name and implementation plan for this candidate.
+        target: Exact Python module path the agent is allowed to write.
+
+    Returns:
+        A complete candidate-generation prompt containing paths, strategy, and module
+        contract requirements.
+
+    """
     fixture = (
         str(config.resolve_project_path(config.oracle.input_fixture))
         if config.oracle.input_fixture
@@ -141,6 +251,17 @@ Return a short plain-text implementation summary after writing the file.
 
 
 def _repair_prompt(target: Path, diagnostic: str, round_number: int) -> str:
+    """Build a diagnosis-driven correction request for a rejected candidate.
+
+    Args:
+        target: Existing candidate module that must be repaired in place.
+        diagnostic: External validator evidence describing the failed gate.
+        round_number: One-based correction round included in the agent context.
+
+    Returns:
+        A repair prompt that preserves validation policy and constrains file scope.
+
+    """
     return f"""Correction round {round_number}.
 
 The target remains: {target}
@@ -161,6 +282,24 @@ async def generate_candidate(
     index: int,
     strategy: str,
 ) -> Candidate:
+    """Generate, validate, and optionally repair one arena candidate.
+
+    One Hermes session owns the candidate across its initial implementation and all
+    correction rounds. Validation is performed externally after every turn. Agent or
+    validator exceptions are recorded on the candidate instead of escaping and
+    cancelling the other concurrently generated candidates.
+
+    Args:
+        config: Validated run configuration and correction policy.
+        oracle: Authoritative output produced from the original C/C++ reference.
+        run_dir: Root artifact directory for the current pipeline run.
+        index: One-based candidate position used to select its configured model.
+        strategy: Planner-produced strategy assigned to this candidate.
+
+    Returns:
+        The candidate record with final status, diagnostics, usage, and correction count.
+
+    """
     candidate_id = f"c{index}"
     workspace = run_dir / "candidates" / candidate_id
     workspace.mkdir(parents=True, exist_ok=True)
@@ -216,6 +355,25 @@ async def run_arena(
     oracle: OracleResult,
     run_dir: Path,
 ) -> tuple[list[Candidate], dict[str, Any]]:
+    """Plan and execute the three-candidate translation arena.
+
+    Planning completes first so each candidate receives a distinct strategy. Candidate
+    sessions then run concurrently, while each session independently performs its own
+    sequential validation and correction loop.
+
+    Args:
+        config: Validated run configuration for planning and candidate generation.
+        oracle: Authoritative output produced from the original C/C++ reference.
+        run_dir: Root artifact directory shared by planner and candidate workspaces.
+
+    Returns:
+        The three completed candidate records and the auditable planner response record.
+
+    Raises:
+        json.JSONDecodeError: If the planner does not return decodable JSON.
+        ValueError: If the planner does not return exactly three valid strategies.
+
+    """
     strategies, planner_record = await plan_strategies(config, run_dir)
     candidates = await asyncio.gather(
         *(

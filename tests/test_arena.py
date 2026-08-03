@@ -31,6 +31,15 @@ def test_parse_json_extracts_array_from_model_commentary() -> None:
     ]
 
 
+def test_system_prompts_define_concrete_roles_without_project_branding() -> None:
+    assert "scientific-computing architect" in arena.PLANNER_SYSTEM
+    assert "do not create, edit, or delete files" in arena.PLANNER_SYSTEM
+    assert "scientific software engineer" in arena.CANDIDATE_SYSTEM
+    assert "original C/C++ source is the semantic authority" in arena.CANDIDATE_SYSTEM
+    assert "LASSI-X" not in arena.PLANNER_SYSTEM
+    assert "LASSI-X" not in arena.CANDIDATE_SYSTEM
+
+
 class FakeHermesSession:
     def __init__(
         self,

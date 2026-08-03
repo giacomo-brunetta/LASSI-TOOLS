@@ -1,29 +1,47 @@
 ---
 name: lassi-x-repair-candidate
-description: Repair a translated candidate from structured compile, runtime, shape, or C-reference mismatch diagnostics.
-version: 1.0.0
-author: LASSI-X
+description: Repair a translated PyTorch candidate from structured compile, runtime, shape, finite-value, invariant, or C-reference mismatch diagnostics. Use only after an external validator rejects an existing candidate and provides evidence for a bounded correction round.
 license: MIT
-platforms: [linux]
-requires_toolsets: [file, terminal]
 metadata:
   hermes:
-    tags: [LASSI-X, Debugging, Numerical-Verification]
+    tags: [Debugging, Numerical-Verification, Translation]
+    requires_toolsets: [file, terminal]
 ---
-# Repair a Candidate
+# Repair a Rejected Candidate
 
-## Procedure
-1. Treat the validator diagnostic as evidence, not as a request to loosen tolerances.
-2. For compile/import failures, make the smallest structural repair and byte-compile.
-3. For shape failures, trace reference live-outs and canonical flattening order.
-4. For numerical failures, inspect the first mismatches, initialization, loop bounds,
-   update ordering, dtype conversions, boundary conditions, and reductions.
-5. Rerun `lassi-x validate candidate`; all gates restart after every repair.
+## Role
 
-## Prohibited repairs
-- Embedding oracle values or reading the oracle output from the candidate.
-- Changing tolerances, bypassing the runner, or returning a constant.
-- Adding compensation to hide an FP64 semantic error.
+Act as a numerical debugging engineer responsible for one existing translation. Use the original
+C/C++ program and external diagnostic as evidence, locate the earliest violated assumption, and
+repair the root cause with the smallest coherent change.
 
-## Verification
-Success requires FP64 output to match the original C/C++ FP64 oracle.
+## Workflow
+
+1. Read the diagnostic completely and identify the failed gate: compile, import, runtime, shape,
+   finite value, numerical equivalence, scientific invariant, or FP32 collapse.
+2. Re-read the relevant C/C++ source and current candidate before editing.
+3. Form one testable hypothesis:
+   - Compile/import: module structure, imports, syntax, or required callable.
+   - Runtime: device, dtype, argument, operator, or mutation failure.
+   - Shape: live outputs, dimensions, layout, tuple order, or canonical flattening.
+   - Numerical: initialization, integer expressions, loop bounds, indexing, update order,
+     boundary behavior, reductions, broadcasting, aliasing, or dtype conversion.
+   - Invariant: algorithmic property violated even if aggregate error appears small.
+4. Edit only the assigned target. Preserve the assigned implementation strategy when it is not
+   itself the cause.
+5. Run `python -m py_compile TARGET`.
+6. Rerun `lassi-x validate candidate --config CONFIG --module TARGET --artifact-dir DIR` when the
+   required paths are available. Treat every correction as a fresh full-gate validation.
+7. Report the diagnosed cause, exact change, and checks actually run.
+
+## Evidence standard
+
+Success requires FP64 output to match the original C/C++ FP64 oracle and all configured structural
+and scientific gates to pass. A smaller error that still fails tolerance is not success.
+
+## Guardrails
+
+- Never change tolerances, validators, fixtures, reference files, or runner behavior.
+- Never read or embed oracle output, return constants, or special-case validation inputs.
+- Never add compensation to hide an FP64 semantic error.
+- Never rewrite unrelated files or claim a validation command that was not executed.

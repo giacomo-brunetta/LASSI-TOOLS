@@ -31,6 +31,16 @@ if TYPE_CHECKING:
 
 
 def _skill_records() -> list[dict[str, str]]:
+    """Fingerprint the installed automation skills used by a run.
+
+    Returns:
+        One auditable record per required skill containing its name, declared
+        version, and SHA-256 digest.
+
+    Raises:
+        OSError: If an installed skill file cannot be read.
+
+    """
     root = install_root()
     records = []
     for name in AUTOMATION_SKILLS:
@@ -46,6 +56,16 @@ def _skill_records() -> list[dict[str, str]]:
 
 
 def _summary(record: dict[str, Any]) -> str:
+    """Render a concise Markdown summary from a completed run record.
+
+    Args:
+        record: Final run artifact containing candidates, measurements, compensation
+            variants, and Pareto-frontier points.
+
+    Returns:
+        Human-readable Markdown ending with a newline.
+
+    """
     candidates = record["candidates"]
     measurements = record["measurements"]
     frontier = record["frontier"]
@@ -81,6 +101,30 @@ def _summary(record: dict[str, Any]) -> str:
 
 
 async def run_pipeline(config_path: Path) -> tuple[int, Path]:
+    """Execute the complete translation, correction, and measurement pipeline.
+
+    The function is the top-level orchestration state machine. It creates one immutable
+    run directory, builds the authoritative C/C++ oracle, executes the three-candidate
+    arena, measures accepted candidates, compensates weak FP16/BF16 points, constructs
+    the Pareto frontier, and persists an auditable final record. Exceptions raised after
+    run-directory creation are converted into failure artifacts.
+
+    Args:
+        config_path: YAML configuration defining the project, models, validation,
+            measurement backends, and compensation policy.
+
+    Returns:
+        A pair containing a process-style exit code and the immutable run directory.
+        The exit code is zero only when the run produces at least one frontier point.
+
+    Raises:
+        RuntimeError: If required Hermes automation skills are not installed.
+        OSError: If configuration or initial run-directory artifacts cannot be read or
+            created before protected execution begins.
+        ValueError: If the configuration is invalid.
+
+    """
+    # Establish prerequisites and immutable run identity before executing any agent work.
     require_automation_skills()
     config = RunConfig.load(config_path)
     run_root = (
@@ -94,9 +138,16 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
     started_at = dt.datetime.now(dt.UTC).isoformat()
     started = time.perf_counter()
     try:
+        # Phase 1: build the independent semantic oracle from the original C/C++ source.
         oracle = await build_oracle(config, run_dir)
+
+        # Phase 2: plan three strategies, generate candidates concurrently, and repair
+        # each candidate until it passes FP64 validation or exhausts its correction budget.
         candidates, planner_record = await run_arena(config, oracle, run_dir)
         valid_candidates = [candidate for candidate in candidates if candidate.status == Status.OK]
+
+        # Phase 3: measure every accepted base candidate across configured backend and
+        # precision cells before selecting any low-precision intervention.
         backends = build_backends(config)
         base_variants = [
             (
@@ -108,6 +159,9 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
             for candidate in valid_candidates
         ]
         base_measurements = await measure_variants(config, oracle, base_variants, backends)
+
+        # Phase 4: identify weak FP16/BF16 cells and generate their compensation variants
+        # concurrently. Each variant runs its own sequential validation/repair loop.
         compensation_variants = []
         if config.compensation.enabled and valid_candidates:
             weak = select_weak_points(base_measurements)
@@ -128,6 +182,9 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
                     )
                 )
             )
+
+        # Phase 5: measure only compensation variants that passed both authoritative FP64
+        # validation and the FP32-collapse gate.
         valid_compensation = [
             variant for variant in compensation_variants if variant.status == Status.OK
         ]
@@ -144,6 +201,9 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
             config, oracle, generated_specs, backends
         )
         measurements = base_measurements + generated_measurements
+
+        # Phase 6: compute the latency/error frontier and persist the complete experiment,
+        # including dominated points and failed attempts retained in their source records.
         indices = frontier_indices(measurements)
         frontier = [measurements[index].to_dict() for index in indices]
         status = "ok" if frontier else "failed"
@@ -175,6 +235,8 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
         atomic_write(run_dir / "summary.md", _summary(record))
         return (0 if frontier else 1), run_dir
     except Exception as exc:
+        # Preserve a terminal failure artifact once a run directory exists; callers can
+        # distinguish execution failure from configuration or initialization failure.
         record = {
             "schema_version": 1,
             "status": "failed",
