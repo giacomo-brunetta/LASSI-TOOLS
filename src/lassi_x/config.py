@@ -96,6 +96,7 @@ class BackendConfig(StrictModel):
     type: Literal["torch", "groq"]
     name: str
     device: str | None = None
+    resource: str | None = None
     queue_dir: Path | None = None
     precisions: list[Literal["fp64", "fp32", "fp16", "bf16"]]
     timeout_s: float = 600.0
@@ -205,6 +206,20 @@ class RunConfig(StrictModel):
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     runs_dir: Path = Path("runs")
+
+    @model_validator(mode="after")
+    def backend_resources_are_configured(self) -> RunConfig:
+        known = set(self.execution.resources) or {"local"}
+        unknown = sorted(
+            spec.resource
+            for spec in self.measure.backends
+            if spec.resource is not None and spec.resource not in known
+        )
+        if unknown:
+            raise ValueError(
+                "measure.backends name unknown execution resources: " + ", ".join(unknown)
+            )
+        return self
 
     @classmethod
     def load(cls, path: Path) -> RunConfig:

@@ -1,22 +1,29 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
 import os
+import re
 import statistics
-import sys
 import time
 import uuid
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .protocol import ExecRequest, FilePut
 from .types import Measurement, Status
+from .validation import fixture_relative_path
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from .config import BackendConfig, RunConfig
+    from .execution import ExecutionBackend, ExecutionContext
     from .validation import OracleResult
+
+_DEVICE_ACCELERATORS = {"cuda": "cuda", "xpu": "xpu", "mps": "mps"}
 
 
 class Backend(ABC):
@@ -74,6 +81,82 @@ def _base_measurement(
 
 
 class TorchBackend(Backend):
+    """Measure latency/error cells by running the worker on one resource.
+
+    The candidate module, oracle output, and fixture are pushed into a
+    measurement workspace on the backing execution resource, so the worker
+    (and the accelerator it exercises) runs wherever the resource lives while
+    the harness only orchestrates and records.
+    """
+
+    def __init__(self, spec: BackendConfig, execution: ExecutionBackend, resource: str) -> None:
+        """Configure the backend.
+
+        Args:
+            spec: Measurement backend configuration.
+            execution: Execution backend of the resource that runs the worker.
+            resource: Resource name recorded on measurements.
+
+        """
+        super().__init__(spec)
+        self.execution = execution
+        self.resource = resource
+        self._staged_workspaces: set[str] = set()
+
+    def _device_available(self, handshake_kinds: set[str]) -> bool:
+        """Check the configured device against the resource's accelerators."""
+        prefix = str(self.spec.device).partition(":")[0]
+        required = _DEVICE_ACCELERATORS.get(prefix)
+        return required is None or required in handshake_kinds
+
+    async def _stage_inputs(
+        self, config: RunConfig, oracle: OracleResult, workspace: str, module_path: Path
+    ) -> str:
+        """Push the module, oracle, and fixture into the measurement workspace.
+
+        Static inputs (oracle, fixture) are pushed once per workspace; the
+        module is pushed on every call because variants share workspaces
+        across attempts.
+
+        Args:
+            config: Validated run configuration.
+            oracle: Authoritative oracle whose output file the worker compares against.
+            workspace: Measurement workspace identifier.
+            module_path: Harness-local module to measure.
+
+        Returns:
+            The workspace-relative oracle path to pass to the worker.
+
+        """
+        oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
+        await self.execution.put_file(
+            FilePut(
+                workspace=workspace,
+                path=module_path.name,
+                content_b64=base64.b64encode(module_path.read_bytes()).decode(),
+            )
+        )
+        if workspace not in self._staged_workspaces:
+            await self.execution.put_file(
+                FilePut(
+                    workspace=workspace,
+                    path=oracle_name,
+                    content_b64=base64.b64encode(oracle.output_path.read_bytes()).decode(),
+                )
+            )
+            fixture = fixture_relative_path(config)
+            if fixture is not None and config.oracle.input_fixture is not None:
+                source = config.resolve_project_path(config.oracle.input_fixture)
+                await self.execution.put_file(
+                    FilePut(
+                        workspace=workspace,
+                        path=fixture,
+                        content_b64=base64.b64encode(source.read_bytes()).decode(),
+                    )
+                )
+            self._staged_workspaces.add(workspace)
+        return oracle_name
+
     async def measure(
         self,
         config: RunConfig,
@@ -96,35 +179,32 @@ class TorchBackend(Backend):
                 precision,
                 compensation,
                 Status.UNSUPPORTED,
+                resource=self.resource,
             )
-        if str(self.spec.device).startswith("cuda"):
-            try:
-                # Avoid importing Torch in orchestration processes without CUDA work.
-                import torch  # noqa: PLC0415
-
-                cuda_available = torch.cuda.is_available()
-            except ImportError:
-                cuda_available = False
-            if not cuda_available:
-                return _base_measurement(
-                    config,
-                    self.spec,
-                    module_path,
-                    candidate_id,
-                    variant_id,
-                    precision,
-                    compensation,
-                    Status.UNSUPPORTED,
-                    notes="CUDA is unavailable",
-                )
+        handshake = await self.execution.cached_handshake()
+        if not self._device_available({item.kind for item in handshake.accelerators}):
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.UNSUPPORTED,
+                resource=self.resource,
+                notes=f"device {self.spec.device} is unavailable on resource {self.resource}",
+            )
+        workspace = "m-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:60]
+        oracle_name = await self._stage_inputs(config, oracle, workspace, module_path)
         command = [
-            sys.executable,
+            handshake.python_executable,
             "-m",
             "lassi_x.measure_worker",
             "--module",
-            str(module_path),
+            module_path.name,
             "--oracle",
-            str(oracle.output_path),
+            oracle_name,
             "--device",
             str(self.spec.device),
             "--precision",
@@ -140,11 +220,9 @@ class TorchBackend(Backend):
             "--seed",
             str(seed),
         ]
-        if config.oracle.input_fixture:
-            command += [
-                "--fixture",
-                str(config.resolve_project_path(config.oracle.input_fixture)),
-            ]
+        fixture = fixture_relative_path(config)
+        if fixture is not None:
+            command += ["--fixture", fixture]
         if config.kernel.invariant:
             command += ["--invariant", config.kernel.invariant]
         if config.kernel.invariant_threshold is not None:
@@ -152,40 +230,28 @@ class TorchBackend(Backend):
                 "--invariant-threshold",
                 str(config.kernel.invariant_threshold),
             ]
-        env = os.environ.copy()
-        package_root = str(Path(__file__).resolve().parents[1])
-        env["PYTHONPATH"] = package_root + os.pathsep + env.get("PYTHONPATH", "")
         async with self.semaphore:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                cwd=config.project.root,
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            result = await self.execution.execute(
+                ExecRequest(workspace=workspace, argv=command, timeout_s=self.spec.timeout_s)
             )
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=self.spec.timeout_s
-                )
-            except TimeoutError:
-                process.kill()
-                await process.wait()
-                return _base_measurement(
-                    config,
-                    self.spec,
-                    module_path,
-                    candidate_id,
-                    variant_id,
-                    precision,
-                    compensation,
-                    Status.TIMEOUT,
-                    notes="measurement timed out",
-                )
+        if result.timed_out:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.TIMEOUT,
+                resource=self.resource,
+                notes="measurement timed out",
+            )
         try:
-            payload = json.loads(stdout.decode().strip().splitlines()[-1])
+            payload = json.loads(result.stdout.strip().splitlines()[-1])
         except (json.JSONDecodeError, IndexError):
-            payload = {"ok": False, "error": stderr.decode(errors="replace")[-2000:]}
-        if process.returncode or not payload.get("ok"):
+            payload = {"ok": False, "error": (result.stderr or result.stdout)[-2000:]}
+        if result.exit_code != 0 or not payload.get("ok"):
             return _base_measurement(
                 config,
                 self.spec,
@@ -195,6 +261,7 @@ class TorchBackend(Backend):
                 precision,
                 compensation,
                 Status.CRASHED,
+                resource=self.resource,
                 notes=str(payload.get("error") or "measurement worker failed"),
             )
         metrics = payload.get("metrics") or {}
@@ -208,6 +275,7 @@ class TorchBackend(Backend):
             precision,
             compensation,
             Status.OK if payload.get("valid", payload.get("equivalent")) else Status.DIVERGED,
+            resource=self.resource,
             latency_s=float(payload["median_s"]),
             min_s=float(payload["min_s"]),
             max_abs_error=metrics.get("max_abs_error"),
@@ -314,10 +382,26 @@ class GroqBackend(Backend):
         )
 
 
-def build_backends(config: RunConfig) -> list[Backend]:
+def build_backends(config: RunConfig, execution: ExecutionContext) -> list[Backend]:
+    """Instantiate one measurement backend per configured cell provider.
+
+    Args:
+        config: Validated run configuration.
+        execution: Running execution context supplying per-resource backends.
+
+    Returns:
+        The measurement backends, with torch backends bound to the execution
+        resource named by their ``resource`` field (default resource when
+        omitted).
+
+    """
     result: list[Backend] = []
     for spec in config.measure.backends:
-        result.append(TorchBackend(spec) if spec.type == "torch" else GroqBackend(spec))
+        if spec.type == "torch":
+            resource = spec.resource or execution.default_resource
+            result.append(TorchBackend(spec, execution.backend(spec.resource), resource))
+        else:
+            result.append(GroqBackend(spec))
     return result
 
 

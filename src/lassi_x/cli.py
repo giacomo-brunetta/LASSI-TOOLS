@@ -242,26 +242,34 @@ async def _benchmark_command(args: argparse.Namespace) -> int:
     with tempfile.TemporaryDirectory(prefix="lassi-x-bench-") as temporary:
         root = Path(temporary)
         oracle = await build_oracle(config, root)
-        backend = next(
-            (item for item in build_backends(config) if item.spec.name == args.backend),
-            None,
-        )
-        if backend is None:
-            emit(
-                "benchmark.run",
-                {"ok": False, "error": f"unknown backend {args.backend!r}"},
-                json_output=args.json,
+        context = await ExecutionContext.start(config, root)
+        try:
+            backend = next(
+                (
+                    item
+                    for item in build_backends(config, context)
+                    if item.spec.name == args.backend
+                ),
+                None,
             )
-            return 2
-        result = await backend.measure(
-            config,
-            oracle,
-            args.module.resolve(),
-            candidate_id="manual",
-            variant_id="manual",
-            precision=args.precision,
-            compensation=args.compensation,
-        )
+            if backend is None:
+                emit(
+                    "benchmark.run",
+                    {"ok": False, "error": f"unknown backend {args.backend!r}"},
+                    json_output=args.json,
+                )
+                return 2
+            result = await backend.measure(
+                config,
+                oracle,
+                args.module.resolve(),
+                candidate_id="manual",
+                variant_id="manual",
+                precision=args.precision,
+                compensation=args.compensation,
+            )
+        finally:
+            await context.close()
         emit(
             "benchmark.run",
             {"ok": result.status == Status.OK, "measurement": result.to_dict()},

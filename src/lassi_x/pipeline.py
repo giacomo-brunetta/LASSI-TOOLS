@@ -196,7 +196,7 @@ async def _run_stages(
 
     # Phase 3: measure every accepted base candidate across configured backend and
     # precision cells before selecting any low-precision intervention.
-    backends = build_backends(config)
+    backends = build_backends(config, execution)
     base_variants = [
         (
             candidate.candidate_id,

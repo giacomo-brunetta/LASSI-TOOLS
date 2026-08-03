@@ -79,8 +79,14 @@ lassi-x execution doctor --config my-run.yaml
 The doctor launches one execution agent per resource and reports the measured
 host facts (accelerators, toolchain, torch and lassi-x versions) that also land
 in `run.json` provenance. The endpoint environment must pin the same `lassi-x`
-version as the harness. Oracle builds and latency measurement still run on the
-harness machine; moving measurement cells onto their resources is the next step.
+version as the harness.
+
+Measurement cells run on their resources too: each `measure.backends` entry may
+name a `resource`, and the worker (with the candidate module, oracle output,
+and fixture pushed into a per-variant measurement workspace) executes there,
+judging device availability from the resource's measured handshake. Every
+measurement records its `resource`, so the Pareto frontier can legitimately mix
+points from different machines. Oracle builds still run on the harness machine.
 
 ## Flow
 
