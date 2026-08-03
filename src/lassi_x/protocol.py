@@ -274,6 +274,15 @@ class FilePut(WireModel):
         return self
 
 
+class FileStat(WireModel):
+    """Acknowledgment for a completed :class:`FilePut` write."""
+
+    workspace: WorkspaceName
+    path: str
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=0)
+
+
 class FileGet(WireModel):
     """Read one file from a remote workspace."""
 

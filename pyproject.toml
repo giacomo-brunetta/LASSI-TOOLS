@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 dependencies = [
+  "academy-py>=0.5.0",
   "hermes-agent==0.19.0",
   "numpy>=2.0",
   "pydantic>=2.10",
@@ -69,7 +70,7 @@ exclude = ["build/", "runs/"]
 strict = true
 warn_return_any = true
 warn_unused_configs = true
-plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy", "academy.mypy_plugin"]
 
 [[tool.mypy.overrides]]
 module = "run_agent"
