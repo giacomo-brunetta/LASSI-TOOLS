@@ -51,6 +51,7 @@ runs/<timestamp>-<kernel>/
 ├── diagnostics/
 ├── measurements.jsonl
 ├── frontier.json
+├── pipeline-graph.mmd
 ├── run.json
 └── summary.md
 ```
@@ -102,6 +103,12 @@ points from different machines. Oracle builds still run on the harness machine.
 
 ## Flow
 
+The orchestration state machine is defined with Pydantic Graph's typed
+`GraphBuilder` API. `PipelineState` carries evolving experiment data, while
+`PipelineDeps` injects immutable configuration and execution services. The
+generated `pipeline-graph.mmd` records the exact left-to-right topology used by
+the run, including the explicit compensation decision and bypass branch.
+
 1. Build and execute the original C/C++ FP64 oracle.
 2. Ask a Hermes planner for `arena.candidates` materially distinct strategies.
 3. Generate those candidates concurrently with separately configured models.
@@ -131,8 +138,10 @@ hard measurement gate.
 Torch backends share one timing semaphore by default, preventing CPU and CUDA measurements
 from perturbing each other through concurrent host-side work. Set
 `measure.serialize_torch_backends: false` only when throughput matters more than timing
-isolation. `latency_s` contains the warmed kernel median; `worker_wall_s` separately records
-cold subprocess startup, Torch/CUDA initialization, warmup, and measurement overhead.
+isolation. `latency_s` contains the median measured inside the worker around model forward
+only; input construction and Academy/MCP transport are excluded. CUDA measurements synchronize
+before and after the forward. `worker_wall_s` remains nullable for artifact compatibility but
+is not populated by Torch/Academy measurements.
 
 ## Hermes skills
 

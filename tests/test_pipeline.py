@@ -119,6 +119,81 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
     assert len(record["compensation_variants"]) == 1
     assert captured_specs[0][4:] == ("cpu", "fp16")
     assert record["security"]["execution_mode"] == "trusted_local_unsandboxed"
+    graph = (run_dir / "pipeline-graph.mmd").read_text()
+    assert "direction LR" in graph
+    assert "compensation_decision" in graph
+
+
+def test_pipeline_graph_declares_typed_orchestration_phases() -> None:
+    diagram = pipeline.PIPELINE_GRAPH.render(direction="LR")
+    phases = (
+        "build_oracle",
+        "run_arena",
+        "measure_base",
+        "route_compensation",
+        "generate_compensation",
+        "skip_compensation",
+        "measure_compensation",
+        "finalize",
+    )
+    assert all(phase in diagram for phase in phases)
+    assert "route_compensation --> compensation_decision" in diagram
+    assert "generate_compensation --> measure_compensation" in diagram
+    assert "skip_compensation --> measure_compensation" in diagram
+
+
+def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    data = minimal_config(tmp_path)
+    data["runs_dir"] = str(tmp_path / "runs")
+    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "target"}
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+    module = tmp_path / "candidate.py"
+    module.write_text(GOOD_MODULE)
+    oracle_path = tmp_path / "oracle.npy"
+    np.save(oracle_path, np.asarray([1.0, 2.0, 3.0]))
+    candidate = Candidate("c1", "model", None, "direct", module, status=Status.OK)
+    base_point = measured(module, variant_id="c1-base", compensation="none", error=0.01)
+
+    async def fake_oracle(config: object, run_dir: object) -> OracleResult:
+        del config, run_dir
+        return OracleResult(oracle_path, np.asarray([1.0, 2.0, 3.0]))
+
+    async def fake_arena(*_: object) -> tuple[list[Candidate], dict[str, object]]:
+        return [candidate], {"text": "plan", "usage": {}}
+
+    async def fake_measure_base(*_: object) -> list[Measurement]:
+        return [base_point]
+
+    async def reject_generation(*_: object) -> CompensationVariant:
+        raise AssertionError("compensation branch should not run")
+
+    async def fake_measure_compensation(
+        config: object,
+        oracle: object,
+        specs: list[tuple[str, str, Path, str, str, str]],
+        backends: object,
+    ) -> list[Measurement]:
+        del config, oracle, backends
+        assert specs == []
+        return []
+
+    monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
+    monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
+    monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
+    monkeypatch.setattr(pipeline, "run_arena", fake_arena)
+    monkeypatch.setattr(pipeline, "build_backends", lambda *_: [])
+    monkeypatch.setattr(pipeline, "measure_variants", fake_measure_base)
+    monkeypatch.setattr(pipeline, "generate_compensation", reject_generation)
+    monkeypatch.setattr(pipeline, "measure_compensation_variants", fake_measure_compensation)
+
+    code, run_dir = asyncio.run(pipeline.run_pipeline(config_path))
+    record = json.loads((run_dir / "run.json").read_text())
+    assert code == 0
+    assert record["compensation_variants"] == []
+    assert len(record["measurements"]) == 1
 
 
 def test_numerically_ineffective_compensation_is_rejected(tmp_path: Path) -> None:

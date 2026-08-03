@@ -225,8 +225,7 @@ async def put_bytes(
     )
     if not result.ok:
         raise OSError(
-            f"failed to assemble staged file {path!r}: "
-            f"{(result.stderr or result.stdout)[-2000:]}"
+            f"failed to assemble staged file {path!r}: {(result.stderr or result.stdout)[-2000:]}"
         )
 
 

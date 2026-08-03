@@ -142,9 +142,7 @@ class TorchBackend(Backend):
 
         """
         oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
-        await put_bytes(
-            self.execution, workspace, module_path.name, module_path.read_bytes()
-        )
+        await put_bytes(self.execution, workspace, module_path.name, module_path.read_bytes())
         if workspace not in self._staged_workspaces:
             await put_bytes(
                 self.execution,
@@ -290,9 +288,7 @@ class TorchBackend(Backend):
                 timing_meta.get("includes_input_construction", False)
             ),
             latency_cuda_synchronized=bool(
-                timing_meta.get(
-                    "cuda_synchronized", str(self.spec.device).startswith("cuda")
-                )
+                timing_meta.get("cuda_synchronized", str(self.spec.device).startswith("cuda"))
             ),
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),

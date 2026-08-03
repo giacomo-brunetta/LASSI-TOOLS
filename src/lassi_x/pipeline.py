@@ -5,7 +5,12 @@ import datetime as dt
 import hashlib
 import json
 import time
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from pathlib import Path
+from types import NoneType
+from typing import Any, Protocol, TypeVar
+
+from pydantic_graph import GraphBuilder
 
 from .arena import run_arena
 from .artifacts import (
@@ -19,17 +24,81 @@ from .compensation import CompensationVariant, generate_compensation, select_wea
 from .config import RunConfig
 from .execution import ExecutionContext
 from .measurement import (
+    Backend,
     build_backends,
     measure_compensation_variants,
     measure_variants,
 )
 from .pareto import frontier_indices
 from .skills import AUTOMATION_SKILLS, install_root, require_automation_skills
-from .types import Diagnostic, Measurement, Status
-from .validation import build_oracle
+from .types import Candidate, Diagnostic, Measurement, Status
+from .validation import OracleResult, build_oracle
 
-if TYPE_CHECKING:
-    from pathlib import Path
+
+@dataclass(slots=True)
+class PipelineState:
+    """Mutable state carried between typed Pydantic Graph steps."""
+
+    oracle: OracleResult | None = None
+    candidates: list[Candidate] = field(default_factory=list)
+    planner_record: dict[str, Any] = field(default_factory=dict)
+    valid_candidates: list[Candidate] = field(default_factory=list)
+    backends: list[Backend] = field(default_factory=list)
+    base_measurements: list[Measurement] = field(default_factory=list)
+    weak_points: list[Measurement] = field(default_factory=list)
+    compensation_variants: list[CompensationVariant] = field(default_factory=list)
+    generated_measurements: list[Measurement] = field(default_factory=list)
+    measurements: list[Measurement] = field(default_factory=list)
+    frontier: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class PipelineDeps:
+    """Immutable services and run metadata injected into every graph step."""
+
+    config: RunConfig
+    config_path: Path
+    run_dir: Path
+    execution: ExecutionContext
+    started_at: str
+    started: float
+
+
+StepInputT_co = TypeVar("StepInputT_co", covariant=True)
+
+
+class PipelineStepContext(Protocol[StepInputT_co]):
+    """Mypy-compatible view of the Pydantic Graph step context."""
+
+    @property
+    def state(self) -> PipelineState:
+        """Return the mutable pipeline state."""
+        ...
+
+    @property
+    def deps(self) -> PipelineDeps:
+        """Return immutable pipeline dependencies."""
+        ...
+
+    @property
+    def inputs(self) -> StepInputT_co:
+        """Return the value routed into the current graph step."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class CompensationRequired:
+    """Route marker indicating that weak low-precision cells need repair."""
+
+
+@dataclass(frozen=True, slots=True)
+class CompensationSkipped:
+    """Route marker indicating that no compensation work is required."""
+
+
+@dataclass(frozen=True, slots=True)
+class CompensationReady:
+    """Convergence marker emitted by both compensation graph branches."""
 
 
 def _skill_records() -> list[dict[str, str]]:
@@ -149,6 +218,312 @@ def _reject_non_improving_variants(
         generated.notes = f"{generated.notes}; {message}".strip("; ")
 
 
+def _require_oracle(state: PipelineState) -> OracleResult:
+    """Return the oracle after its graph step has completed.
+
+    Args:
+        state: Current pipeline graph state.
+
+    Returns:
+        The authoritative oracle result.
+
+    Raises:
+        RuntimeError: If graph execution reaches an oracle-dependent step out of order.
+
+    """
+    if state.oracle is None:
+        raise RuntimeError("pipeline graph reached an oracle-dependent step before build_oracle")
+    return state.oracle
+
+
+_pipeline_graph_builder = GraphBuilder(
+    name="lassi_x_pipeline",
+    state_type=PipelineState,
+    deps_type=PipelineDeps,
+    input_type=NoneType,
+    output_type=tuple[int, Path],
+    auto_instrument=False,
+)
+
+
+@_pipeline_graph_builder.step(node_id="build_oracle", label="Build FP64 C/C++ oracle")
+async def _build_oracle_step(
+    ctx: PipelineStepContext[None],
+) -> None:
+    """Build and store the independent FP64 reference oracle.
+
+    Args:
+        ctx: Graph context containing mutable state and immutable run dependencies.
+
+    """
+    ctx.state.oracle = await build_oracle(ctx.deps.config, ctx.deps.run_dir)
+
+
+@_pipeline_graph_builder.step(node_id="run_arena", label="Plan and validate candidates")
+async def _run_arena_step(
+    ctx: PipelineStepContext[None],
+) -> None:
+    """Generate arena candidates and retain those passing FP64 validation.
+
+    Args:
+        ctx: Graph context whose state already contains the oracle.
+
+    """
+    candidates, planner_record = await run_arena(
+        ctx.deps.config,
+        _require_oracle(ctx.state),
+        ctx.deps.run_dir,
+        ctx.deps.execution,
+    )
+    ctx.state.candidates = candidates
+    ctx.state.planner_record = planner_record
+    ctx.state.valid_candidates = [
+        candidate for candidate in candidates if candidate.status == Status.OK
+    ]
+
+
+@_pipeline_graph_builder.step(node_id="measure_base", label="Measure accepted candidates")
+async def _measure_base_step(
+    ctx: PipelineStepContext[None],
+) -> None:
+    """Measure every accepted base candidate across configured cells.
+
+    Args:
+        ctx: Graph context containing validated candidates and the oracle.
+
+    """
+    ctx.state.backends = build_backends(ctx.deps.config, ctx.deps.execution)
+    base_variants = [
+        (
+            candidate.candidate_id,
+            f"{candidate.candidate_id}-base",
+            candidate.module_path,
+            "none",
+        )
+        for candidate in ctx.state.valid_candidates
+    ]
+    ctx.state.base_measurements = await measure_variants(
+        ctx.deps.config,
+        _require_oracle(ctx.state),
+        base_variants,
+        ctx.state.backends,
+    )
+
+
+@_pipeline_graph_builder.step(
+    node_id="route_compensation",
+    label="Select weak low-precision cells",
+)
+async def _route_compensation_step(
+    ctx: PipelineStepContext[None],
+) -> CompensationRequired | CompensationSkipped:
+    """Select weak points and choose the compensation or bypass branch.
+
+    Args:
+        ctx: Graph context containing base measurements and compensation policy.
+
+    Returns:
+        A typed route marker consumed by the graph decision node.
+
+    """
+    config = ctx.deps.config
+    if not config.compensation.enabled or not ctx.state.valid_candidates:
+        ctx.state.weak_points = []
+        return CompensationSkipped()
+    ctx.state.weak_points = select_weak_points(
+        ctx.state.base_measurements,
+        error_threshold=config.compensation.error_threshold,
+        error_metric=config.compensation.error_metric,
+        comparison_scope=config.compensation.comparison_scope,
+    )
+    return CompensationRequired() if ctx.state.weak_points else CompensationSkipped()
+
+
+@_pipeline_graph_builder.step(
+    node_id="generate_compensation",
+    label="Generate and validate corrections",
+)
+async def _generate_compensation_step(
+    ctx: PipelineStepContext[CompensationRequired],
+) -> CompensationReady:
+    """Generate compensation variants concurrently for selected weak cells.
+
+    Args:
+        ctx: Graph context routed through the compensation-required branch.
+
+    Returns:
+        A convergence marker for downstream compensated measurement.
+
+    """
+    config = ctx.deps.config
+    candidate_map = {candidate.candidate_id: candidate for candidate in ctx.state.valid_candidates}
+    backend_map = {backend.name: backend for backend in config.measure.backends}
+    ctx.state.compensation_variants = list(
+        await asyncio.gather(
+            *(
+                generate_compensation(
+                    config,
+                    _require_oracle(ctx.state),
+                    ctx.deps.run_dir,
+                    ctx.deps.execution,
+                    candidate_map[point.candidate_id],
+                    point,
+                    backend_map[point.backend],
+                )
+                for point in ctx.state.weak_points
+            )
+        )
+    )
+    return CompensationReady()
+
+
+@_pipeline_graph_builder.step(node_id="skip_compensation", label="Bypass correction")
+async def _skip_compensation_step(
+    ctx: PipelineStepContext[CompensationSkipped],
+) -> CompensationReady:
+    """Converge the no-compensation branch without generating variants.
+
+    Args:
+        ctx: Graph context routed through the compensation-skipped branch.
+
+    Returns:
+        A convergence marker for downstream compensated measurement.
+
+    """
+    ctx.state.compensation_variants = []
+    return CompensationReady()
+
+
+@_pipeline_graph_builder.step(
+    node_id="measure_compensation",
+    label="Measure validated corrections",
+)
+async def _measure_compensation_step(
+    ctx: PipelineStepContext[CompensationReady],
+) -> None:
+    """Measure valid compensation variants and reject non-improvements.
+
+    Args:
+        ctx: Graph context after either compensation branch has converged.
+
+    """
+    valid_compensation = [
+        variant for variant in ctx.state.compensation_variants if variant.status == Status.OK
+    ]
+    generated_specs = [
+        (
+            variant.candidate_id,
+            variant.variant_id,
+            variant.module_path,
+            variant.technique,
+            variant.backend,
+            variant.precision,
+        )
+        for variant in valid_compensation
+    ]
+    ctx.state.generated_measurements = await measure_compensation_variants(
+        ctx.deps.config,
+        _require_oracle(ctx.state),
+        generated_specs,
+        ctx.state.backends,
+    )
+    _reject_non_improving_variants(
+        ctx.deps.config,
+        valid_compensation,
+        ctx.state.base_measurements,
+        ctx.state.generated_measurements,
+    )
+    ctx.state.measurements = ctx.state.base_measurements + ctx.state.generated_measurements
+
+
+@_pipeline_graph_builder.step(node_id="finalize", label="Build frontier and artifacts")
+async def _finalize_step(
+    ctx: PipelineStepContext[None],
+) -> tuple[int, Path]:
+    """Compute the Pareto frontier and persist the complete run record.
+
+    Args:
+        ctx: Graph context containing all candidate and measurement outcomes.
+
+    Returns:
+        A process-style exit code and the immutable run directory.
+
+    """
+    state = ctx.state
+    deps = ctx.deps
+    config = deps.config
+    oracle = _require_oracle(state)
+    indices = frontier_indices(state.measurements)
+    state.frontier = [state.measurements[index].to_dict() for index in indices]
+    status = "ok" if state.frontier else "failed"
+    for measurement in state.measurements:
+        append_jsonl(deps.run_dir / "measurements.jsonl", measurement.to_dict())
+    write_json(deps.run_dir / "frontier.json", state.frontier)
+    record = {
+        "schema_version": 1,
+        "status": status,
+        "kernel": config.kernel.name,
+        "started_at": deps.started_at,
+        "finished_at": dt.datetime.now(dt.UTC).isoformat(),
+        "wall_seconds": round(time.perf_counter() - deps.started, 3),
+        "config_path": str(deps.config_path.resolve()),
+        "oracle": {
+            "kind": "c_reference_fp64",
+            "reference_path": str(config.resolve_project_path(config.kernel.reference)),
+            "output_path": str(oracle.output_path),
+            "numel": int(oracle.values.size),
+        },
+        "security": {
+            "execution_mode": f"trusted_{config.execution.mode}_unsandboxed",
+            "warning": (
+                "Agent-authored Python and enabled execution tools can run arbitrary code on "
+                "configured resources; use only trusted configurations and isolated machines."
+            ),
+        },
+        "skills": _skill_records(),
+        "execution": {
+            "mode": config.execution.mode,
+            "default_resource": deps.execution.default_resource,
+            "resources": {
+                name: report.model_dump(mode="json", exclude={"schema_version"})
+                for name, report in (await deps.execution.handshakes()).items()
+            },
+        },
+        "planner": state.planner_record,
+        "candidates": [candidate.to_dict() for candidate in state.candidates],
+        "compensation_variants": [variant.to_dict() for variant in state.compensation_variants],
+        "measurements": [measurement.to_dict() for measurement in state.measurements],
+        "frontier": state.frontier,
+    }
+    write_json(deps.run_dir / "run.json", record)
+    atomic_write(deps.run_dir / "summary.md", _summary(record))
+    return (0 if state.frontier else 1), deps.run_dir
+
+
+_compensation_decision = (
+    _pipeline_graph_builder.decision(
+        node_id="compensation_decision",
+        note="Generate corrections only when weak FP16/BF16 cells were selected.",
+    )
+    .branch(_pipeline_graph_builder.match(CompensationRequired).to(_generate_compensation_step))
+    .branch(_pipeline_graph_builder.match(CompensationSkipped).to(_skip_compensation_step))
+)
+_pipeline_graph_builder.add(
+    _pipeline_graph_builder.edge_from(_pipeline_graph_builder.start_node).to(_build_oracle_step),
+    _pipeline_graph_builder.edge_from(_build_oracle_step).to(_run_arena_step),
+    _pipeline_graph_builder.edge_from(_run_arena_step).to(_measure_base_step),
+    _pipeline_graph_builder.edge_from(_measure_base_step).to(_route_compensation_step),
+    _pipeline_graph_builder.edge_from(_route_compensation_step).to(_compensation_decision),
+    _pipeline_graph_builder.edge_from(
+        _generate_compensation_step,
+        _skip_compensation_step,
+    ).to(_measure_compensation_step),
+    _pipeline_graph_builder.edge_from(_measure_compensation_step).to(_finalize_step),
+    _pipeline_graph_builder.edge_from(_finalize_step).to(_pipeline_graph_builder.end_node),
+)
+PIPELINE_GRAPH = _pipeline_graph_builder.build()
+
+
 async def run_pipeline(config_path: Path) -> tuple[int, Path]:
     """Execute the complete translation, correction, and measurement pipeline.
 
@@ -234,128 +609,20 @@ async def _run_stages(
         A pair containing a process-style exit code and the run directory.
 
     """
-    # Phase 1: build the independent semantic oracle from the original C/C++ source.
-    oracle = await build_oracle(config, run_dir)
-
-    # Phase 2: plan the configured strategy count, generate candidates concurrently, and repair
-    # each candidate until it passes FP64 validation or exhausts its correction budget.
-    candidates, planner_record = await run_arena(config, oracle, run_dir, execution)
-    valid_candidates = [candidate for candidate in candidates if candidate.status == Status.OK]
-
-    # Phase 3: measure every accepted base candidate across configured backend and
-    # precision cells before selecting any low-precision intervention.
-    backends = build_backends(config, execution)
-    base_variants = [
-        (
-            candidate.candidate_id,
-            f"{candidate.candidate_id}-base",
-            candidate.module_path,
-            "none",
-        )
-        for candidate in valid_candidates
-    ]
-    base_measurements = await measure_variants(config, oracle, base_variants, backends)
-
-    # Phase 4: identify weak FP16/BF16 cells and generate their compensation variants
-    # concurrently. Each variant runs its own sequential validation/repair loop.
-    compensation_variants = []
-    if config.compensation.enabled and valid_candidates:
-        weak = select_weak_points(
-            base_measurements,
-            error_threshold=config.compensation.error_threshold,
-            error_metric=config.compensation.error_metric,
-            comparison_scope=config.compensation.comparison_scope,
-        )
-        candidate_map = {candidate.candidate_id: candidate for candidate in valid_candidates}
-        backend_map = {backend.name: backend for backend in config.measure.backends}
-        compensation_variants = list(
-            await asyncio.gather(
-                *(
-                    generate_compensation(
-                        config,
-                        oracle,
-                        run_dir,
-                        execution,
-                        candidate_map[point.candidate_id],
-                        point,
-                        backend_map[point.backend],
-                    )
-                    for point in weak
-                )
-            )
-        )
-
-    # Phase 5: measure only compensation variants that passed both authoritative FP64
-    # validation and the FP32-collapse gate.
-    valid_compensation = [
-        variant for variant in compensation_variants if variant.status == Status.OK
-    ]
-    generated_specs = [
-        (
-            variant.candidate_id,
-            variant.variant_id,
-            variant.module_path,
-            variant.technique,
-            variant.backend,
-            variant.precision,
-        )
-        for variant in valid_compensation
-    ]
-    generated_measurements = await measure_compensation_variants(
-        config, oracle, generated_specs, backends
+    deps = PipelineDeps(
+        config=config,
+        config_path=config_path,
+        run_dir=run_dir,
+        execution=execution,
+        started_at=started_at,
+        started=started,
     )
-    _reject_non_improving_variants(
-        config,
-        valid_compensation,
-        base_measurements,
-        generated_measurements,
+    atomic_write(
+        run_dir / "pipeline-graph.mmd",
+        PIPELINE_GRAPH.render(title="LASSI-X pipeline", direction="LR") + "\n",
     )
-    measurements = base_measurements + generated_measurements
-
-    # Phase 6: compute the latency/error frontier and persist the complete experiment,
-    # including dominated points and failed attempts retained in their source records.
-    indices = frontier_indices(measurements)
-    frontier = [measurements[index].to_dict() for index in indices]
-    status = "ok" if frontier else "failed"
-    for measurement in measurements:
-        append_jsonl(run_dir / "measurements.jsonl", measurement.to_dict())
-    write_json(run_dir / "frontier.json", frontier)
-    record = {
-        "schema_version": 1,
-        "status": status,
-        "kernel": config.kernel.name,
-        "started_at": started_at,
-        "finished_at": dt.datetime.now(dt.UTC).isoformat(),
-        "wall_seconds": round(time.perf_counter() - started, 3),
-        "config_path": str(config_path.resolve()),
-        "oracle": {
-            "kind": "c_reference_fp64",
-            "reference_path": str(config.resolve_project_path(config.kernel.reference)),
-            "output_path": str(oracle.output_path),
-            "numel": int(oracle.values.size),
-        },
-        "security": {
-            "execution_mode": f"trusted_{config.execution.mode}_unsandboxed",
-            "warning": (
-                "Agent-authored Python and enabled execution tools can run arbitrary code on "
-                "configured resources; use only trusted configurations and isolated machines."
-            ),
-        },
-        "skills": _skill_records(),
-        "execution": {
-            "mode": config.execution.mode,
-            "default_resource": execution.default_resource,
-            "resources": {
-                name: report.model_dump(mode="json", exclude={"schema_version"})
-                for name, report in (await execution.handshakes()).items()
-            },
-        },
-        "planner": planner_record,
-        "candidates": [candidate.to_dict() for candidate in candidates],
-        "compensation_variants": [variant.to_dict() for variant in compensation_variants],
-        "measurements": [measurement.to_dict() for measurement in measurements],
-        "frontier": frontier,
-    }
-    write_json(run_dir / "run.json", record)
-    atomic_write(run_dir / "summary.md", _summary(record))
-    return (0 if frontier else 1), run_dir
+    return await PIPELINE_GRAPH.run(
+        state=PipelineState(),
+        deps=deps,
+        inputs=None,
+    )
