@@ -1,7 +1,18 @@
 # Globus Compute endpoint configuration for a LASSI-X execution resource.
 #
-# Install on the remote node:
-#   python3 -m pipx install --include-deps globus-compute-endpoint
+# IMPORTANT: install the endpoint INTO the same virtual environment as
+# lassi-x. An isolated install (pipx, uv tool) runs workers inside its own
+# environment, and agent deserialization fails there with
+# "ModuleNotFoundError: No module named 'academy'".
+#
+# Install on the remote node (Python version must match the harness; the
+# repo pins 3.12 in .python-version - dill cannot deserialize functions
+# across differing minor versions):
+#   uv venv ~/lassi-x-env --python 3.12
+#   source ~/lassi-x-env/bin/activate
+#   uv pip install 'git+https://<repo>/LASSI-TOOLS.git@<branch>' \
+#       globus-compute-endpoint
+#   # plus the torch build matching the node's accelerators
 #   globus-compute-endpoint configure lassi-x
 # then replace ~/.globus_compute/lassi-x/config.yaml with this file (edited),
 # and start it:
@@ -9,8 +20,9 @@
 #   globus-compute-endpoint list        # copy the endpoint UUID into run.yaml
 #
 # Requirements for the worker environment (worker_init below):
-# - the SAME lassi-x version as the harness (pickled protocol models must
-#   resolve identically on both sides)
+# - the SAME lassi-x and academy-py versions as the harness (pickled
+#   protocol models must resolve identically on both sides)
+# - the same Python minor version as the harness (3.12)
 # - a torch build matching the node's accelerators (CUDA/XPU/CPU)
 # - the compilers the kernels need (gcc, nvcc, ...) on PATH
 # - outbound HTTPS to the Academy exchange (exchange.academy-agents.org);
