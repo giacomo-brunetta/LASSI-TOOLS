@@ -7,12 +7,13 @@ import hashlib
 import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import pytest
 from academy.exchange import LocalExchangeFactory
 from academy.manager import Manager
-from mcp import Client
+from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
 from yaml import safe_dump, safe_load
@@ -25,6 +26,7 @@ from lassi_x.execution import (
     ExecutionContext,
     LocalExecutionBackend,
     fetch_bytes,
+    put_bytes,
 )
 from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
@@ -34,7 +36,20 @@ from lassi_x.remote.ops import resolve_member
 from .test_config import minimal_config
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from pathlib import Path
+
+
+@asynccontextmanager
+async def _mcp_client(url: str, workspace: str) -> AsyncIterator[ClientSession]:
+    http = create_mcp_http_client(headers={WORKSPACE_HEADER: workspace})
+    async with (
+        http,
+        streamable_http_client(url, http_client=http) as streams,
+        ClientSession(streams[0], streams[1]) as client,
+    ):
+        await client.initialize()
+        yield client
 
 
 async def _exercise_backend(backend: ExecutionBackend) -> None:
@@ -187,14 +202,11 @@ def test_execution_context_serves_and_cleans_up_registered_workspaces(tmp_path: 
             registered = safe_load((home / "config.yaml").read_text())["mcp_servers"]
             assert registered[toolset]["url"] == context.runner.url
             assert registered[toolset]["headers"] == {WORKSPACE_HEADER: "c9"}
-            http = create_mcp_http_client(headers={WORKSPACE_HEADER: "c9"})
-            async with Client(
-                streamable_http_client(context.runner.url, http_client=http)
-            ) as client:
+            async with _mcp_client(context.runner.url, "c9") as client:
                 result = await client.call_tool(
                     "write_file", {"path": "hello.txt", "content": "via academy"}
                 )
-                assert not result.is_error
+                assert not result.isError
             assert context.workspace_dir("c9").joinpath("hello.txt").read_text() == "via academy"
             handshakes = await context.handshakes()
             assert set(handshakes) == {"local"}
@@ -219,6 +231,14 @@ def test_fetch_bytes_reassembles_chunked_reads(tmp_path: Path) -> None:
     )
     fetched = asyncio.run(fetch_bytes(backend, "c1", "big.bin", chunk_size=1000))
     assert fetched == payload
+
+
+def test_put_bytes_chunks_and_atomically_reassembles_large_upload(tmp_path: Path) -> None:
+    backend = LocalExecutionBackend(tmp_path)
+    payload = bytes(range(256)) * 40 + b"tail"
+    asyncio.run(put_bytes(backend, "c1", "nested/big.bin", payload, chunk_size=1000))
+    assert (tmp_path / "c1" / "nested" / "big.bin").read_bytes() == payload
+    assert not list((tmp_path / "c1").glob(".lassi-transfer-*"))
 
 
 def test_handshake_reports_python_executable(tmp_path: Path) -> None:

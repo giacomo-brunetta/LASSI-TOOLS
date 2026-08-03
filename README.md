@@ -64,10 +64,11 @@ a connection header.
 
 ## Remote execution
 
-> **Status: untested after merge.** The local automated suite covers the execution
-> abstractions and Academy local-exchange path, but the conflict-resolved Academy/Globus
-> integration has not yet been rerun end-to-end against a live Globus Compute endpoint.
-> Run `lassi-x execution doctor` before relying on it or spending an allocation.
+> **Status: live-tested.** On August 3, 2026, the complete PolyBench 3mm flow ran
+> end to end through the hosted Academy exchange on a Globus Compute endpoint with
+> two NVIDIA A100 GPUs: oracle, three-candidate arena, validation, CPU/CUDA
+> measurements, compensation, and frontier construction all completed. Run
+> `lassi-x execution doctor` for each new endpoint before spending an allocation.
 
 In `academy` mode with an `exchange_url`, resources carrying a Globus Compute
 `endpoint_id` run on that endpoint: reference sources and fixtures are staged

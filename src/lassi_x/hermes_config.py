@@ -106,6 +106,10 @@ def register_workspace_servers(
             "url": url,
             "headers": {WORKSPACE_HEADER: workspace},
             "timeout": int(timeout_s),
+            # LASSI-X exposes execution through MCP tools, not MCP resources or
+            # prompts. Disabling Hermes' generic utilities avoids collisions
+            # with our ``list_resources`` tool and its local skill machinery.
+            "tools": {"resources": False, "prompts": False},
         }
         names.append(name)
     path.parent.mkdir(parents=True, exist_ok=True)

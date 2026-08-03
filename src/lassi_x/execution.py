@@ -11,15 +11,46 @@ switching a run between local and remote execution changes transport only.
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
+import uuid
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
-from .protocol import MAX_INLINE_BYTES, FileGet, FilePut
+from .protocol import MAX_INLINE_BYTES, ExecRequest, FileGet, FilePut
 from .remote import ops
 
 logger = logging.getLogger(__name__)
+
+TRANSFER_CHUNK_BYTES = 128 * 1024
+"""Conservative raw chunk size for Academy exchange messages."""
+
+_ASSEMBLE_CHUNKS = """\
+import hashlib
+import os
+from pathlib import Path
+import sys
+
+destination = Path(sys.argv[1])
+temporary = Path(sys.argv[2])
+expected_digest = sys.argv[3]
+parts = [Path(value) for value in sys.argv[4:]]
+destination.parent.mkdir(parents=True, exist_ok=True)
+digest = hashlib.sha256()
+with temporary.open("wb") as output:
+    for part in parts:
+        data = part.read_bytes()
+        digest.update(data)
+        output.write(data)
+if digest.hexdigest() != expected_digest:
+    temporary.unlink(missing_ok=True)
+    raise RuntimeError("assembled file digest mismatch")
+os.replace(temporary, destination)
+for part in parts:
+    part.unlink()
+parts[0].parent.rmdir()
+"""
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
@@ -30,7 +61,6 @@ if TYPE_CHECKING:
     from .config import ResourceConfig, RunConfig
     from .protocol import (
         DirListing,
-        ExecRequest,
         ExecResult,
         FileContent,
         FileStat,
@@ -120,6 +150,84 @@ async def fetch_bytes(
         offset += len(data)
         if not content.truncated:
             return b"".join(chunks)
+
+
+async def put_bytes(
+    backend: ExecutionBackend,
+    workspace: str,
+    path: str,
+    data: bytes,
+    *,
+    chunk_size: int = TRANSFER_CHUNK_BYTES,
+) -> None:
+    """Stage bytes through bounded messages and atomically assemble large files.
+
+    Args:
+        backend: Backend serving the destination workspace.
+        workspace: Workspace identifier.
+        path: Workspace-relative destination path.
+        data: Complete file payload.
+        chunk_size: Maximum raw bytes carried by one message.
+
+    Raises:
+        ValueError: If ``path`` is unsafe or ``chunk_size`` is not positive.
+        OSError: If remote chunk assembly or integrity verification fails.
+
+    """
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    # Validate the final path with the wire model even when it will only be
+    # written by the assembly command.
+    FilePut(workspace=workspace, path=path, content_b64="")
+    digest = hashlib.sha256(data).hexdigest()
+    if len(data) <= chunk_size:
+        await backend.put_file(
+            FilePut(
+                workspace=workspace,
+                path=path,
+                content_b64=base64.b64encode(data).decode(),
+                sha256=digest,
+            )
+        )
+        return
+
+    transfer_id = uuid.uuid4().hex
+    part_dir = f".lassi-transfer-{transfer_id}"
+    part_paths: list[str] = []
+    for index, offset in enumerate(range(0, len(data), chunk_size)):
+        chunk = data[offset : offset + chunk_size]
+        part_path = f"{part_dir}/{index:08d}.part"
+        part_paths.append(part_path)
+        await backend.put_file(
+            FilePut(
+                workspace=workspace,
+                path=part_path,
+                content_b64=base64.b64encode(chunk).decode(),
+                sha256=hashlib.sha256(chunk).hexdigest(),
+            )
+        )
+    temporary = f"{part_dir}/assembled.tmp"
+    handshake = await backend.cached_handshake()
+    result = await backend.execute(
+        ExecRequest(
+            workspace=workspace,
+            argv=[
+                handshake.python_executable,
+                "-c",
+                _ASSEMBLE_CHUNKS,
+                path,
+                temporary,
+                digest,
+                *part_paths,
+            ],
+            timeout_s=600,
+        )
+    )
+    if not result.ok:
+        raise OSError(
+            f"failed to assemble staged file {path!r}: "
+            f"{(result.stderr or result.stdout)[-2000:]}"
+        )
 
 
 class LocalExecutionBackend(ExecutionBackend):
@@ -397,19 +505,9 @@ class ExecutionContext:
             path: Workspace-relative destination path.
             data: File content.
 
-        Raises:
-            ValueError: If the payload exceeds the inline message limit.
-
         """
-        encoded = base64.b64encode(data).decode()
-        if len(encoded) > 2 * MAX_INLINE_BYTES:
-            raise ValueError(
-                f"staged file {path!r} exceeds the inline transfer limit "
-                f"({len(data)} bytes); large fixtures need a transfer mechanism"
-            )
-        request = FilePut(workspace=workspace, path=path, content_b64=encoded)
         for backend in self.backends.values():
-            await backend.put_file(request)
+            await put_bytes(backend, workspace, path, data)
 
     async def fetch_bytes(self, workspace: str, path: str, resource: str | None = None) -> bytes:
         """Fetch one workspace file from a resource, chunking large files.

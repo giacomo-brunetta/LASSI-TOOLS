@@ -198,7 +198,12 @@ def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> Non
     assert result.status == Status.OK
     assert result.resource == "here"
     assert result.latency_s is not None and result.latency_s > 0
-    assert result.worker_wall_s is not None and result.worker_wall_s > result.latency_s
+    assert result.worker_wall_s is None
+    assert result.latency_scope == "model_forward"
+    assert result.latency_source == "remote_measure_worker"
+    assert result.latency_clock == "time.perf_counter"
+    assert result.latency_includes_input_construction is False
+    assert result.latency_cuda_synchronized is False
     workspace = execution_root / "m-c1-base"
     assert (workspace / "candidate.py").is_file()
     assert (workspace / "oracle.csv").is_file()

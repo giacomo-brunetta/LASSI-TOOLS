@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import yaml
-from mcp import Client
+from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
 
@@ -20,12 +21,20 @@ from lassi_x.hermes_config import (
 from lassi_x.mcp_server import WORKSPACE_HEADER, LassiMCPServer, MCPServerRunner
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from pathlib import Path
 
 
-def _client(url: str, workspace: str | None) -> Client:
+@asynccontextmanager
+async def _client(url: str, workspace: str | None) -> AsyncIterator[ClientSession]:
     headers = {WORKSPACE_HEADER: workspace} if workspace else {}
-    return Client(streamable_http_client(url, http_client=create_mcp_http_client(headers=headers)))
+    async with (
+        create_mcp_http_client(headers=headers) as http,
+        streamable_http_client(url, http_client=http) as streams,
+        ClientSession(streams[0], streams[1]) as client,
+    ):
+        await client.initialize()
+        yield client
 
 
 def _text(result: Any) -> str:
@@ -89,16 +98,16 @@ def test_mcp_tools_reject_unpinned_connections_and_unknown_resources(tmp_path: P
         async with MCPServerRunner(server) as runner:
             async with _client(runner.url, None) as client:
                 result = await client.call_tool("write_file", {"path": "x.txt", "content": "x"})
-                assert result.is_error
+                assert result.isError
                 assert WORKSPACE_HEADER in _text(result)
             async with _client(runner.url, "c1") as client:
                 result = await client.call_tool(
                     "run_command", {"command": ["ls"], "resource": "nope"}
                 )
-                assert result.is_error
+                assert result.isError
                 assert "unknown resource" in _text(result)
                 escape = await client.call_tool("read_file", {"path": "../outside.txt"})
-                assert escape.is_error
+                assert escape.isError
 
     asyncio.run(run())
 
@@ -125,6 +134,7 @@ def test_hermes_registration_round_trip_preserves_foreign_entries(tmp_path: Path
     assert entry["url"] == "http://127.0.0.1:9999/mcp"
     assert entry["headers"] == {WORKSPACE_HEADER: "c1"}
     assert entry["timeout"] == 450
+    assert entry["tools"] == {"resources": False, "prompts": False}
     assert set(registered_lassi_servers(home)) == {"lassi-x-c1", "lassi-x-c2"}
 
     removed = unregister_workspace_servers([*names, "github"], home=home)

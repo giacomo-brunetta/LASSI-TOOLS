@@ -108,6 +108,57 @@ def resolve_api_key(request: WorkerInit) -> str | None:
     return credential
 
 
+def create_agent(request: WorkerInit, api_key: str | None) -> Any:
+    """Construct a Hermes agent after registering configured MCP tools.
+
+    Direct SDK use bypasses the Hermes CLI/TUI startup hook responsible for MCP
+    discovery. Discovery must therefore happen before ``AIAgent`` snapshots its
+    enabled toolsets.
+
+    Args:
+        request: Validated initialization settings for the worker.
+        api_key: Credential resolved locally for the selected provider.
+
+    Returns:
+        Initialized Hermes ``AIAgent`` instance.
+
+    """
+    from tools.mcp_tool import (  # type: ignore[import-untyped]  # noqa: PLC0415
+        discover_mcp_tools,
+        mcp_prefixed_tool_name,
+    )
+
+    discovered = discover_mcp_tools()
+    required = [toolset for toolset in request.toolsets if toolset.startswith("lassi-x-")]
+    missing = [
+        toolset
+        for toolset in required
+        if mcp_prefixed_tool_name(toolset, "write_file") not in discovered
+    ]
+    if missing:
+        raise RuntimeError(
+            "Hermes did not discover the required LASSI-X MCP workspace tools: "
+            + ", ".join(missing)
+        )
+    from run_agent import AIAgent  # noqa: PLC0415
+
+    return AIAgent(
+        model=request.model,
+        provider=request.provider,
+        base_url=request.base_url,
+        api_key=api_key,
+        api_mode=request.api_mode,
+        max_tokens=request.max_tokens,
+        max_iterations=request.max_iterations,
+        enabled_toolsets=request.toolsets,
+        quiet_mode=True,
+        skip_memory=True,
+        skip_context_files=True,
+        save_trajectories=False,
+        ephemeral_system_prompt=request.system_prompt,
+    )
+
+
 def main() -> int:
     """Run the stateful Hermes SDK worker over a standard-input JSONL protocol.
 
@@ -136,26 +187,10 @@ def main() -> int:
             if isinstance(request, WorkerInit):
                 with contextlib.redirect_stdout(sys.stderr):
                     # Hermes emits import-time output; keep it away from the JSONL protocol.
-                    from run_agent import AIAgent  # noqa: PLC0415
-
                     api_key = resolve_api_key(request)
                     if api_key:
                         secrets.append(api_key)
-                    agent = AIAgent(
-                        model=request.model,
-                        provider=request.provider,
-                        base_url=request.base_url,
-                        api_key=api_key,
-                        api_mode=request.api_mode,
-                        max_tokens=request.max_tokens,
-                        max_iterations=request.max_iterations,
-                        enabled_toolsets=request.toolsets,
-                        quiet_mode=True,
-                        skip_memory=True,
-                        skip_context_files=True,
-                        save_trajectories=False,
-                        ephemeral_system_prompt=request.system_prompt,
-                    )
+                    agent = create_agent(request, api_key)
                 previous_usage = (
                     int(getattr(agent, "session_input_tokens", 0)),
                     int(getattr(agent, "session_output_tokens", 0)),

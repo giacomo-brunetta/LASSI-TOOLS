@@ -16,14 +16,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import uvicorn
-from mcp.server.mcpserver import MCPServer
-
-# Context must be importable at runtime: the MCP SDK resolves tool annotations
-# with typing.get_type_hints to find the injected context parameter.
-from mcp.server.mcpserver.context import Context  # noqa: TC002
+from mcp.server.fastmcp import Context, FastMCP  # noqa: TC002
 
 from .protocol import ExecRequest, FileGet, FilePut, ListDir
 
@@ -68,7 +64,7 @@ class LassiMCPServer:
         self.backends = dict(backends)
         self.default_resource = default_resource
         self._handshakes: dict[str, HandshakeReport] = {}
-        self.server = MCPServer(name="lassi-x", instructions=_INSTRUCTIONS)
+        self.server = FastMCP(name="lassi-x", instructions=_INSTRUCTIONS)
         self._register_tools()
 
     def _backend(self, resource: str | None) -> ExecutionBackend:
@@ -92,7 +88,7 @@ class LassiMCPServer:
         return backend
 
     @staticmethod
-    def _workspace(ctx: Context) -> str:
+    def _workspace(ctx: Context[Any, Any, Any]) -> str:
         """Read the workspace pinned to this connection.
 
         Args:
@@ -105,7 +101,9 @@ class LassiMCPServer:
             ValueError: If the header is missing.
 
         """
-        workspace = (ctx.headers or {}).get(WORKSPACE_HEADER, "")
+        request = ctx.request_context.request
+        headers = getattr(request, "headers", {})
+        workspace = str(headers.get(WORKSPACE_HEADER, ""))
         if not workspace:
             raise ValueError(
                 f"connection is missing the {WORKSPACE_HEADER} header; "
@@ -145,7 +143,7 @@ class LassiMCPServer:
 
         @server.tool(name="run_command")
         async def run_command(
-            ctx: Context,
+            ctx: Context[Any, Any, Any],
             command: list[str],
             cwd: str | None = None,
             stdin: str | None = None,
@@ -187,7 +185,7 @@ class LassiMCPServer:
 
         @server.tool(name="write_file")
         async def write_file(
-            ctx: Context,
+            ctx: Context[Any, Any, Any],
             path: str,
             content: str,
             executable: bool = False,
@@ -214,7 +212,7 @@ class LassiMCPServer:
 
         @server.tool(name="read_file")
         async def read_file(
-            ctx: Context,
+            ctx: Context[Any, Any, Any],
             path: str,
             resource: str | None = None,
         ) -> str:
@@ -238,7 +236,7 @@ class LassiMCPServer:
 
         @server.tool(name="list_files")
         async def list_files(
-            ctx: Context,
+            ctx: Context[Any, Any, Any],
             path: str = ".",
             resource: str | None = None,
         ) -> str:

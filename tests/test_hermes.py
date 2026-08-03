@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import sys
+from types import ModuleType
 from typing import TYPE_CHECKING
 
 import pytest
 
 from lassi_x.config import ModelConfig
 from lassi_x.hermes import HermesSession
-from lassi_x.hermes_worker import scrub_sensitive
+from lassi_x.hermes_worker import create_agent, scrub_sensitive
 from lassi_x.protocol import (
     TurnUsage,
     WireModel,
     WorkerFailure,
+    WorkerInit,
     WorkerResponse,
     WorkerTurn,
 )
@@ -72,6 +75,71 @@ def test_worker_diagnostics_scrub_resolved_credentials() -> None:
     )
     assert secret not in scrubbed
     assert scrubbed.count("[REDACTED]") == 2
+
+
+def test_worker_discovers_mcp_tools_before_constructing_agent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    fake_run_agent = ModuleType("run_agent")
+    fake_mcp_tool = ModuleType("tools.mcp_tool")
+
+    def discover() -> list[str]:
+        events.append("discover")
+        return ["mcp__lassi_x_c1__write_file"]
+
+    def prefixed(server: str, tool: str) -> str:
+        return f"mcp__{server.replace('-', '_')}__{tool}"
+
+    class FakeAgent:
+        def __init__(self, **_: object) -> None:
+            events.append("construct")
+
+    fake_run_agent.AIAgent = FakeAgent  # type: ignore[attr-defined]
+    fake_mcp_tool.discover_mcp_tools = discover  # type: ignore[attr-defined]
+    fake_mcp_tool.mcp_prefixed_tool_name = prefixed  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "tools.mcp_tool", fake_mcp_tool)
+
+    request = WorkerInit(model="test", role="candidate", toolsets=["lassi-x-c1"])
+    assert isinstance(create_agent(request, None), FakeAgent)
+    assert events == ["discover", "construct"]
+
+
+def test_worker_rejects_missing_workspace_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_run_agent = ModuleType("run_agent")
+    fake_mcp_tool = ModuleType("tools.mcp_tool")
+    fake_run_agent.AIAgent = object  # type: ignore[attr-defined]
+    fake_mcp_tool.discover_mcp_tools = lambda: []  # type: ignore[attr-defined]
+    fake_mcp_tool.mcp_prefixed_tool_name = (  # type: ignore[attr-defined]
+        lambda server, tool: f"mcp__{server.replace('-', '_')}__{tool}"
+    )
+    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "tools.mcp_tool", fake_mcp_tool)
+
+    request = WorkerInit(model="test", role="candidate", toolsets=["lassi-x-c1"])
+    with pytest.raises(RuntimeError, match="did not discover"):
+        create_agent(request, None)
+
+
+def test_worker_does_not_accept_foreign_mcp_tools_for_workspace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_run_agent = ModuleType("run_agent")
+    fake_mcp_tool = ModuleType("tools.mcp_tool")
+    fake_run_agent.AIAgent = object  # type: ignore[attr-defined]
+    fake_mcp_tool.discover_mcp_tools = (  # type: ignore[attr-defined]
+        lambda: ["mcp__unrelated__write_file"]
+    )
+    fake_mcp_tool.mcp_prefixed_tool_name = (  # type: ignore[attr-defined]
+        lambda server, tool: f"mcp__{server.replace('-', '_')}__{tool}"
+    )
+    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "tools.mcp_tool", fake_mcp_tool)
+
+    request = WorkerInit(model="test", role="candidate", toolsets=["lassi-x-c1"])
+    with pytest.raises(RuntimeError, match="lassi-x-c1"):
+        create_agent(request, None)
 
 
 class TimeoutSession(RetrySession):

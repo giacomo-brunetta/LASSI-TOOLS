@@ -130,6 +130,13 @@ def main() -> int:
             "diagnostic": diagnostic.to_dict() if diagnostic else None,
             "median_s": statistics.median(samples),
             "min_s": min(samples),
+            "timing": {
+                "scope": "model_forward",
+                "source": "remote_measure_worker",
+                "clock": "time.perf_counter",
+                "includes_input_construction": False,
+                "cuda_synchronized": cuda,
+            },
             "metrics": metrics,
             "invariant_error": invariant_error,
             "invariant_candidate": invariant_candidate,

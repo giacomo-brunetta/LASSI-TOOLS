@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
 import json
 import os
@@ -12,7 +11,8 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from .protocol import ExecRequest, FilePut
+from .execution import put_bytes
+from .protocol import ExecRequest
 from .types import Measurement, Status
 from .validation import fixture_relative_path
 
@@ -142,31 +142,20 @@ class TorchBackend(Backend):
 
         """
         oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
-        await self.execution.put_file(
-            FilePut(
-                workspace=workspace,
-                path=module_path.name,
-                content_b64=base64.b64encode(module_path.read_bytes()).decode(),
-            )
+        await put_bytes(
+            self.execution, workspace, module_path.name, module_path.read_bytes()
         )
         if workspace not in self._staged_workspaces:
-            await self.execution.put_file(
-                FilePut(
-                    workspace=workspace,
-                    path=oracle_name,
-                    content_b64=base64.b64encode(oracle.output_path.read_bytes()).decode(),
-                )
+            await put_bytes(
+                self.execution,
+                workspace,
+                oracle_name,
+                oracle.output_path.read_bytes(),
             )
             fixture = fixture_relative_path(config)
             if fixture is not None and config.oracle.input_fixture is not None:
                 source = config.resolve_project_path(config.oracle.input_fixture)
-                await self.execution.put_file(
-                    FilePut(
-                        workspace=workspace,
-                        path=fixture,
-                        content_b64=base64.b64encode(source.read_bytes()).decode(),
-                    )
-                )
+                await put_bytes(self.execution, workspace, fixture, source.read_bytes())
             self._staged_workspaces.add(workspace)
         return oracle_name
 
@@ -246,7 +235,6 @@ class TorchBackend(Backend):
         if precision in config.measure.strict_precisions:
             command.append("--require-equivalence")
         async with self.semaphore:
-            worker_started = time.perf_counter()
             result = await self.execution.execute(
                 ExecRequest(workspace=workspace, argv=command, timeout_s=self.spec.timeout_s)
             )
@@ -261,7 +249,6 @@ class TorchBackend(Backend):
                 compensation,
                 Status.TIMEOUT,
                 resource=self.resource,
-                worker_wall_s=time.perf_counter() - worker_started,
                 notes="measurement timed out",
             )
         try:
@@ -279,11 +266,11 @@ class TorchBackend(Backend):
                 compensation,
                 Status.CRASHED,
                 resource=self.resource,
-                worker_wall_s=time.perf_counter() - worker_started,
                 notes=str(payload.get("error") or "measurement worker failed"),
             )
         metrics = payload.get("metrics") or {}
         precision_meta = payload.get("precision") or {}
+        timing_meta = payload.get("timing") or {}
         measurement = _base_measurement(
             config,
             self.spec,
@@ -296,7 +283,17 @@ class TorchBackend(Backend):
             resource=self.resource,
             latency_s=float(payload["median_s"]),
             min_s=float(payload["min_s"]),
-            worker_wall_s=time.perf_counter() - worker_started,
+            latency_scope=str(timing_meta.get("scope", "model_forward")),
+            latency_source=str(timing_meta.get("source", "remote_measure_worker")),
+            latency_clock=str(timing_meta.get("clock", "time.perf_counter")),
+            latency_includes_input_construction=bool(
+                timing_meta.get("includes_input_construction", False)
+            ),
+            latency_cuda_synchronized=bool(
+                timing_meta.get(
+                    "cuda_synchronized", str(self.spec.device).startswith("cuda")
+                )
+            ),
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),

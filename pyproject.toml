@@ -15,7 +15,9 @@ dependencies = [
   # HTTP 400. Bump only after verifying a self-ping against the exchange.
   "academy-py==0.4.0",
   "hermes-agent==0.19.0",
-  "mcp>=2.0.0",
+  # Hermes 0.19 uses the MCP 1.x client protocol. MCP 2.x changes both the
+  # streamable-HTTP API and request envelope, so the major versions cannot mix.
+  "mcp==1.29.0",
   "numpy>=2.0",
   "pydantic>=2.10",
   "PyYAML>=6.0",

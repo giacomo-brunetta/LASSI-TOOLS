@@ -106,6 +106,11 @@ class Measurement:
     latency_s: float | None = None
     min_s: float | None = None
     worker_wall_s: float | None = None
+    latency_scope: str = ""
+    latency_source: str = ""
+    latency_clock: str = ""
+    latency_includes_input_construction: bool | None = None
+    latency_cuda_synchronized: bool | None = None
     max_abs_error: float | None = None
     max_rel_error: float | None = None
     relative_l2: float | None = None
