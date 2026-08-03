@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
+import random
+import signal
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,11 +24,17 @@ class HermesTurn:
     Attributes:
         text: Final textual response produced by the agent.
         usage: Token and estimated-cost delta attributed to this turn.
+        completed: Whether Hermes reported a normal completed turn.
+        exit_reason: Hermes diagnostic explaining why the turn stopped.
+        attempts: Number of outer agent-layer attempts used for this turn.
 
     """
 
     text: str
     usage: Usage
+    completed: bool = True
+    exit_reason: str = "unknown"
+    attempts: int = 1
 
 
 class HermesSession:
@@ -84,6 +93,7 @@ class HermesSession:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
         )
         await self._write(
             {
@@ -124,20 +134,87 @@ class HermesSession:
             json.JSONDecodeError: If the worker returns malformed protocol data.
 
         """
-        await self.start()
-        await self._write({"op": "send", "prompt": prompt})
-        response = await self._read()
-        if not response.get("ok"):
-            raise RuntimeError(response.get("error", "Hermes turn failed"))
+        response: dict[str, Any] | None = None
+        last_error: Exception | None = None
+        retry_usage = Usage()
+        for attempt in range(self.model.turn_retries + 1):
+            try:
+                await self.start()
+                await self._write({"op": "send", "prompt": prompt})
+                response = await asyncio.wait_for(self._read(), timeout=self.model.turn_timeout_s)
+                if not response.get("ok"):
+                    raw_failed = response.get("usage") or {}
+                    retry_usage.add(
+                        Usage(
+                            input_tokens=int(raw_failed.get("input_tokens") or 0),
+                            output_tokens=int(raw_failed.get("output_tokens") or 0),
+                            estimated_cost_usd=float(raw_failed.get("estimated_cost_usd") or 0.0),
+                        )
+                    )
+                    raise RuntimeError(response.get("error", "Hermes turn failed"))
+                break
+            except (
+                BrokenPipeError,
+                ConnectionError,
+                json.JSONDecodeError,
+                OSError,
+                RuntimeError,
+            ) as exc:
+                last_error = exc
+                if (
+                    isinstance(exc, TimeoutError)
+                    or self._process is None
+                    or self._process.returncode is not None
+                ):
+                    await self.close()
+                if attempt >= self.model.turn_retries or not self._retryable(exc):
+                    raise
+                delay = min(
+                    self.model.retry_initial_s * (2**attempt),
+                    self.model.retry_max_s,
+                )
+                delay += random.uniform(0.0, self.model.retry_jitter_s)
+                await asyncio.sleep(delay)
+        if response is None:
+            raise RuntimeError("Hermes turn failed without a response") from last_error
         raw = response.get("usage") or {}
+        usage = Usage(
+            input_tokens=int(raw.get("input_tokens") or 0),
+            output_tokens=int(raw.get("output_tokens") or 0),
+            estimated_cost_usd=float(raw.get("estimated_cost_usd") or 0.0),
+        )
+        usage.add(retry_usage)
         return HermesTurn(
             text=str(response.get("text") or ""),
-            usage=Usage(
-                input_tokens=int(raw.get("input_tokens") or 0),
-                output_tokens=int(raw.get("output_tokens") or 0),
-                estimated_cost_usd=float(raw.get("estimated_cost_usd") or 0.0),
-            ),
+            usage=usage,
+            completed=bool(response.get("completed", True)),
+            exit_reason=str(response.get("exit_reason") or "unknown"),
+            attempts=attempt + 1,
         )
+
+    @staticmethod
+    def _retryable(exc: Exception) -> bool:
+        """Return whether an agent-layer failure may be transient.
+
+        Credential and configuration failures are deterministic. Provider, transport,
+        rate-limit, timeout, worker-exit, and malformed-protocol failures receive bounded
+        exponential backoff.
+
+        Args:
+            exc: Exception raised while starting or communicating with a worker.
+
+        Returns:
+            ``True`` when retrying the same turn is appropriate.
+
+        """
+        message = str(exc).lower()
+        deterministic = (
+            "credential environment variable",
+            "apikeyhelper",
+            "unknown worker operation",
+            "cannot load",
+        )
+        return not any(marker in message for marker in deterministic)
 
     async def close(self) -> None:
         """Close the worker gracefully, terminating it if shutdown stalls.
@@ -154,9 +231,15 @@ class HermesSession:
             try:
                 await self._write_to(process, {"op": "close"})
                 await asyncio.wait_for(process.wait(), timeout=5)
-            except (TimeoutError, BrokenPipeError):
-                process.terminate()
-                await process.wait()
+            except OSError:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=5)
+                except TimeoutError:
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(process.pid, signal.SIGKILL)
+                    await process.wait()
 
     async def _write(self, payload: dict[str, Any]) -> None:
         """Write a protocol message to the active worker.

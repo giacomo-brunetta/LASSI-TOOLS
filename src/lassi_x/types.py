@@ -79,6 +79,7 @@ class Candidate:
     correction_rounds: int = 0
     diagnostics: list[Diagnostic] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
+    turn_outcomes: list[dict[str, str | bool | int]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -103,6 +104,7 @@ class Measurement:
     output_precision: str
     latency_s: float | None = None
     min_s: float | None = None
+    worker_wall_s: float | None = None
     max_abs_error: float | None = None
     max_rel_error: float | None = None
     relative_l2: float | None = None

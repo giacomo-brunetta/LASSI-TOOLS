@@ -20,7 +20,7 @@ oracle:
     - -O0
     - -DPOLYBENCH_DUMP_ARRAYS
     - -include
-    - ../LASSI-X/examples/polybench-3mm/oracle_precision.h
+    - ../LASSI-TOOLS/examples/polybench-3mm/oracle_precision.h
     - "{reference}"
     - utilities/polybench.c
     - -Iutilities
@@ -92,5 +92,9 @@ measure:
 compensation:
   enabled: true
   correction_rounds: 2
+  error_threshold: 0.01
+  error_metric: max_rel_error
+  comparison_scope: same_candidate
+  measurement_scope: target
 
-runs_dir: ../LASSI-X/runs/polybench-3mm
+runs_dir: ../LASSI-TOOLS/runs/polybench-3mm

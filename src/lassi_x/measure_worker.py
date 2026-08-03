@@ -8,6 +8,7 @@ import json
 import statistics
 import time
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import torch
@@ -28,6 +29,7 @@ def main() -> int:
     parser.add_argument("--rtol", type=float, default=1e-3)
     parser.add_argument("--atol", type=float, default=1e-6)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--require-equivalence", action="store_true")
     parser.add_argument("--invariant")
     parser.add_argument("--invariant-threshold", type=float)
     args = parser.parse_args()
@@ -38,25 +40,51 @@ def main() -> int:
         kwargs = {"device": args.device, "dtype": dtype}
         if args.fixture and "fixture" in inspect.signature(module.build_inputs).parameters:
             kwargs["fixture"] = args.fixture
-        inputs = module.build_inputs(**kwargs)
-        model = module.make_model()
-        if hasattr(model, "eval"):
-            model.eval()
-        if hasattr(model, "to"):
-            model.to(args.device)
-        cuda = args.device.startswith("cuda")
-        with torch.no_grad():
-            output = model(*inputs)
-            tensors = output if isinstance(output, tuple) else (output,)
-            flat = np.concatenate(
+
+        def build_inputs() -> tuple[torch.Tensor, ...]:
+            built = module.build_inputs(**kwargs)
+            if not isinstance(built, tuple):
+                raise TypeError("build_inputs must return a tuple")
+            return cast("tuple[torch.Tensor, ...]", built)
+
+        def build_model() -> torch.nn.Module:
+            built = module.make_model()
+            if hasattr(built, "eval"):
+                built.eval()
+            if hasattr(built, "to"):
+                built.to(args.device)
+            return cast("torch.nn.Module", built)
+
+        def flatten(output: object) -> tuple[np.ndarray, tuple[torch.Tensor, ...]]:
+            values = output if isinstance(output, tuple) else (output,)
+            if not values or not all(isinstance(value, torch.Tensor) for value in values):
+                raise TypeError("forward must return a tensor or tuple of tensors")
+            tensors = tuple(values)
+            flat_output = np.concatenate(
                 [value.detach().double().cpu().numpy().reshape(-1) for value in tensors]
             )
+            return flat_output, tensors
+
+        model = build_model()
+        cuda = args.device.startswith("cuda")
+        with torch.no_grad():
+            torch.manual_seed(args.seed)
+            flat, tensors = flatten(model(*build_inputs()))
+            torch.manual_seed(args.seed)
+            repeated, _ = flatten(model(*build_inputs()))
+            if not np.array_equal(flat, repeated, equal_nan=True):
+                raise RuntimeError(
+                    "candidate is stateful or nondeterministic across identical fresh inputs"
+                )
+            # The purity probe may itself change model state. Start timing from a fresh model.
+            model = build_model()
             for _ in range(args.warmup):
-                model(*inputs)
+                model(*build_inputs())
             if cuda:
                 torch.cuda.synchronize()
             samples = []
             for _ in range(args.iterations):
+                inputs = build_inputs()
                 if cuda:
                     torch.cuda.synchronize()
                 start = time.perf_counter()
@@ -72,7 +100,11 @@ def main() -> int:
             atol=args.atol,
             max_mismatches=20,
         )
-        valid = diagnostic is None or diagnostic.gate == "equivalence"
+        valid = ok or (
+            not args.require_equivalence
+            and diagnostic is not None
+            and diagnostic.gate == "equivalence"
+        )
         precision = getattr(module, "LASSI_PRECISION", {}) or {}
         output_dtype = str(tensors[0].dtype).removeprefix("torch.")
         invariant_error = None

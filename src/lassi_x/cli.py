@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -322,6 +323,32 @@ def _groq_execute(request_path: Path, queue: Path, executor: list[str]) -> None:
     request_path.unlink(missing_ok=True)
 
 
+def _groq_heartbeat(queue: Path, stop: threading.Event, interval_s: float) -> None:
+    """Publish worker liveness until the owning command exits.
+
+    Args:
+        queue: Root directory of the filesystem queue.
+        stop: Event set by the worker's shutdown path.
+        interval_s: Maximum delay between heartbeat updates.
+
+    """
+    heartbeat = queue / "worker-heartbeat.json"
+    while not stop.is_set():
+        atomic_write(
+            heartbeat,
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "pid": os.getpid(),
+                    "updated_at": time.time(),
+                },
+                indent=2,
+            )
+            + "\n",
+        )
+        stop.wait(interval_s)
+
+
 def command_groq(args: argparse.Namespace) -> int:
     queue = args.queue_dir.resolve()
     if args.groq_command == "submit":
@@ -344,16 +371,34 @@ def command_groq(args: argparse.Namespace) -> int:
                 break
         emit("groq.status", {"ok": bool(states), **states}, json_output=args.json)
         return 0 if states else 1
-    while True:
-        claimed = _groq_claim(queue)
-        if claimed is None:
+    heartbeat_stop = threading.Event()
+    heartbeat = threading.Thread(
+        target=_groq_heartbeat,
+        args=(queue, heartbeat_stop, max(0.1, min(float(args.poll_s), 1.0))),
+        daemon=True,
+    )
+    heartbeat.start()
+    try:
+        while True:
+            claimed = _groq_claim(queue)
+            if claimed is None:
+                if args.once:
+                    break
+                time.sleep(args.poll_s)
+                continue
+            _groq_execute(claimed, queue, args.executor)
             if args.once:
                 break
-            time.sleep(args.poll_s)
-            continue
-        _groq_execute(claimed, queue, args.executor)
-        if args.once:
-            break
+    finally:
+        heartbeat_stop.set()
+        heartbeat.join(timeout=2)
+        heartbeat_path = queue / "worker-heartbeat.json"
+        try:
+            heartbeat_record = json.loads(heartbeat_path.read_text())
+            if int(heartbeat_record.get("pid", -1)) == os.getpid():
+                heartbeat_path.unlink(missing_ok=True)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            pass
     emit("groq.worker", {"ok": True, "queue_dir": str(queue)}, json_output=args.json)
     return 0
 

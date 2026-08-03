@@ -77,5 +77,12 @@ measure:
 compensation:
   enabled: true
   correction_rounds: 2
+  # Trigger compensation even when only one candidate survives. Domination is
+  # intentionally not compared across candidates, and variants are measured only
+  # in the backend/precision cell that motivated them.
+  error_threshold: 0.01
+  error_metric: max_rel_error
+  comparison_scope: same_candidate
+  measurement_scope: target
 
 runs_dir: runs

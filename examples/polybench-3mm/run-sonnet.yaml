@@ -1,11 +1,10 @@
 version: 1
 
-# This reproduction expects PolyBenchC-4.2.1 and LASSI-TOOLS to be sibling directories.
 project:
   root: ../../../PolyBenchC-4.2.1
 
 kernel:
-  name: polybench-3mm-mini
+  name: polybench-3mm-mini-sonnet
   reference: linear-algebra/kernels/3mm/3mm.c
   context:
     - linear-algebra/kernels/3mm/3mm.h
@@ -41,8 +40,6 @@ arena:
   correction_rounds: 2
   timeout_s: 600
   equivalence:
-    # FP64 candidates must match the high-fidelity C dump closely. Lower
-    # precisions are measured for error but are not subjected to this gate.
     rtol: 0.0000000001
     atol: 0.000000000001
     max_mismatches: 20
@@ -50,18 +47,18 @@ arena:
 models:
   planner:
     provider: custom
-    model: Claude Opus 4.8
+    model: Claude Sonnet 5
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     claude_settings: /home/gbrun/.claude/settings.json
   candidates:
     - provider: custom
-      model: GPT-4.1
+      model: Claude Sonnet 5
       base_url: https://apps.inside.anl.gov/argoapi/v1
       api_mode: chat_completions
       claude_settings: /home/gbrun/.claude/settings.json
     - provider: custom
-      model: Gemini 2.5 Pro
+      model: Claude Sonnet 5
       base_url: https://apps.inside.anl.gov/argoapi/v1
       api_mode: chat_completions
       claude_settings: /home/gbrun/.claude/settings.json
@@ -72,7 +69,7 @@ models:
       claude_settings: /home/gbrun/.claude/settings.json
   compensation:
     provider: custom
-    model: Claude Opus 4.7
+    model: Claude Sonnet 5
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     claude_settings: /home/gbrun/.claude/settings.json
@@ -100,5 +97,4 @@ compensation:
   comparison_scope: same_candidate
   measurement_scope: target
 
-# Resolved relative to the PolyBench project root.
 runs_dir: ../LASSI-TOOLS/runs/polybench-3mm

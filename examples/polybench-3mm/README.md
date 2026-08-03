@@ -22,12 +22,16 @@ rounding from dominating the measured FP16/BF16 error.
 Install and verify the Hermes skills, then run:
 
 ```bash
-cd /home/gbrun/LASSI-X
+cd /home/gbrun/LASSI-TOOLS
 pip install -e '.[dev]'
 lassi-x skills install
 lassi-x skills doctor
 lassi-x run examples/polybench-3mm/run.yaml
 ```
+
+Use `run-sonnet.yaml` to assign Claude Sonnet 5 to the planner, all three
+candidate sessions, and compensation role. `run-sol.yaml` provides the analogous
+all-GPT-5.6-Sol configuration.
 
 The example reuses `~/.claude/settings.json`: Hermes executes its
 `apiKeyHelper` and sends the resulting credential only to Argo's

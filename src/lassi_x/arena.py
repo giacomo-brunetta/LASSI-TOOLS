@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING, Any, cast
 
 from .hermes import HermesSession
-from .types import Candidate, Diagnostic, Status
+from .types import Candidate, Diagnostic, Status, Usage
 from .validation import OracleResult, validate_candidate
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 PLANNER_SYSTEM = """Role: senior scientific-computing architect and numerical-methods reviewer.
 
-Your job is to study an authoritative C/C++ scientific kernel and design three genuinely
+Your job is to study an authoritative C/C++ scientific kernel and design the requested number of
 different, implementation-ready strategies for translating it to PyTorch. Another engineer
 must be able to implement each strategy without guessing what you intended.
 
@@ -26,7 +26,7 @@ Planning responsibilities:
   boundary behavior, aliasing, and the order of live outputs.
 - Separate mathematical equivalence from implementation equivalence. Call out cases where
   reassociation, broadcasting, in-place updates, or dtype conversion could change results.
-- Make the three strategies materially different in operator structure or dataflow, such as
+- Make the strategies materially different in operator structure or dataflow, such as
   direct tensor operations, contraction notation, batching, or carefully composed modules.
   Renaming variables or making cosmetic syntax changes does not create a distinct strategy.
 - Keep every strategy feasible under the supplied module contract and suitable for later
@@ -140,8 +140,66 @@ def _parse_json(text: str) -> list[object] | dict[str, object]:
         raise original
 
 
+def _parse_strategies(text: str, expected_count: int) -> list[dict[str, object]]:
+    """Parse one unambiguous, schema-valid strategy array.
+
+    Unlike the generic recovery parser, this function does not guess by array size. A
+    response containing multiple plausible strategy arrays is rejected so the planner can
+    repair its output on the next turn.
+
+    Args:
+        text: Raw planner response.
+        expected_count: Number of strategy objects required by the arena.
+
+    Returns:
+        The unique array whose length and object schema match the request.
+
+    Raises:
+        ValueError: If no matching array exists or more than one is present.
+
+    """
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+    decoder = json.JSONDecoder()
+    decoded: list[object] = []
+    try:
+        decoded.append(decoder.decode(stripped))
+    except json.JSONDecodeError:
+        for match in re.finditer(r"[\[{]", stripped):
+            try:
+                value, _ = decoder.raw_decode(stripped, match.start())
+            except json.JSONDecodeError:
+                continue
+            decoded.append(value)
+    matches: list[list[dict[str, object]]] = []
+    fingerprints: set[str] = set()
+    for value in decoded:
+        if not isinstance(value, list) or len(value) != expected_count:
+            continue
+        if not all(
+            isinstance(item, dict)
+            and str(item.get("name") or "").strip()
+            and str(item.get("plan") or "").strip()
+            for item in value
+        ):
+            continue
+        fingerprint = json.dumps(value, sort_keys=True)
+        if fingerprint in fingerprints:
+            continue
+        fingerprints.add(fingerprint)
+        matches.append(cast("list[dict[str, object]]", value))
+    if len(matches) != 1:
+        raise ValueError(
+            f"expected one unambiguous array of {expected_count} strategy objects; "
+            f"found {len(matches)}"
+        )
+    return matches[0]
+
+
 async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str], dict[str, Any]]:
-    """Ask the planner model for exactly three translation strategies.
+    """Ask the planner model for the configured number of translation strategies.
 
     The raw planner response is saved before parsing so malformed model output remains
     available for diagnosis. Each accepted strategy is normalized into a name followed
@@ -152,29 +210,32 @@ async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str]
         workspace: Run directory used for the planner session and response artifact.
 
     Returns:
-        A pair containing three normalized strategy strings and the planner response
+        A pair containing normalized strategy strings and the planner response
         record with token and estimated-cost metadata.
 
     Raises:
-        json.JSONDecodeError: If the planner response contains no valid JSON.
-        ValueError: If the response is not exactly three well-formed strategy objects.
+        ValueError: If all attempts contain malformed or ambiguous strategy arrays.
 
     """
-    prompt = f"""Create exactly three materially distinct PyTorch translation strategies.
+    count = config.arena.candidates
+    prompt = f"""Create exactly {count} materially distinct PyTorch translation strategies.
 
 Kernel: {config.kernel.name}
 Task: {config.kernel.task}
 
-The implementations will be generated concurrently by three different configured models.
+The implementations will be generated concurrently by {count} configured model sessions.
 Every strategy must preserve initialization, operation semantics, output ordering, and
 the build_inputs(device, dtype) / make_model() module contract.
 
-Return a JSON array containing exactly three objects:
+Return a JSON array containing exactly {count} objects:
 [{{"name":"short name","plan":"complete self-contained implementation plan"}}, ...]
 
 Source context:
 {_source_context(config)}
 """
+    total_usage = Usage()
+    attempts: list[dict[str, Any]] = []
+    strategies: list[str] | None = None
     async with HermesSession(
         config.models.planner,
         cwd=workspace,
@@ -182,22 +243,49 @@ Source context:
         toolsets=["skills"],
         role="planner",
     ) as session:
-        turn = await session.send(prompt)
-    (workspace / "planner-response.txt").write_text(turn.text)
-    raw = _parse_json(turn.text)
-    if not isinstance(raw, list) or len(raw) != 3:
-        raise ValueError("Hermes planner must return exactly three strategy objects")
-    strategies = []
-    for index, item in enumerate(raw, 1):
-        if not isinstance(item, dict) or not str(item.get("plan") or "").strip():
-            raise ValueError(f"planner strategy {index} is malformed")
-        strategies.append(f"{item.get('name', f'candidate {index}')}\n{item['plan']}")
+        for attempt in range(config.arena.planner_format_retries + 1):
+            request = (
+                prompt
+                if attempt == 0
+                else (
+                    f"Your previous response was not one unambiguous JSON array of exactly {count} "
+                    "strategy objects with non-empty name and plan fields. Repair only the output "
+                    "shape. Return the complete JSON array and nothing else."
+                )
+            )
+            turn = await session.send(request)
+            total_usage.add(turn.usage)
+            outcome = {
+                "attempt": attempt,
+                "text": turn.text,
+                "completed": turn.completed,
+                "exit_reason": turn.exit_reason,
+                "agent_attempts": turn.attempts,
+            }
+            try:
+                raw = _parse_strategies(turn.text, count)
+            except ValueError as exc:
+                outcome["parse_error"] = str(exc)
+                attempts.append(outcome)
+                continue
+            attempts.append(outcome)
+            strategies = [
+                f"{item.get('name', f'candidate {index}')}\n{item['plan']}"
+                for index, item in enumerate(raw, 1)
+            ]
+            break
+    (workspace / "planner-responses.json").write_text(json.dumps(attempts, indent=2) + "\n")
+    if strategies is None:
+        raise ValueError(
+            f"Hermes planner did not return {count} valid strategies after {len(attempts)} attempts"
+        )
     return strategies, {
-        "text": turn.text,
+        "text": attempts[-1]["text"],
+        "attempts": attempts,
         "usage": {
-            "input_tokens": turn.usage.input_tokens,
-            "output_tokens": turn.usage.output_tokens,
-            "estimated_cost_usd": turn.usage.estimated_cost_usd,
+            "input_tokens": total_usage.input_tokens,
+            "output_tokens": total_usage.output_tokens,
+            "estimated_cost_usd": total_usage.estimated_cost_usd,
         },
     }
 
@@ -322,6 +410,13 @@ async def generate_candidate(
     try:
         turn = await session.send(_generation_prompt(config, candidate_id, strategy, target))
         candidate.usage.add(turn.usage)
+        candidate.turn_outcomes.append(
+            {
+                "completed": turn.completed,
+                "exit_reason": turn.exit_reason,
+                "attempts": turn.attempts,
+            }
+        )
         for attempt in range(config.arena.correction_rounds + 1):
             validation_dir = run_dir / "diagnostics" / candidate_id / f"attempt-{attempt}"
             validation_dir.mkdir(parents=True, exist_ok=True)
@@ -340,6 +435,13 @@ async def generate_candidate(
                 _repair_prompt(target, result.diagnostic.for_agent(), candidate.correction_rounds)
             )
             candidate.usage.add(turn.usage)
+            candidate.turn_outcomes.append(
+                {
+                    "completed": turn.completed,
+                    "exit_reason": turn.exit_reason,
+                    "attempts": turn.attempts,
+                }
+            )
     except Exception as exc:
         candidate.status = Status.CRASHED
         candidate.diagnostics.append(
@@ -355,7 +457,7 @@ async def run_arena(
     oracle: OracleResult,
     run_dir: Path,
 ) -> tuple[list[Candidate], dict[str, Any]]:
-    """Plan and execute the three-candidate translation arena.
+    """Plan and execute the configured multi-candidate translation arena.
 
     Planning completes first so each candidate receives a distinct strategy. Candidate
     sessions then run concurrently, while each session independently performs its own
@@ -367,7 +469,7 @@ async def run_arena(
         run_dir: Root artifact directory shared by planner and candidate workspaces.
 
     Returns:
-        The three completed candidate records and the auditable planner response record.
+        Completed candidate records and the auditable planner response record.
 
     Raises:
         json.JSONDecodeError: If the planner does not return decodable JSON.

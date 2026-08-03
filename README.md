@@ -1,7 +1,7 @@
 # LASSI-X
 
 LASSI-X is a clean Hermes-powered arena for translating scientific C/C++ kernels
-to PyTorch, repairing three independent candidates, compensating FP16/BF16 error,
+to PyTorch, repairing independently generated candidates, compensating FP16/BF16 error,
 and constructing latency-versus-error Pareto frontiers.
 
 The authoritative oracle is always the original C/C++ reference executed with
@@ -18,7 +18,7 @@ lassi-x skills doctor
 ```
 
 Configure Hermes providers and credentials with `hermes model`. LASSI-X pins
-`hermes-agent==0.19.0` and gives the planner, three candidates, and compensation
+`hermes-agent==0.19.0` and gives the planner, candidate arena, and compensation
 roles independent model selections.
 
 ## Development checks
@@ -59,18 +59,36 @@ runs/<timestamp>-<kernel>/
 ## Flow
 
 1. Build and execute the original C/C++ FP64 oracle.
-2. Ask a Hermes planner for exactly three materially distinct strategies.
-3. Generate the three candidates concurrently with separately configured models.
+2. Ask a Hermes planner for `arena.candidates` materially distinct strategies.
+3. Generate those candidates concurrently with separately configured models.
 4. Validate each against the C/C++ FP64 oracle and apply up to two repair turns.
 5. Measure passing candidates across configured backend and precision cells.
 6. Apply hardware-aware compensation to weak FP16/BF16 points.
 7. Gate compensation against the C/C++ FP64 oracle and base PyTorch FP32 behavior.
 8. Measure surviving variants and construct the Pareto frontier.
 
+Planner shape errors receive a bounded repair turn, and transient provider failures receive
+bounded exponential backoff according to each model's `turn_retries` and `retry_*` settings.
+Every Hermes turn also has a hard `turn_timeout_s` deadline. `models.candidates` must contain
+exactly `arena.candidates` model entries.
+
+Compensation defaults to points whose `max_rel_error` exceeds `error_threshold: 0.01`, even
+when only one candidate survives. Set `compensation.error_metric` to `relative_l2`,
+`max_abs_error`, or `invariant_error` when that is the scientifically relevant quantity.
+Peer domination is same-candidate by default; cross-candidate selection must be requested
+explicitly. Variants are measured only in their motivating cell unless `measurement_scope:
+all` is selected, and a variant that does not improve the targeted error is rejected.
+
 `kernel.invariant` is optional and uses `module:function` syntax. The function receives
 the flattened candidate and C-oracle NumPy arrays and returns either a scalar error or
 a dictionary containing an `error` field. Set `kernel.invariant_threshold` to make it a
 hard measurement gate.
+
+Torch backends share one timing semaphore by default, preventing CPU and CUDA measurements
+from perturbing each other through concurrent host-side work. Set
+`measure.serialize_torch_backends: false` only when throughput matters more than timing
+isolation. `latency_s` contains the warmed kernel median; `worker_wall_s` separately records
+cold subprocess startup, Torch/CUDA initialization, warmup, and measurement overhead.
 
 ## Hermes skills
 
@@ -99,6 +117,19 @@ On a Groq-connected host, use:
 lassi-x groq worker --queue-dir /shared/lassi-x-groq --executor \
   python /path/to/groq_executor.py --request-id '{request_id}' --module '{module_path}'
 ```
+
+The worker publishes a queue heartbeat. Pipeline submissions fail fast when it is absent or
+stale, and abandoned pending/running requests are converted to timeout completions after the
+backend's `stale_request_s` interval.
+
+## Trust boundary
+
+This is a trusted local research tool, not a sandbox. Hermes agents have file/terminal tools,
+and generated Python is imported and executed in subprocesses. Run only trusted configuration
+and source inputs, do not expose the runner as a network service, and use an external container
+or restricted account when stronger isolation is required. Child processes are isolated into
+process groups and cleaned up on handled timeout/shutdown; no in-process code can guarantee
+cleanup if the orchestrator itself receives `SIGKILL`.
 
 ## PolyBench 3mm reproduction
 

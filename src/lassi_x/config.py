@@ -42,13 +42,14 @@ class OracleConfig(StrictModel):
 
 
 class EquivalenceConfig(StrictModel):
-    rtol: float = 1e-3
-    atol: float = 1e-6
+    rtol: float = Field(default=1e-10, ge=0.0)
+    atol: float = Field(default=1e-12, ge=0.0)
     max_mismatches: int = 20
 
 
 class ArenaConfig(StrictModel):
-    candidates: Literal[3] = 3
+    candidates: int = Field(default=3, ge=1, le=10)
+    planner_format_retries: int = Field(default=1, ge=0, le=5)
     correction_rounds: int = Field(default=2, ge=0, le=10)
     timeout_s: float = 600.0
     equivalence: EquivalenceConfig = Field(default_factory=EquivalenceConfig)
@@ -63,6 +64,11 @@ class ModelConfig(StrictModel):
     claude_settings: Path | None = None
     max_tokens: int = Field(default=16_384, ge=256, le=131_072)
     max_iterations: int = Field(default=90, ge=1, le=500)
+    turn_timeout_s: float = Field(default=600.0, gt=0.0, le=7200.0)
+    turn_retries: int = Field(default=2, ge=0, le=10)
+    retry_initial_s: float = Field(default=1.0, ge=0.0, le=300.0)
+    retry_max_s: float = Field(default=30.0, ge=0.0, le=600.0)
+    retry_jitter_s: float = Field(default=0.25, ge=0.0, le=60.0)
 
     @model_validator(mode="after")
     def one_credential_source(self) -> ModelConfig:
@@ -78,9 +84,9 @@ class ModelsConfig(StrictModel):
 
     @field_validator("candidates")
     @classmethod
-    def exactly_three(cls, value: list[ModelConfig]) -> list[ModelConfig]:
-        if len(value) != 3:
-            raise ValueError("models.candidates must contain exactly three entries")
+    def nonempty_candidates(cls, value: list[ModelConfig]) -> list[ModelConfig]:
+        if not value:
+            raise ValueError("models.candidates must contain at least one entry")
         return value
 
 
@@ -99,6 +105,8 @@ class BackendConfig(StrictModel):
     queue_dir: Path | None = None
     precisions: list[Literal["fp64", "fp32", "fp16", "bf16"]]
     timeout_s: float = 600.0
+    healthcheck_max_age_s: float = Field(default=30.0, gt=0.0)
+    stale_request_s: float = Field(default=3600.0, gt=0.0)
     capabilities: BackendCapabilities | None = None
 
     @model_validator(mode="after")
@@ -117,17 +125,29 @@ def _default_precisions() -> list[Precision]:
     return ["fp64", "fp32", "fp16", "bf16"]
 
 
+def _default_strict_precisions() -> list[Precision]:
+    return ["fp64", "fp32"]
+
+
 class MeasureConfig(StrictModel):
     precisions: list[Precision] = Field(default_factory=_default_precisions)
     backends: list[BackendConfig]
     warmup: int = Field(default=3, ge=0)
     iterations: int = Field(default=20, ge=1)
     stochastic_seeds: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
+    strict_precisions: list[Precision] = Field(default_factory=_default_strict_precisions)
+    serialize_torch_backends: bool = True
 
 
 class CompensationConfig(StrictModel):
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
+    error_threshold: float | None = Field(default=1e-2, ge=0.0)
+    error_metric: Literal["max_rel_error", "relative_l2", "max_abs_error", "invariant_error"] = (
+        "max_rel_error"
+    )
+    comparison_scope: Literal["same_candidate", "cross_candidate"] = "same_candidate"
+    measurement_scope: Literal["target", "all"] = "target"
     techniques: list[str] = Field(
         default_factory=lambda: [
             "fp32-accumulate",
@@ -154,6 +174,15 @@ class RunConfig(StrictModel):
     measure: MeasureConfig
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
     runs_dir: Path = Path("runs")
+
+    @model_validator(mode="after")
+    def candidate_model_count_matches_arena(self) -> RunConfig:
+        if len(self.models.candidates) != self.arena.candidates:
+            raise ValueError(
+                "models.candidates length must equal arena.candidates "
+                f"({len(self.models.candidates)} != {self.arena.candidates})"
+            )
+        return self
 
     @classmethod
     def load(cls, path: Path) -> RunConfig:

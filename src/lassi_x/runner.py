@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import inspect
 import json
@@ -23,7 +24,8 @@ PRECISIONS = {
 
 
 def load_module(path: Path) -> ModuleType:
-    name = f"lassi_x_candidate_{abs(hash(path.resolve()))}"
+    identity = hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:20]
+    name = f"lassi_x_candidate_{identity}"
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot import candidate {path}")

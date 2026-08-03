@@ -13,6 +13,24 @@ from typing import Any
 PROTOCOL_STREAM = sys.stdout
 
 
+def scrub_sensitive(text: str, secrets: list[str]) -> str:
+    """Remove known credential values from worker diagnostics.
+
+    Args:
+        text: Exception or traceback text intended for the JSONL protocol.
+        secrets: Credential values resolved in the current worker.
+
+    Returns:
+        Diagnostic text with every non-empty secret replaced by a fixed marker.
+
+    """
+    scrubbed = text
+    for secret in secrets:
+        if secret:
+            scrubbed = scrubbed.replace(secret, "[REDACTED]")
+    return scrubbed
+
+
 def emit(payload: dict[str, Any]) -> None:
     """Write one response object to the worker's JSONL protocol stream.
 
@@ -94,6 +112,7 @@ def main() -> int:
     agent = None
     history: list[dict[str, Any]] | None = None
     previous_usage = (0, 0, 0.0)
+    secrets: list[str] = []
     for line in sys.stdin:
         try:
             request = json.loads(line)
@@ -104,6 +123,8 @@ def main() -> int:
                     from run_agent import AIAgent  # noqa: PLC0415
 
                     api_key = resolve_api_key(request)
+                    if api_key:
+                        secrets.append(api_key)
                     agent = AIAgent(
                         model=request["model"],
                         provider=request.get("provider"),
@@ -133,7 +154,9 @@ def main() -> int:
                         user_message=request["prompt"],
                         conversation_history=history,
                     )
-                history = result.get("messages") or history
+                failed = bool(result.get("failed", False))
+                if not failed:
+                    history = result.get("messages") or history
                 current = (
                     int(getattr(agent, "session_input_tokens", 0)),
                     int(getattr(agent, "session_output_tokens", 0)),
@@ -145,17 +168,30 @@ def main() -> int:
                     "estimated_cost_usd": max(0.0, current[2] - previous_usage[2]),
                 }
                 previous_usage = current
-                emit({"ok": True, "text": result.get("final_response", ""), "usage": usage})
+                payload = {
+                    "ok": not failed,
+                    "text": result.get("final_response", ""),
+                    "usage": usage,
+                    "completed": bool(result.get("completed", False)),
+                    "exit_reason": str(result.get("turn_exit_reason") or "unknown"),
+                }
+                if failed:
+                    payload["error"] = scrub_sensitive(
+                        str(result.get("error") or "Hermes conversation failed"), secrets
+                    )
+                emit(payload)
             elif op == "close":
                 break
             else:
                 raise ValueError(f"unknown worker operation: {op!r}")
         except BaseException as exc:  # worker must return a protocol error
+            error = scrub_sensitive(f"{type(exc).__name__}: {exc}", secrets)
+            trace = scrub_sensitive(traceback.format_exc()[-4000:], secrets)
             emit(
                 {
                     "ok": False,
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "traceback": traceback.format_exc()[-4000:],
+                    "error": error,
+                    "traceback": trace,
                 }
             )
     return 0

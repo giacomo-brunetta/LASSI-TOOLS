@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+import pytest
 import yaml
 
 import lassi_x.arena as arena
@@ -16,9 +16,6 @@ from lassi_x.validation import build_oracle
 from .test_config import minimal_config
 from .test_validation import BAD_MODULE, C_REFERENCE, GOOD_MODULE
 
-if TYPE_CHECKING:
-    import pytest
-
 
 def test_parse_json_extracts_array_from_model_commentary() -> None:
     text = (
@@ -29,6 +26,12 @@ def test_parse_json_extracts_array_from_model_commentary() -> None:
         {"name": "one", "plan": "do it"},
         {"name": "two", "plan": "do more"},
     ]
+
+
+def test_strategy_parser_rejects_two_plausible_arrays() -> None:
+    text = '[{"name":"example","plan":"example plan"}]\n[{"name":"real","plan":"real plan"}]'
+    with pytest.raises(ValueError, match="unambiguous"):
+        arena._parse_strategies(text, 1)
 
 
 def test_system_prompts_define_concrete_roles_without_project_branding() -> None:
@@ -90,6 +93,40 @@ class FakeHermesSession:
             assert "Correction round" in prompt
             target.write_text(GOOD_MODULE)
         return HermesTurn("done", Usage(input_tokens=1, output_tokens=1))
+
+
+class RepairingPlannerSession(FakeHermesSession):
+    async def send(self, prompt: str) -> HermesTurn:
+        self.turn += 1
+        if self.turn == 1:
+            return HermesTurn('[{"name":"only","plan":"one"}]', Usage())
+        assert "Repair only the output shape" in prompt
+        return HermesTurn(
+            json.dumps(
+                [
+                    {"name": "direct", "plan": "direct operations"},
+                    {"name": "vector", "plan": "vector operations"},
+                ]
+            ),
+            Usage(),
+        )
+
+
+def test_planner_repairs_configurable_strategy_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = minimal_config(tmp_path)
+    data["arena"] = {"candidates": 2, "planner_format_retries": 1}
+    data["models"]["candidates"].pop()
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+    config = RunConfig.load(config_path)
+    monkeypatch.setattr(arena, "HermesSession", RepairingPlannerSession)
+    strategies, record = asyncio.run(arena.plan_strategies(config, tmp_path))
+    assert len(strategies) == 2
+    assert len(record["attempts"]) == 2
+    assert "parse_error" in record["attempts"][0]
 
 
 def test_arena_generates_three_and_repairs_failures(

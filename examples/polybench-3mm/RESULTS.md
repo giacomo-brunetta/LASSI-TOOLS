@@ -67,6 +67,32 @@ run artifacts.
 To reproduce:
 
 ```bash
-cd /home/gbrun/LASSI-X
+cd /home/gbrun/LASSI-TOOLS
 lassi-x run examples/polybench-3mm/run.yaml
+```
+
+## Claude Sonnet 5 hardening run
+
+Run date: 2026-08-03
+
+Run artifact:
+`runs/polybench-3mm/20260803T163459.529976Z-polybench-3mm-mini-sonnet`
+
+The post-review pipeline completed successfully in 263.056 seconds with Claude
+Sonnet 5, through Argo, for the planner, all three candidates, and compensation
+role. The planner returned the requested shape on its first turn, and all three
+candidates passed the C FP64 gate without a correction turn. The run recorded
+24 base measurements: 18 were accepted and six FP32 cells were marked diverged
+under the new strict high-precision equivalence policy.
+
+The largest low-precision error was BF16 at `6.5346e-3`, below this reproduction's
+`1e-2` compensation threshold, so no compensation agent was needed. The sole
+global MINI frontier point was candidate 1 CPU FP64 at 5.65 µs and maximum
+relative error `3.7440e-16`. Cold worker startup and warmup took 1.02 seconds for
+that cell and are recorded separately as `worker_wall_s`.
+
+To reproduce the all-Sonnet run:
+
+```bash
+lassi-x run examples/polybench-3mm/run-sonnet.yaml
 ```

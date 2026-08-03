@@ -49,7 +49,7 @@ def minimal_config(tmp_path: Path) -> dict[str, Any]:
     }
 
 
-def test_load_config_requires_exactly_three_candidates(tmp_path: Path) -> None:
+def test_candidate_count_is_configurable_and_must_match_models(tmp_path: Path) -> None:
     data = minimal_config(tmp_path)
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(data))
@@ -57,8 +57,13 @@ def test_load_config_requires_exactly_three_candidates(tmp_path: Path) -> None:
     assert len(config.models.candidates) == 3
     data["models"]["candidates"].pop()
     path.write_text(yaml.safe_dump(data))
-    with pytest.raises(ValidationError, match="exactly three"):
+    with pytest.raises(ValidationError, match="length must equal arena.candidates"):
         RunConfig.load(path)
+    data["arena"] = {"candidates": 2}
+    path.write_text(yaml.safe_dump(data))
+    config = RunConfig.load(path)
+    assert config.arena.candidates == 2
+    assert len(config.models.candidates) == 2
 
 
 def test_backend_requirements(tmp_path: Path) -> None:

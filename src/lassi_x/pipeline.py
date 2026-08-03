@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import hashlib
+import json
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -14,7 +15,7 @@ from .artifacts import (
     write_json,
     write_resolved_config,
 )
-from .compensation import generate_compensation, select_weak_points
+from .compensation import CompensationVariant, generate_compensation, select_weak_points
 from .config import RunConfig
 from .measurement import (
     build_backends,
@@ -23,7 +24,7 @@ from .measurement import (
 )
 from .pareto import frontier_indices
 from .skills import AUTOMATION_SKILLS, install_root, require_automation_skills
-from .types import Status
+from .types import Diagnostic, Measurement, Status
 from .validation import build_oracle
 
 if TYPE_CHECKING:
@@ -42,13 +43,16 @@ def _skill_records() -> list[dict[str, str]]:
 
     """
     root = install_root()
+    manifest_path = root / ".lassi-x-manifest.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+    bundle_version = str(manifest.get("lassi_x_version") or "unknown")
     records = []
     for name in AUTOMATION_SKILLS:
         path = root / name / "SKILL.md"
         records.append(
             {
                 "name": name,
-                "version": "1.0.0",
+                "version": bundle_version,
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             }
         )
@@ -100,14 +104,63 @@ def _summary(record: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _reject_non_improving_variants(
+    config: RunConfig,
+    variants: list[CompensationVariant],
+    base_measurements: list[Measurement],
+    generated_measurements: list[Measurement],
+) -> None:
+    """Reject validated compensation that does not improve its targeted error.
+
+    Source-level and FP32-collapse gates cannot detect algebraic no-ops such as adding zero.
+    This final effect gate compares the configured error metric in the motivating cell and
+    prevents an unchanged numerical point from entering the Pareto frontier.
+
+    Args:
+        config: Run configuration selecting the compensation error metric.
+        variants: Validated compensation records to update in place.
+        base_measurements: Measurements that motivated compensation.
+        generated_measurements: Targeted measurements of validated variants.
+
+    """
+    base_by_cell = {
+        (point.candidate_id, point.backend, point.precision): point for point in base_measurements
+    }
+    generated_by_cell = {
+        (point.variant_id, point.backend, point.precision): point
+        for point in generated_measurements
+    }
+    metric = config.compensation.error_metric
+    for variant in variants:
+        if variant.status != Status.OK:
+            continue
+        base = base_by_cell.get((variant.candidate_id, variant.backend, variant.precision))
+        generated = generated_by_cell.get((variant.variant_id, variant.backend, variant.precision))
+        if base is None or generated is None or generated.status != Status.OK:
+            continue
+        base_error = getattr(base, metric)
+        generated_error = getattr(generated, metric)
+        if base_error is None or generated_error is None or generated_error < base_error:
+            continue
+        message = (
+            f"compensation did not improve targeted {metric}: "
+            f"base={base_error:.8e}, variant={generated_error:.8e}"
+        )
+        variant.status = Status.REJECTED
+        variant.diagnostics.append(Diagnostic(gate="compensation-effect", message=message))
+        generated.status = Status.REJECTED
+        generated.notes = f"{generated.notes}; {message}".strip("; ")
+
+
 async def run_pipeline(config_path: Path) -> tuple[int, Path]:
     """Execute the complete translation, correction, and measurement pipeline.
 
     The function is the top-level orchestration state machine. It creates one immutable
-    run directory, builds the authoritative C/C++ oracle, executes the three-candidate
+    run directory, builds the authoritative C/C++ oracle, executes the configured candidate
     arena, measures accepted candidates, compensates weak FP16/BF16 points, constructs
-    the Pareto frontier, and persists an auditable final record. Exceptions raised after
-    run-directory creation are converted into failure artifacts.
+    the Pareto frontier, and persists an auditable final record. Generated code executes
+    under a documented trusted-local boundary, never as a service sandbox. Exceptions raised
+    after run-directory creation are converted into failure artifacts.
 
     Args:
         config_path: YAML configuration defining the project, models, validation,
@@ -141,7 +194,7 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
         # Phase 1: build the independent semantic oracle from the original C/C++ source.
         oracle = await build_oracle(config, run_dir)
 
-        # Phase 2: plan three strategies, generate candidates concurrently, and repair
+        # Phase 2: plan the configured strategy count, generate candidates concurrently, and repair
         # each candidate until it passes FP64 validation or exhausts its correction budget.
         candidates, planner_record = await run_arena(config, oracle, run_dir)
         valid_candidates = [candidate for candidate in candidates if candidate.status == Status.OK]
@@ -164,7 +217,12 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
         # concurrently. Each variant runs its own sequential validation/repair loop.
         compensation_variants = []
         if config.compensation.enabled and valid_candidates:
-            weak = select_weak_points(base_measurements)
+            weak = select_weak_points(
+                base_measurements,
+                error_threshold=config.compensation.error_threshold,
+                error_metric=config.compensation.error_metric,
+                comparison_scope=config.compensation.comparison_scope,
+            )
             candidate_map = {candidate.candidate_id: candidate for candidate in valid_candidates}
             backend_map = {backend.name: backend for backend in config.measure.backends}
             compensation_variants = list(
@@ -194,11 +252,19 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
                 variant.variant_id,
                 variant.module_path,
                 variant.technique,
+                variant.backend,
+                variant.precision,
             )
             for variant in valid_compensation
         ]
         generated_measurements = await measure_compensation_variants(
             config, oracle, generated_specs, backends
+        )
+        _reject_non_improving_variants(
+            config,
+            valid_compensation,
+            base_measurements,
+            generated_measurements,
         )
         measurements = base_measurements + generated_measurements
 
@@ -223,6 +289,13 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
                 "reference_path": str(config.resolve_project_path(config.kernel.reference)),
                 "output_path": str(oracle.output_path),
                 "numel": int(oracle.values.size),
+            },
+            "security": {
+                "execution_mode": "trusted_local_unsandboxed",
+                "warning": (
+                    "Agent-authored Python and enabled terminal tools can execute arbitrary code; "
+                    "do not use untrusted configurations or expose this runner as a service."
+                ),
             },
             "skills": _skill_records(),
             "planner": planner_record,

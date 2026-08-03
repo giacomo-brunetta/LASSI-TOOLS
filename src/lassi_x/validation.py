@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
+import signal
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,11 +35,13 @@ async def _run(
         env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        start_new_session=True,
     )
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_s)
     except TimeoutError:
-        process.kill()
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGKILL)
         await process.wait()
         raise
     return (
@@ -106,17 +110,41 @@ async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
         "oracle_dir": str(oracle_dir),
     }
     build = _format_command(config.oracle.build, values)
-    code, build_out, build_err = await _run(
-        build, cwd=config.project.root, timeout_s=config.oracle.timeout_s
-    )
+    (oracle_dir / "build-command.json").write_text(json.dumps(build, indent=2) + "\n")
+    try:
+        code, build_out, build_err = await _run(
+            build, cwd=config.project.root, timeout_s=config.oracle.timeout_s
+        )
+    except TimeoutError as exc:
+        raise RuntimeError(
+            f"oracle build timed out after {config.oracle.timeout_s:g} seconds; "
+            f"command saved in {oracle_dir}"
+        ) from exc
+    (oracle_dir / "build.stdout").write_text(build_out)
+    (oracle_dir / "build.stderr").write_text(build_err)
     if code:
-        raise RuntimeError(f"oracle build failed ({code}): {build_err[-4000:]}")
+        raise RuntimeError(
+            f"oracle build failed ({code}); complete stdout/stderr saved in {oracle_dir}: "
+            f"{build_err[-4000:]}"
+        )
     run = _format_command(config.oracle.run, values)
-    code, run_out, run_err = await _run(
-        run, cwd=config.project.root, timeout_s=config.oracle.timeout_s
-    )
+    (oracle_dir / "run-command.json").write_text(json.dumps(run, indent=2) + "\n")
+    try:
+        code, run_out, run_err = await _run(
+            run, cwd=config.project.root, timeout_s=config.oracle.timeout_s
+        )
+    except TimeoutError as exc:
+        raise RuntimeError(
+            f"oracle execution timed out after {config.oracle.timeout_s:g} seconds; "
+            f"command saved in {oracle_dir}"
+        ) from exc
+    (oracle_dir / "run.stdout").write_text(run_out)
+    (oracle_dir / "run.stderr").write_text(run_err)
     if code:
-        raise RuntimeError(f"oracle execution failed ({code}): {run_err[-4000:]}")
+        raise RuntimeError(
+            f"oracle execution failed ({code}); complete stdout/stderr saved in {oracle_dir}: "
+            f"{run_err[-4000:]}"
+        )
     captured = None
     if config.oracle.capture == "stdout":
         captured = run_out
@@ -205,10 +233,11 @@ class ValidationResult:
     metrics: dict[str, float] | None = None
 
 
-def _runner_environment() -> dict[str, str]:
+def _runner_environment(config: RunConfig) -> dict[str, str]:
     env = os.environ.copy()
     package_root = str(Path(__file__).resolve().parents[1])
-    env["PYTHONPATH"] = package_root + os.pathsep + env.get("PYTHONPATH", "")
+    roots = [package_root, str(config.project.root)]
+    env["PYTHONPATH"] = os.pathsep.join(roots) + os.pathsep + env.get("PYTHONPATH", "")
     return env
 
 
@@ -241,9 +270,9 @@ async def execute_candidate(
     try:
         code, stdout, stderr = await _run(
             command,
-            cwd=config.project.root,
+            cwd=module_path.parent,
             timeout_s=config.arena.timeout_s,
-            env=_runner_environment(),
+            env=_runner_environment(config),
         )
     except TimeoutError:
         return None, "", Diagnostic(gate="runtime", message="candidate execution timed out")
@@ -279,9 +308,20 @@ async def validate_candidate(
             None,
         )
     command = [sys.executable, "-m", "py_compile", str(module_path)]
-    code, stdout, stderr = await _run(
-        command, cwd=config.project.root, timeout_s=config.arena.timeout_s
-    )
+    try:
+        code, stdout, stderr = await _run(
+            command, cwd=module_path.parent, timeout_s=config.arena.timeout_s
+        )
+    except TimeoutError:
+        return ValidationResult(
+            False,
+            Diagnostic(
+                gate="compile",
+                message="candidate Python byte-compilation timed out",
+                command=command,
+            ),
+            None,
+        )
     if code:
         return ValidationResult(
             False,

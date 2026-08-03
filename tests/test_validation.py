@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
+import numpy as np
 import yaml
 
+import lassi_x.validation as validation
 from lassi_x.config import RunConfig
 from lassi_x.validation import (
     build_oracle,
@@ -17,6 +19,8 @@ from .test_config import minimal_config
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pytest
 
 C_REFERENCE = r"""
 #include <stdio.h>
@@ -62,6 +66,8 @@ def _setup(tmp_path: Path) -> tuple[RunConfig, Path, Path]:
 def test_original_c_reference_is_authoritative(tmp_path: Path) -> None:
     config, good, bad = _setup(tmp_path)
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
+    assert (tmp_path / "run" / "oracle" / "build.stderr").is_file()
+    assert (tmp_path / "run" / "oracle" / "run.stderr").is_file()
     accepted = asyncio.run(validate_candidate(config, good, oracle, tmp_path / "good-artifacts"))
     rejected = asyncio.run(validate_candidate(config, bad, oracle, tmp_path / "bad-artifacts"))
     assert accepted.ok
@@ -86,3 +92,22 @@ def test_polybench_dump_parser_ignores_labels() -> None:
         "end   dump: G\n==END   DUMP_ARRAYS==\n"
     )
     assert values.tolist() == [1.0, 2.5]
+
+
+def test_compile_timeout_is_a_structured_diagnostic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, good, _ = _setup(tmp_path)
+    oracle_path = tmp_path / "oracle.npy"
+    oracle_path.write_bytes(b"")
+    oracle = validation.OracleResult(oracle_path, np.asarray([1.0, 2.0, 3.0]))
+
+    async def timeout(*_: object, **__: object) -> tuple[int, str, str]:
+        raise TimeoutError
+
+    monkeypatch.setattr(validation, "_run", timeout)
+    result = asyncio.run(validate_candidate(config, good, oracle, tmp_path / "artifacts"))
+    assert not result.ok
+    assert result.diagnostic is not None
+    assert result.diagnostic.gate == "compile"
+    assert "timed out" in result.diagnostic.message
