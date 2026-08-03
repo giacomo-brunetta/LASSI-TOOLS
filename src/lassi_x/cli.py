@@ -21,6 +21,7 @@ from . import __version__
 from .artifacts import atomic_write, write_json
 from .compensation import TECHNIQUE_SUMMARY
 from .config import RunConfig
+from .execution import ExecutionContext, LocalExecutionBackend
 from .measurement import build_backends
 from .pareto import frontier_indices
 from .pipeline import run_pipeline
@@ -34,6 +35,7 @@ from .types import Measurement, Status
 from .validation import (
     build_oracle,
     compare_outputs,
+    fixture_relative_path,
     load_reference_output,
     validate_candidate,
 )
@@ -176,7 +178,19 @@ async def _validate_command(args: argparse.Namespace) -> int:
     artifact_dir = args.artifact_dir.resolve()
     artifact_dir.mkdir(parents=True, exist_ok=True)
     oracle = await build_oracle(config, artifact_dir)
-    result = await validate_candidate(config, args.module.resolve(), oracle, artifact_dir)
+    module = args.module.resolve()
+    with tempfile.TemporaryDirectory(prefix="lassi-x-validate-") as temporary:
+        root = Path(temporary)
+        workspace_dir = root / "validate"
+        workspace_dir.mkdir()
+        shutil.copy2(module, workspace_dir / "candidate.py")
+        fixture = fixture_relative_path(config)
+        if fixture is not None and config.oracle.input_fixture is not None:
+            destination = workspace_dir / fixture
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(config.resolve_project_path(config.oracle.input_fixture), destination)
+        backend = LocalExecutionBackend(root, "cli")
+        result = await validate_candidate(config, backend, "validate", oracle, artifact_dir)
     emit(
         "validate.candidate",
         {
@@ -189,6 +203,38 @@ async def _validate_command(args: argparse.Namespace) -> int:
         json_output=args.json,
     )
     return 0 if result.ok else 1
+
+
+async def _execution_doctor_command(args: argparse.Namespace) -> int:
+    config = RunConfig.load(args.config)
+    with tempfile.TemporaryDirectory(prefix="lassi-x-doctor-") as temporary:
+        try:
+            context = await ExecutionContext.start(config, Path(temporary))
+        except Exception as exc:
+            emit(
+                "execution.doctor",
+                {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
+                json_output=args.json,
+            )
+            return 3
+        try:
+            reports = await context.handshakes()
+        finally:
+            await context.close()
+    emit(
+        "execution.doctor",
+        {
+            "ok": True,
+            "mode": config.execution.mode,
+            "default_resource": context.default_resource,
+            "resources": {
+                name: report.model_dump(mode="json", exclude={"schema_version"})
+                for name, report in reports.items()
+            },
+        },
+        json_output=args.json,
+    )
+    return 0
 
 
 async def _benchmark_command(args: argparse.Namespace) -> int:
@@ -399,6 +445,12 @@ def build_parser() -> argparse.ArgumentParser:
     candidate.add_argument("--artifact-dir", type=Path, required=True)
     candidate.add_argument("--json", action="store_true", default=True)
 
+    execution = sub.add_parser("execution")
+    execution_sub = execution.add_subparsers(dest="execution_command", required=True)
+    execution_doctor = execution_sub.add_parser("doctor")
+    execution_doctor.add_argument("--config", type=Path, required=True)
+    execution_doctor.add_argument("--json", action="store_true", default=True)
+
     benchmark = sub.add_parser("benchmark")
     benchmark_sub = benchmark.add_subparsers(dest="benchmark_command", required=True)
     bench_run = benchmark_sub.add_parser("run")
@@ -478,6 +530,8 @@ def main() -> int:
         return command_inspect(args)
     if args.command == "validate":
         return asyncio.run(_validate_command(args))
+    if args.command == "execution":
+        return asyncio.run(_execution_doctor_command(args))
     if args.command == "benchmark":
         return asyncio.run(_benchmark_command(args))
     if args.command == "precision":

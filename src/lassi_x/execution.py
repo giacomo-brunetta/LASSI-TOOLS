@@ -10,25 +10,26 @@ switching a run between local and remote execution changes transport only.
 
 from __future__ import annotations
 
+import base64
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
+from .protocol import MAX_INLINE_BYTES, FileGet, FilePut
 from .remote import ops
 
 if TYPE_CHECKING:
+    from concurrent.futures import Executor
     from pathlib import Path
 
     from academy.handle import Handle
 
-    from .config import RunConfig
+    from .config import ResourceConfig, RunConfig
     from .protocol import (
         DirListing,
         ExecRequest,
         ExecResult,
         FileContent,
-        FileGet,
-        FilePut,
         FileStat,
         HandshakeReport,
         ListDir,
@@ -38,6 +39,8 @@ if TYPE_CHECKING:
 
 class ExecutionBackend(ABC):
     """Workspace-confined execution and file operations on one resource."""
+
+    _cached_handshake: HandshakeReport | None = None
 
     @abstractmethod
     async def execute(self, request: ExecRequest) -> ExecResult:
@@ -58,6 +61,62 @@ class ExecutionBackend(ABC):
     @abstractmethod
     async def handshake(self) -> HandshakeReport:
         """Measure and report the executing host's capabilities."""
+
+    async def cached_handshake(self) -> HandshakeReport:
+        """Return the handshake, measuring it at most once per backend.
+
+        Returns:
+            The measured or previously cached handshake report.
+
+        """
+        if self._cached_handshake is None:
+            self._cached_handshake = await self.handshake()
+        return self._cached_handshake
+
+
+async def fetch_bytes(
+    backend: ExecutionBackend,
+    workspace: str,
+    path: str,
+    *,
+    chunk_size: int | None = None,
+) -> bytes:
+    """Fetch one workspace file of any size through chunked reads.
+
+    Args:
+        backend: Backend serving the workspace.
+        workspace: Workspace identifier.
+        path: Workspace-relative file path.
+        chunk_size: Maximum bytes per read; defaults to the inline limit.
+
+    Returns:
+        The complete file content.
+
+    Raises:
+        ValueError: If the path escapes the workspace.
+        OSError: If the file cannot be read on the executing side.
+
+    """
+    chunks: list[bytes] = []
+    offset = 0
+    while True:
+        content = await backend.get_file(
+            FileGet(
+                workspace=workspace,
+                path=path,
+                offset=offset,
+                max_bytes=chunk_size or MAX_INLINE_BYTES,
+            )
+        )
+        data = (
+            base64.b64decode(content.content)
+            if content.encoding == "base64"
+            else content.content.encode()
+        )
+        chunks.append(data)
+        offset += len(data)
+        if not content.truncated:
+            return b"".join(chunks)
 
 
 class LocalExecutionBackend(ExecutionBackend):
@@ -128,6 +187,34 @@ class AcademyExecutionBackend(ExecutionBackend):
         return await self.handle.handshake()
 
 
+def _resource_executor(name: str, spec: ResourceConfig) -> Executor:
+    """Build the executor that launches one resource's execution agent.
+
+    Args:
+        name: Resource name, used in error messages.
+        spec: Resource configuration.
+
+    Returns:
+        A Globus Compute executor for endpoint resources, otherwise a local
+        thread pool.
+
+    Raises:
+        RuntimeError: If an endpoint is configured but ``globus-compute-sdk``
+            is not installed.
+
+    """
+    if spec.endpoint_id is None:
+        return ThreadPoolExecutor(max_workers=4)
+    try:
+        from globus_compute_sdk import Executor as GlobusComputeExecutor  # noqa: PLC0415
+    except ImportError as exc:
+        raise RuntimeError(
+            f"resource {name!r} names Globus Compute endpoint {spec.endpoint_id} "
+            "but globus-compute-sdk is not installed; install lassi-x[globus]"
+        ) from exc
+    return GlobusComputeExecutor(spec.endpoint_id)  # type: ignore[no-any-return]
+
+
 class ExecutionContext:
     """Everything one run needs to fan tool calls out to its resources.
 
@@ -143,7 +230,7 @@ class ExecutionContext:
         *,
         backends: dict[str, ExecutionBackend],
         default_resource: str,
-        workspace_roots: dict[str, Path],
+        mirror_root: Path,
         mcp_timeout_s: float,
         hermes_home: Path | None = None,
     ) -> None:
@@ -152,8 +239,8 @@ class ExecutionContext:
         Args:
             backends: Execution backends keyed by resource name.
             default_resource: Resource used when a request names none.
-            workspace_roots: Local workspace root per resource, used to locate
-                workspace files on the harness side.
+            mirror_root: Harness-local directory holding the mirrored copy of
+                every workspace's artifacts of record.
             mcp_timeout_s: Per-tool-call timeout written into Hermes entries.
             hermes_home: Hermes home override for configuration registration.
 
@@ -162,7 +249,7 @@ class ExecutionContext:
 
         self.backends = backends
         self.default_resource = default_resource
-        self.workspace_roots = workspace_roots
+        self.mirror_root = mirror_root
         self.mcp_timeout_s = mcp_timeout_s
         self.hermes_home = hermes_home
         self.mcp = LassiMCPServer(backends, default_resource=default_resource)
@@ -182,8 +269,10 @@ class ExecutionContext:
 
         In ``academy`` mode one :class:`~lassi_x.remote.agent.ExecutionAgent`
         is launched per configured resource. Without an ``exchange_url`` the
-        agents run through a local exchange on this machine; Globus Compute
-        endpoints are wired in a later phase.
+        agents run through a local exchange on this machine; with one, the
+        manager connects to the remote (Globus-authenticated) exchange and
+        resources carrying an ``endpoint_id`` are launched onto their Globus
+        Compute endpoints.
 
         Args:
             config: Validated run configuration.
@@ -194,7 +283,8 @@ class ExecutionContext:
             A running context ready to register workspaces.
 
         Raises:
-            NotImplementedError: If ``execution.exchange_url`` is configured.
+            RuntimeError: If an endpoint resource is configured but the
+                ``globus-compute-sdk`` optional dependency is not installed.
 
         """
         from .config import ResourceConfig  # noqa: PLC0415
@@ -202,36 +292,43 @@ class ExecutionContext:
         execution = config.execution
         resources = execution.resources or {"local": ResourceConfig()}
         default_resource = execution.default_resource or next(iter(resources))
-        workspace_roots = {
-            name: (spec.workspace_root or run_dir / "workspaces")
-            for name, spec in resources.items()
-        }
+        mirror_root = run_dir / "workspaces"
         backends: dict[str, ExecutionBackend] = {}
         manager: object | None = None
         if execution.mode == "local":
             backends = {
-                name: LocalExecutionBackend(workspace_roots[name], name) for name in resources
+                name: LocalExecutionBackend(spec.workspace_root or mirror_root, name)
+                for name, spec in resources.items()
             }
         else:
-            if execution.exchange_url is not None:
-                raise NotImplementedError(
-                    "remote exchange execution is not wired yet; "
-                    "omit execution.exchange_url to use the local exchange"
-                )
             from academy.exchange import LocalExchangeFactory  # noqa: PLC0415
             from academy.handle import Handle  # noqa: PLC0415
             from academy.manager import Manager  # noqa: PLC0415
 
             from .remote.agent import ExecutionAgent  # noqa: PLC0415
 
-            manager = await Manager.from_exchange_factory(
-                factory=LocalExchangeFactory(),
-                executors={name: ThreadPoolExecutor(max_workers=4) for name in resources},
-            )
-            for name in resources:
+            executors: dict[str, Executor | None] = {
+                name: _resource_executor(name, spec) for name, spec in resources.items()
+            }
+            if execution.exchange_url is None:
+                manager = await Manager.from_exchange_factory(
+                    factory=LocalExchangeFactory(), executors=executors
+                )
+            else:
+                from academy.exchange.cloud.client import HttpExchangeFactory  # noqa: PLC0415
+
+                manager = await Manager.from_exchange_factory(
+                    factory=HttpExchangeFactory(
+                        execution.exchange_url,
+                        auth_method="globus" if execution.auth == "globus" else None,
+                    ),
+                    executors=executors,
+                )
+            for name, spec in resources.items():
+                agent_root = spec.workspace_root or mirror_root
                 launched = await manager.launch(
                     ExecutionAgent,
-                    args=(str(workspace_roots[name]), name),
+                    args=(str(agent_root), name),
                     executor=name,
                 )
                 # Bind the exchange client explicitly: backend calls happen in
@@ -243,7 +340,7 @@ class ExecutionContext:
         context = cls(
             backends=backends,
             default_resource=default_resource,
-            workspace_roots=workspace_roots,
+            mirror_root=mirror_root,
             mcp_timeout_s=execution.mcp_timeout_s,
             hermes_home=hermes_home,
         )
@@ -255,23 +352,90 @@ class ExecutionContext:
             raise
         return context
 
-    def workspace_dir(self, workspace: str, resource: str | None = None) -> Path:
-        """Locate one workspace on the harness-visible filesystem.
+    def workspace_dir(self, workspace: str) -> Path:
+        """Locate the harness-local mirror directory of one workspace.
 
-        Valid while execution runs on this machine (local mode or the local
-        exchange); once resources move behind remote endpoints, workspace
-        files must be fetched through the backend instead.
+        In local execution this is the workspace itself; for remote resources
+        it holds the mirrored artifacts of record fetched via
+        :meth:`mirror_file`.
 
         Args:
             workspace: Workspace identifier.
-            resource: Resource whose root to use; default resource if omitted.
 
         Returns:
-            The local workspace directory.
+            The local mirror directory.
 
         """
-        root = self.workspace_roots[resource or self.default_resource]
-        return root / workspace
+        return self.mirror_root / workspace
+
+    def backend(self, resource: str | None = None) -> ExecutionBackend:
+        """Resolve one execution backend.
+
+        Args:
+            resource: Resource name; default resource if omitted.
+
+        Returns:
+            The matching backend.
+
+        """
+        return self.backends[resource or self.default_resource]
+
+    async def stage_bytes(self, workspace: str, path: str, data: bytes) -> None:
+        """Write one file into a workspace on every resource.
+
+        Staging fans out to all resources so an agent may run commands against
+        the staged inputs on whichever machine it selects.
+
+        Args:
+            workspace: Workspace identifier.
+            path: Workspace-relative destination path.
+            data: File content.
+
+        Raises:
+            ValueError: If the payload exceeds the inline message limit.
+
+        """
+        encoded = base64.b64encode(data).decode()
+        if len(encoded) > 2 * MAX_INLINE_BYTES:
+            raise ValueError(
+                f"staged file {path!r} exceeds the inline transfer limit "
+                f"({len(data)} bytes); large fixtures need a transfer mechanism"
+            )
+        request = FilePut(workspace=workspace, path=path, content_b64=encoded)
+        for backend in self.backends.values():
+            await backend.put_file(request)
+
+    async def fetch_bytes(self, workspace: str, path: str, resource: str | None = None) -> bytes:
+        """Fetch one workspace file from a resource, chunking large files.
+
+        Args:
+            workspace: Workspace identifier.
+            path: Workspace-relative file path.
+            resource: Resource to fetch from; default resource if omitted.
+
+        Returns:
+            The complete file content.
+
+        """
+        return await fetch_bytes(self.backend(resource), workspace, path)
+
+    async def mirror_file(self, workspace: str, path: str, resource: str | None = None) -> Path:
+        """Copy one workspace file into the harness-local mirror directory.
+
+        Args:
+            workspace: Workspace identifier.
+            path: Workspace-relative file path.
+            resource: Resource to fetch from; default resource if omitted.
+
+        Returns:
+            The local mirrored file path.
+
+        """
+        data = await self.fetch_bytes(workspace, path, resource)
+        destination = self.workspace_dir(workspace) / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+        return destination
 
     def register_workspace(self, workspace: str) -> str:
         """Expose one workspace to Hermes as a header-pinned MCP toolset.

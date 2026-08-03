@@ -62,6 +62,26 @@ configured `execution` resources (in-process by default, Academy execution
 agents in `academy` mode), with each Hermes session pinned to its workspace by
 a connection header.
 
+## Remote execution
+
+In `academy` mode with an `exchange_url`, resources carrying a Globus Compute
+`endpoint_id` run on that endpoint: reference sources and fixtures are staged
+into remote workspaces over the wire, candidate validation executes the runner
+on the endpoint and fetches its output back, and validated modules are mirrored
+into `workspaces/` for local measurement. Install the extra and verify
+connectivity before a run:
+
+```bash
+pip install -e '.[globus]'
+lassi-x execution doctor --config my-run.yaml
+```
+
+The doctor launches one execution agent per resource and reports the measured
+host facts (accelerators, toolchain, torch and lassi-x versions) that also land
+in `run.json` provenance. The endpoint environment must pin the same `lassi-x`
+version as the harness. Oracle builds and latency measurement still run on the
+harness machine; moving measurement cells onto their resources is the next step.
+
 ## Flow
 
 1. Build and execute the original C/C++ FP64 oracle.

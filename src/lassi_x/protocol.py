@@ -284,10 +284,15 @@ class FileStat(WireModel):
 
 
 class FileGet(WireModel):
-    """Read one file from a remote workspace."""
+    """Read one file (or one chunk of it) from a remote workspace.
+
+    Files larger than ``max_bytes`` are fetched in chunks by advancing
+    ``offset`` until the response is no longer ``truncated``.
+    """
 
     workspace: WorkspaceName
     path: str
+    offset: int = Field(default=0, ge=0)
     max_bytes: int = Field(default=MAX_INLINE_BYTES, ge=1, le=MAX_INLINE_BYTES)
 
     @field_validator("path")
@@ -363,6 +368,7 @@ class HandshakeReport(WireModel):
     hostname: str
     platform: str
     python_version: str
+    python_executable: str
     lassi_x_version: str
     torch_version: str | None = None
     accelerators: list[AcceleratorInfo] = Field(default_factory=list)

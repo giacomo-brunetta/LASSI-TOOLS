@@ -79,12 +79,25 @@ compensation:
   correction_rounds: 2
 
 # Where agent tool calls and commands execute. The default (local) runs
-# everything in-process. "academy" launches one execution agent per resource;
-# remote Globus Compute endpoints are configured with exchange_url and
-# per-resource endpoint_id values.
+# everything in-process. "academy" launches one execution agent per resource:
+# resources without endpoint_id run on this machine over a local exchange;
+# resources with endpoint_id run on their Globus Compute endpoint, reached
+# through the Globus-authenticated cloud exchange. Endpoint resources need a
+# site-local workspace_root, and the endpoint environment must pin the same
+# lassi-x version. Verify connectivity with: lassi-x execution doctor --config run.yaml
 # execution:
 #   mode: academy
+#   exchange_url: https://exchange.academy-agents.org
+#   auth: globus
+#   default_resource: nvidia
 #   resources:
-#     local: {}
+#     nvidia:
+#       endpoint_id: 00000000-0000-0000-0000-000000000000
+#       workspace_root: /scratch/me/lassi-x
+#       labels: [cuda, h100]
+#     xpu:
+#       endpoint_id: 11111111-1111-1111-1111-111111111111
+#       workspace_root: /lus/me/lassi-x
+#       labels: [xpu, pvc]
 
 runs_dir: runs

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import yaml
 
 from lassi_x.config import RunConfig
+from lassi_x.execution import LocalExecutionBackend
 from lassi_x.validation import (
     build_oracle,
     scrape_polybench_dump,
@@ -48,34 +49,54 @@ def make_model():
 BAD_MODULE = GOOD_MODULE.replace("return x\n", "return x + 1\n")
 
 
-def _setup(tmp_path: Path) -> tuple[RunConfig, Path, Path]:
+def _setup(tmp_path: Path) -> tuple[RunConfig, LocalExecutionBackend]:
     (tmp_path / "tiny.c").write_text(C_REFERENCE)
-    good = tmp_path / "good.py"
-    bad = tmp_path / "bad.py"
-    good.write_text(GOOD_MODULE)
-    bad.write_text(BAD_MODULE)
+    root = tmp_path / "workspaces"
+    for workspace, module in (("good", GOOD_MODULE), ("bad", BAD_MODULE)):
+        (root / workspace).mkdir(parents=True)
+        (root / workspace / "candidate.py").write_text(module)
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(minimal_config(tmp_path)))
-    return RunConfig.load(config_path), good, bad
+    return RunConfig.load(config_path), LocalExecutionBackend(root, "test")
 
 
 def test_original_c_reference_is_authoritative(tmp_path: Path) -> None:
-    config, good, bad = _setup(tmp_path)
+    config, backend = _setup(tmp_path)
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
-    accepted = asyncio.run(validate_candidate(config, good, oracle, tmp_path / "good-artifacts"))
-    rejected = asyncio.run(validate_candidate(config, bad, oracle, tmp_path / "bad-artifacts"))
+    accepted = asyncio.run(
+        validate_candidate(config, backend, "good", oracle, tmp_path / "good-artifacts")
+    )
+    rejected = asyncio.run(
+        validate_candidate(config, backend, "bad", oracle, tmp_path / "bad-artifacts")
+    )
     assert accepted.ok
     assert not rejected.ok
     assert rejected.diagnostic is not None
     assert rejected.diagnostic.gate == "equivalence"
+    assert (tmp_path / "good-artifacts" / "fp64.npy").is_file()
+
+
+def test_missing_module_reports_write_gate(tmp_path: Path) -> None:
+    config, backend = _setup(tmp_path)
+    oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
+    result = asyncio.run(
+        validate_candidate(config, backend, "good", oracle, tmp_path / "a", module_name="nope.py")
+    )
+    assert not result.ok
+    assert result.diagnostic is not None
+    assert result.diagnostic.gate == "write"
 
 
 def test_fp32_self_consistency_does_not_replace_c_oracle(tmp_path: Path) -> None:
-    config, _, bad = _setup(tmp_path)
+    config, backend = _setup(tmp_path)
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
     # A biased module agrees with itself at FP32.
-    collapse = asyncio.run(validate_fp32_collapse(config, bad, bad, tmp_path / "collapse"))
-    authoritative = asyncio.run(validate_candidate(config, bad, oracle, tmp_path / "authoritative"))
+    collapse = asyncio.run(
+        validate_fp32_collapse(config, backend, "bad", "bad", tmp_path / "collapse")
+    )
+    authoritative = asyncio.run(
+        validate_candidate(config, backend, "bad", oracle, tmp_path / "authoritative")
+    )
     assert collapse.ok
     assert not authoritative.ok
 

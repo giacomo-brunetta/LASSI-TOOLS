@@ -23,7 +23,9 @@ import platform
 import shutil
 import socket
 import subprocess
+import sys
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from lassi_x.protocol import (
@@ -38,8 +40,6 @@ from lassi_x.protocol import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
 
 _TOOLCHAIN_PROBES = ("gcc", "g++", "clang", "nvcc", "icpx", "make", "cmake")
@@ -124,6 +124,10 @@ async def run_exec(root: Path, request: ExecRequest) -> ExecResult:
     cwd = workspace_dir if request.cwd is None else resolve_member(workspace_dir, request.cwd)
     cwd.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
+    # Guarantee this side's lassi_x installation is importable by executed
+    # commands (candidate runners, compensation modules using lassi_x.precision).
+    package_root = str(Path(__file__).resolve().parents[2])
+    env["PYTHONPATH"] = package_root + os.pathsep + env.get("PYTHONPATH", "")
     env.update(request.env)
     stdin_data = request.stdin_text.encode() if request.stdin_text is not None else None
     started = time.monotonic()
@@ -233,8 +237,9 @@ def get_file(root: Path, request: FileGet) -> FileContent:
     path = resolve_member(workspace_dir, request.path)
     size = path.stat().st_size
     with path.open("rb") as stream:
+        stream.seek(request.offset)
         data = stream.read(request.max_bytes)
-    truncated = size > len(data)
+    truncated = request.offset + len(data) < size
     try:
         content = data.decode()
         encoding: Literal["utf-8", "base64"] = "utf-8"
@@ -370,6 +375,7 @@ async def build_handshake(root: Path, resource: str | None) -> HandshakeReport:
         hostname=socket.gethostname(),
         platform=platform.platform(),
         python_version=platform.python_version(),
+        python_executable=sys.executable,
         lassi_x_version=__version__,
         torch_version=torch_version,
         accelerators=accelerators,

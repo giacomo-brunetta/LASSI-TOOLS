@@ -21,6 +21,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+globus = [
+  "globus-compute-sdk>=3.0",
+]
 dev = [
   "mypy>=1.10",
   "pytest>=8.3",
@@ -76,4 +79,8 @@ plugins = ["pydantic.mypy", "academy.mypy_plugin"]
 
 [[tool.mypy.overrides]]
 module = "run_agent"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "globus_compute_sdk"
 ignore_missing_imports = true

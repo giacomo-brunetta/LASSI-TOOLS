@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
+from .protocol import ExecRequest
 from .types import Diagnostic
 
 if TYPE_CHECKING:
     from .config import RunConfig
+    from .execution import ExecutionBackend
 
 
 def _format_command(command: list[str], values: dict[str, str]) -> list[str]:
@@ -205,53 +205,104 @@ class ValidationResult:
     metrics: dict[str, float] | None = None
 
 
-def _runner_environment() -> dict[str, str]:
-    env = os.environ.copy()
-    package_root = str(Path(__file__).resolve().parents[1])
-    env["PYTHONPATH"] = package_root + os.pathsep + env.get("PYTHONPATH", "")
-    return env
+def fixture_relative_path(config: RunConfig) -> str | None:
+    """Return the staged workspace-relative path of the oracle input fixture.
+
+    Args:
+        config: Validated run configuration.
+
+    Returns:
+        The path beneath ``reference/`` the fixture is staged at, or ``None``
+        when the run has no fixture.
+
+    """
+    if not config.oracle.input_fixture:
+        return None
+    return f"reference/{config.resolve_project_path(config.oracle.input_fixture).name}"
+
+
+async def _module_exists(backend: ExecutionBackend, workspace: str, module_name: str) -> bool:
+    """Check whether the agent produced its target module in the workspace.
+
+    Args:
+        backend: Backend serving the workspace.
+        workspace: Workspace identifier.
+        module_name: Workspace-relative module path.
+
+    Returns:
+        Whether the file exists.
+
+    """
+    from .protocol import ListDir  # noqa: PLC0415
+
+    try:
+        listing = await backend.list_dir(ListDir(workspace=workspace, path="."))
+    except Exception:  # noqa: BLE001  # remote errors mean "not observable"
+        return False
+    return any(entry.name == module_name and entry.kind == "file" for entry in listing.entries)
 
 
 async def execute_candidate(
     config: RunConfig,
-    module_path: Path,
+    backend: ExecutionBackend,
+    workspace: str,
+    module_name: str,
     *,
     precision: str,
     device: str,
     artifact_path: Path,
 ) -> tuple[np.ndarray | None, str, Diagnostic | None]:
+    """Run one candidate module through the runner on its execution backend.
+
+    The runner executes inside the workspace on the backend's resource and its
+    ``.npy`` output is fetched back into the local artifact directory, so the
+    numeric comparison itself always happens on the harness.
+
+    Args:
+        config: Validated run configuration.
+        backend: Backend serving the workspace.
+        workspace: Workspace identifier holding the module.
+        module_name: Workspace-relative module path.
+        precision: Requested computation precision.
+        device: Torch device string on the executing resource.
+        artifact_path: Local file that receives the fetched output array.
+
+    Returns:
+        The flattened FP64 output, the reported output dtype, and a diagnostic
+        when execution failed.
+
+    """
+    from .execution import fetch_bytes  # noqa: PLC0415
+
+    handshake = await backend.cached_handshake()
+    remote_output = f".lassi/{artifact_path.name}"
     command = [
-        sys.executable,
+        handshake.python_executable,
         "-m",
         "lassi_x.runner",
         "--module",
-        str(module_path),
+        module_name,
         "--device",
         device,
         "--precision",
         precision,
         "--output",
-        str(artifact_path),
+        remote_output,
     ]
-    if config.oracle.input_fixture:
-        command += [
-            "--fixture",
-            str(config.resolve_project_path(config.oracle.input_fixture)),
-        ]
-    try:
-        code, stdout, stderr = await _run(
-            command,
-            cwd=config.project.root,
-            timeout_s=config.arena.timeout_s,
-            env=_runner_environment(),
-        )
-    except TimeoutError:
+    fixture = fixture_relative_path(config)
+    if fixture is not None:
+        command += ["--fixture", fixture]
+    result = await backend.execute(
+        ExecRequest(workspace=workspace, argv=command, timeout_s=config.arena.timeout_s)
+    )
+    if result.timed_out:
         return None, "", Diagnostic(gate="runtime", message="candidate execution timed out")
+    stdout = result.stdout.strip()
     try:
-        payload = json.loads(stdout.strip().splitlines()[-1]) if stdout.strip() else {}
+        payload = json.loads(stdout.splitlines()[-1]) if stdout else {}
     except json.JSONDecodeError:
         payload = {}
-    if code or not payload.get("ok") or not artifact_path.exists():
+    if result.exit_code != 0 or not payload.get("ok"):
         return (
             None,
             "",
@@ -259,48 +310,84 @@ async def execute_candidate(
                 gate="runtime",
                 message=str(payload.get("error") or "candidate execution failed"),
                 command=command,
-                exit_code=code,
-                stderr=(stderr or stdout)[-4000:],
+                exit_code=result.exit_code,
+                stderr=(result.stderr or result.stdout)[-4000:],
             ),
         )
+    try:
+        data = await fetch_bytes(backend, workspace, remote_output)
+    except Exception as exc:  # noqa: BLE001  # remote fetch failures become diagnostics
+        return (
+            None,
+            "",
+            Diagnostic(
+                gate="runtime",
+                message=f"candidate output could not be retrieved: {exc}",
+                command=command,
+            ),
+        )
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    artifact_path.write_bytes(data)
     return np.load(artifact_path), str(payload.get("output_dtype") or ""), None
 
 
 async def validate_candidate(
     config: RunConfig,
-    module_path: Path,
+    backend: ExecutionBackend,
+    workspace: str,
     oracle: OracleResult,
     artifact_dir: Path,
+    *,
+    module_name: str = "candidate.py",
 ) -> ValidationResult:
-    if not module_path.is_file():
+    """Validate one candidate module against the authoritative C/C++ oracle.
+
+    Args:
+        config: Validated run configuration and equivalence tolerances.
+        backend: Backend serving the candidate workspace.
+        workspace: Workspace identifier holding the module.
+        oracle: Authoritative output produced from the original C/C++ reference.
+        artifact_dir: Local directory receiving execution artifacts.
+        module_name: Workspace-relative module path.
+
+    Returns:
+        The validation outcome with diagnostics and numeric metrics.
+
+    """
+    handshake = await backend.cached_handshake()
+    if not await _module_exists(backend, workspace, module_name):
         return ValidationResult(
             False,
-            Diagnostic(gate="write", message=f"candidate did not create {module_path}"),
+            Diagnostic(
+                gate="write",
+                message=f"candidate did not create {module_name} in workspace {workspace}",
+            ),
             None,
         )
-    command = [sys.executable, "-m", "py_compile", str(module_path)]
-    code, stdout, stderr = await _run(
-        command, cwd=config.project.root, timeout_s=config.arena.timeout_s
+    command = [handshake.python_executable, "-m", "py_compile", module_name]
+    compile_result = await backend.execute(
+        ExecRequest(workspace=workspace, argv=command, timeout_s=config.arena.timeout_s)
     )
-    if code:
+    if not compile_result.ok:
         return ValidationResult(
             False,
             Diagnostic(
                 gate="compile",
                 message="candidate failed Python byte-compilation",
                 command=command,
-                exit_code=code,
-                stderr=(stderr or stdout)[-4000:],
+                exit_code=compile_result.exit_code,
+                stderr=(compile_result.stderr or compile_result.stdout)[-4000:],
             ),
             None,
         )
-    output_path = artifact_dir / "fp64.npy"
     output, output_dtype, diagnostic = await execute_candidate(
         config,
-        module_path,
+        backend,
+        workspace,
+        module_name,
         precision="fp64",
         device="cpu",
-        artifact_path=output_path,
+        artifact_path=artifact_dir / "fp64.npy",
     )
     if diagnostic or output is None:
         return ValidationResult(False, diagnostic, None)
@@ -316,12 +403,33 @@ async def validate_candidate(
 
 async def validate_fp32_collapse(
     config: RunConfig,
-    base_module: Path,
-    compensated_module: Path,
+    backend: ExecutionBackend,
+    base_workspace: str,
+    compensated_workspace: str,
     artifact_dir: Path,
+    *,
+    base_module: str = "candidate.py",
+    compensated_module: str = "candidate.py",
 ) -> ValidationResult:
+    """Require compensation to reproduce the base algorithm at FP32.
+
+    Args:
+        config: Validated run configuration and equivalence tolerances.
+        backend: Backend serving both workspaces.
+        base_workspace: Workspace of the validated base candidate.
+        compensated_workspace: Workspace of the compensated variant.
+        artifact_dir: Local directory receiving execution artifacts.
+        base_module: Workspace-relative base module path.
+        compensated_module: Workspace-relative compensated module path.
+
+    Returns:
+        The validation outcome with diagnostics and numeric metrics.
+
+    """
     base, _, diagnostic = await execute_candidate(
         config,
+        backend,
+        base_workspace,
         base_module,
         precision="fp32",
         device="cpu",
@@ -331,6 +439,8 @@ async def validate_fp32_collapse(
         return ValidationResult(False, diagnostic, None)
     compensated, dtype, diagnostic = await execute_candidate(
         config,
+        backend,
+        compensated_workspace,
         compensated_module,
         precision="fp32",
         device="cpu",

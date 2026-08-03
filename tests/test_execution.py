@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import asyncio
 import base64
 import hashlib
+import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
@@ -13,14 +15,16 @@ from academy.manager import Manager
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
-from yaml import safe_load
+from yaml import safe_dump, safe_load
 
+from lassi_x.cli import _execution_doctor_command
 from lassi_x.config import RunConfig
 from lassi_x.execution import (
     AcademyExecutionBackend,
     ExecutionBackend,
     ExecutionContext,
     LocalExecutionBackend,
+    fetch_bytes,
 )
 from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
@@ -199,6 +203,43 @@ def test_execution_context_serves_and_cleans_up_registered_workspaces(tmp_path: 
         assert safe_load((home / "config.yaml").read_text()).get("mcp_servers") is None
 
     asyncio.run(run())
+
+
+def test_fetch_bytes_reassembles_chunked_reads(tmp_path: Path) -> None:
+    backend = LocalExecutionBackend(tmp_path)
+    payload = bytes(range(256)) * 40 + b"tail"
+    asyncio.run(
+        backend.put_file(
+            FilePut(
+                workspace="c1",
+                path="big.bin",
+                content_b64=base64.b64encode(payload).decode(),
+            )
+        )
+    )
+    fetched = asyncio.run(fetch_bytes(backend, "c1", "big.bin", chunk_size=1000))
+    assert fetched == payload
+
+
+def test_handshake_reports_python_executable(tmp_path: Path) -> None:
+    backend = LocalExecutionBackend(tmp_path, "here")
+    report = asyncio.run(backend.cached_handshake())
+    assert report.python_executable == sys.executable
+    assert asyncio.run(backend.cached_handshake()) is report
+
+
+def test_execution_doctor_reports_resources(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(safe_dump(minimal_config(tmp_path)))
+    args = argparse.Namespace(config=config_path, json=True)
+    code = asyncio.run(_execution_doctor_command(args))
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"]
+    assert payload["mode"] == "local"
+    assert payload["resources"]["local"]["python_executable"]
 
 
 def test_resolve_member_rejects_symlink_escape(tmp_path: Path) -> None:

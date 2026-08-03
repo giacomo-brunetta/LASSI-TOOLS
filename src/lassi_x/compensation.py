@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Measurement, Status, Usage
-from .validation import OracleResult, validate_candidate, validate_fp32_collapse
+from .validation import (
+    OracleResult,
+    fixture_relative_path,
+    validate_candidate,
+    validate_fp32_collapse,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -225,11 +229,18 @@ async def generate_compensation(
     """
     raw_slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
     slug = re.sub(r"[^A-Za-z0-9._-]", "-", raw_slug)
-    workspace = execution.workspace_dir(slug)
-    workspace.mkdir(parents=True, exist_ok=True)
+    mirror = execution.workspace_dir(slug)
+    mirror.mkdir(parents=True, exist_ok=True)
     toolset = execution.register_workspace(slug)
-    target = workspace / "candidate.py"
-    shutil.copy2(base.module_path, target)
+    target = mirror / "candidate.py"
+    await execution.stage_bytes(slug, "candidate.py", base.module_path.read_bytes())
+    fixture = fixture_relative_path(config)
+    if fixture is not None and config.oracle.input_fixture is not None:
+        await execution.stage_bytes(
+            slug,
+            fixture,
+            config.resolve_project_path(config.oracle.input_fixture).read_bytes(),
+        )
     allowed = [name for name in config.compensation.techniques if name in TECHNIQUE_SUMMARY]
     variant = CompensationVariant(
         candidate_id=base.candidate_id,
@@ -265,7 +276,7 @@ After editing and byte-compiling the target, return JSON only:
 """
     session = HermesSession(
         config.models.compensation,
-        cwd=workspace,
+        cwd=mirror,
         system_prompt=COMPENSATION_SYSTEM,
         toolsets=["skills", toolset],
         role=f"compensation-{slug}",
@@ -274,17 +285,23 @@ After editing and byte-compiling the target, return JSON only:
         turn = await session.send(prompt)
         variant.usage.add(turn.usage)
         variant.technique = _parse_technique(turn.text, allowed)
+        execution_backend = execution.backend()
         for attempt in range(config.compensation.correction_rounds + 1):
             diagnostic_dir = run_dir / "diagnostics" / "variants" / slug / f"attempt-{attempt}"
             diagnostic_dir.mkdir(parents=True, exist_ok=True)
-            external = await validate_candidate(config, target, oracle, diagnostic_dir)
+            external = await validate_candidate(
+                config, execution_backend, slug, oracle, diagnostic_dir
+            )
             collapse = (
-                await validate_fp32_collapse(config, base.module_path, target, diagnostic_dir)
+                await validate_fp32_collapse(
+                    config, execution_backend, base.candidate_id, slug, diagnostic_dir
+                )
                 if external.ok
                 else None
             )
             if external.ok and collapse is not None and collapse.ok:
                 variant.status = Status.OK
+                await execution.mirror_file(slug, "candidate.py")
                 break
             diagnostic = external.diagnostic or (collapse.diagnostic if collapse else None)
             if diagnostic is None:

@@ -162,6 +162,16 @@ class ExecutionConfig(StrictModel):
                 "resources with endpoint_id require execution.exchange_url "
                 f"(offending: {', '.join(sorted(endpoints))})"
             )
+        missing_roots = [
+            name
+            for name, spec in self.resources.items()
+            if spec.endpoint_id and spec.workspace_root is None
+        ]
+        if missing_roots:
+            raise ValueError(
+                "endpoint resources require a site-local workspace_root "
+                f"(offending: {', '.join(sorted(missing_roots))})"
+            )
         return self
 
 

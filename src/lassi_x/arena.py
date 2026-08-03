@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Status
-from .validation import OracleResult, validate_candidate
+from .validation import OracleResult, fixture_relative_path, validate_candidate
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -208,28 +208,34 @@ Source context:
     }
 
 
-def _stage_reference(config: RunConfig, workspace: Path) -> list[str]:
-    """Copy the reference kernel and context files into a candidate workspace.
+async def _stage_reference(
+    config: RunConfig, execution: ExecutionContext, workspace: str
+) -> list[str]:
+    """Stage the reference kernel, context files, and fixture into a workspace.
 
     With workspace-confined tools the agent cannot read project paths, so the
     authoritative sources are staged under ``reference/`` inside the workspace
-    before the session starts.
+    on every resource before the session starts.
 
     Args:
         config: Validated run configuration naming the reference and context files.
-        workspace: Candidate workspace directory.
+        execution: Running execution context serving the workspace.
+        workspace: Workspace identifier.
 
     Returns:
-        Workspace-relative paths of the staged files.
+        Workspace-relative paths of the staged source files.
 
     """
     staged = []
     for relative in [config.kernel.reference, *config.kernel.context]:
         source = config.resolve_project_path(relative)
-        destination = workspace / "reference" / source.name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(source.read_bytes())
-        staged.append(f"reference/{source.name}")
+        destination = f"reference/{source.name}"
+        await execution.stage_bytes(workspace, destination, source.read_bytes())
+        staged.append(destination)
+    fixture = fixture_relative_path(config)
+    if fixture is not None and config.oracle.input_fixture is not None:
+        source = config.resolve_project_path(config.oracle.input_fixture)
+        await execution.stage_bytes(workspace, fixture, source.read_bytes())
     return staged
 
 
@@ -255,9 +261,7 @@ def _generation_prompt(
 
     """
     fixture = (
-        str(config.resolve_project_path(config.oracle.input_fixture))
-        if config.oracle.input_fixture
-        else "none; reproduce the reference initialization exactly"
+        fixture_relative_path(config) or "none; reproduce the reference initialization exactly"
     )
     reference_lines = "\n".join(f"- {path}" for path in staged_reference)
     return f"""Implement arena candidate {candidate_id}.
@@ -274,6 +278,8 @@ Assigned strategy:
 
 Mandatory contract:
 - Write one complete Python module to candidate.py using write_file.
+- Write candidate.py on the default machine (omit the resource argument for write_file);
+  other machines are for exploration and scratch commands only.
 - Define build_inputs(device="cpu", dtype=torch.float64, fixture=None) returning a tuple.
 - Define make_model() returning torch.nn.Module.
 - forward(*inputs) returns a tensor or tuple of tensors in canonical reference order.
@@ -341,22 +347,21 @@ async def generate_candidate(
 
     """
     candidate_id = f"c{index}"
-    workspace = execution.workspace_dir(candidate_id)
-    workspace.mkdir(parents=True, exist_ok=True)
-    staged_reference = _stage_reference(config, workspace)
+    mirror = execution.workspace_dir(candidate_id)
+    mirror.mkdir(parents=True, exist_ok=True)
+    staged_reference = await _stage_reference(config, execution, candidate_id)
     toolset = execution.register_workspace(candidate_id)
-    target = workspace / "candidate.py"
     model = config.models.candidates[index - 1]
     candidate = Candidate(
         candidate_id=candidate_id,
         model=model.model,
         provider=model.provider,
         strategy=strategy,
-        module_path=target,
+        module_path=mirror / "candidate.py",
     )
     session = HermesSession(
         model,
-        cwd=workspace,
+        cwd=mirror,
         system_prompt=CANDIDATE_SYSTEM,
         toolsets=["skills", toolset],
         role=candidate_id,
@@ -366,12 +371,14 @@ async def generate_candidate(
             _generation_prompt(config, candidate_id, strategy, toolset, staged_reference)
         )
         candidate.usage.add(turn.usage)
+        backend = execution.backend()
         for attempt in range(config.arena.correction_rounds + 1):
             validation_dir = run_dir / "diagnostics" / candidate_id / f"attempt-{attempt}"
             validation_dir.mkdir(parents=True, exist_ok=True)
-            result = await validate_candidate(config, target, oracle, validation_dir)
+            result = await validate_candidate(config, backend, candidate_id, oracle, validation_dir)
             if result.ok:
                 candidate.status = Status.OK
+                await execution.mirror_file(candidate_id, "candidate.py")
                 break
             if result.diagnostic is None:
                 raise RuntimeError("validator failed without a diagnostic")
