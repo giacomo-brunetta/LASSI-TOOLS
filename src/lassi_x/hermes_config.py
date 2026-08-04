@@ -7,9 +7,11 @@ pinning a different workspace through the connection header, so a session that
 enables toolset ``lassi-x-c1`` can only ever touch workspace ``c1``.
 
 Entries are namespaced with the ``lassi-x-`` prefix and removed at the end of
-the run; nothing else in the user's configuration is touched. Concurrent runs
-sharing one Hermes home would race on these entries — use per-run
-``HERMES_HOME`` values to isolate them.
+the run; nothing else in the user's configuration is touched. When run memory
+is enabled the harness additionally sets ``memory.provider`` for the duration
+of the run and restores its previous value afterwards. Concurrent runs sharing
+one Hermes home would race on these entries — use per-run ``HERMES_HOME``
+values to isolate them.
 """
 
 from __future__ import annotations
@@ -149,6 +151,56 @@ def unregister_workspace_servers(
         data.pop("mcp_servers", None)
     atomic_write(path, yaml.safe_dump(data, sort_keys=True))
     return removed
+
+
+def enable_memory_provider(provider: str = "mem0", *, home: Path | None = None) -> str | None:
+    """Select an external memory-provider plugin in the Hermes configuration.
+
+    Hermes activates a memory plugin from the ``memory.provider`` key of
+    ``<hermes home>/config.yaml``; only that key is touched, so unrelated
+    ``memory`` settings (for example ``memory_enabled``) are preserved.
+
+    Args:
+        provider: Memory plugin name to activate.
+        home: Hermes home override; defaults to ``HERMES_HOME`` or ``~/.hermes``.
+
+    Returns:
+        The previous ``memory.provider`` value, or ``None`` if it was unset;
+        pass it to :func:`restore_memory_provider` at the end of the run.
+
+    """
+    path = _config_path(home)
+    data = _load(path)
+    memory = data.setdefault("memory", {})
+    if not isinstance(memory, dict):
+        raise TypeError(f"Hermes configuration key 'memory' in {path} is not a mapping")
+    previous = memory.get("provider")
+    memory["provider"] = provider
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write(path, yaml.safe_dump(data, sort_keys=True))
+    return previous
+
+
+def restore_memory_provider(previous: str | None, *, home: Path | None = None) -> None:
+    """Restore the ``memory.provider`` key changed by :func:`enable_memory_provider`.
+
+    Args:
+        previous: Value returned by :func:`enable_memory_provider`.
+        home: Hermes home override; defaults to ``HERMES_HOME`` or ``~/.hermes``.
+
+    """
+    path = _config_path(home)
+    data = _load(path)
+    memory = data.get("memory")
+    if not isinstance(memory, dict):
+        return
+    if previous is None:
+        memory.pop("provider", None)
+    else:
+        memory["provider"] = previous
+    if not memory:
+        data.pop("memory", None)
+    atomic_write(path, yaml.safe_dump(data, sort_keys=True))
 
 
 def registered_lassi_servers(home: Path | None = None) -> Mapping[str, Any]:

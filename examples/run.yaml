@@ -48,6 +48,14 @@ models:
     provider: nous
     model: openai/gpt-5.2
 
+# Optional long-term agent memory via a self-hosted Mem0 server
+# (see docker/mem0/README.md). Omit the section to keep memories off.
+# memory:
+#   enabled: true
+#   host: http://localhost:8888
+#   user_id: lassi-x
+#   # api_key_env: MEM0_API_KEY   # only when the server requires X-API-Key
+
 measure:
   precisions: [fp64, fp32, fp16, bf16]
   warmup: 3

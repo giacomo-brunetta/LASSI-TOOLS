@@ -108,6 +108,43 @@ def resolve_api_key(request: WorkerInit) -> str | None:
     return credential
 
 
+def configure_memory(request: WorkerInit) -> str | None:
+    """Point the Hermes mem0 plugin at the configured self-hosted server.
+
+    The plugin reads its settings from ``MEM0_*`` environment variables, so
+    setting them here scopes the configuration to this worker process and lets
+    each agent role carry its own ``agent_id``. ``MEM0_MODE`` is pinned so an
+    ambient ``oss``-mode environment cannot silently disable memory.
+
+    Args:
+        request: Worker initialization message with optional memory settings.
+
+    Returns:
+        The resolved server credential (for diagnostic scrubbing), or ``None``
+        when memory is disabled or the server needs no credential.
+
+    Raises:
+        RuntimeError: If the configured credential environment variable is unset.
+
+    """
+    if request.memory is None:
+        return None
+    api_key = None
+    if request.memory.api_key_env:
+        api_key = os.environ.get(request.memory.api_key_env, "").strip()
+        if not api_key:
+            raise RuntimeError(
+                f"memory credential environment variable {request.memory.api_key_env!r} is unset"
+            )
+    os.environ["MEM0_MODE"] = "platform"
+    os.environ["MEM0_HOST"] = request.memory.host
+    os.environ["MEM0_USER_ID"] = request.memory.user_id
+    os.environ["MEM0_AGENT_ID"] = request.memory.agent_id
+    if api_key:
+        os.environ["MEM0_API_KEY"] = api_key
+    return api_key
+
+
 def create_agent(request: WorkerInit, api_key: str | None) -> Any:
     """Construct a Hermes agent after registering configured MCP tools.
 
@@ -142,6 +179,11 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
         )
     from run_agent import AIAgent  # noqa: PLC0415
 
+    toolsets = list(request.toolsets)
+    if request.memory is not None and "memory" not in toolsets:
+        # Hermes exposes external memory-provider tools (mem0_search, mem0_add,
+        # ...) only when the "memory" toolset is enabled.
+        toolsets.append("memory")
     return AIAgent(
         model=request.model,
         provider=request.provider,
@@ -155,9 +197,9 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
         ),
         max_tokens=request.max_tokens,
         max_iterations=request.max_iterations,
-        enabled_toolsets=request.toolsets,
+        enabled_toolsets=toolsets,
         quiet_mode=True,
-        skip_memory=True,
+        skip_memory=request.memory is None,
         skip_context_files=True,
         save_trajectories=False,
         ephemeral_system_prompt=request.system_prompt,
@@ -195,6 +237,9 @@ def main() -> int:
                     api_key = resolve_api_key(request)
                     if api_key:
                         secrets.append(api_key)
+                    memory_key = configure_memory(request)
+                    if memory_key:
+                        secrets.append(memory_key)
                     agent = create_agent(request, api_key)
                 previous_usage = (
                     int(getattr(agent, "session_input_tokens", 0)),

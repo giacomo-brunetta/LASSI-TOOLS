@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from types import ModuleType
 from typing import TYPE_CHECKING
 
 import pytest
 
-from lassi_x.config import ModelConfig
+from lassi_x.config import MemoryConfig, ModelConfig
 from lassi_x.hermes import HermesSession
-from lassi_x.hermes_worker import create_agent, scrub_sensitive
+from lassi_x.hermes_worker import configure_memory, create_agent, scrub_sensitive
 from lassi_x.protocol import (
+    MemorySettings,
     TurnUsage,
     WireModel,
     WorkerFailure,
@@ -170,3 +172,111 @@ def test_agent_turn_timeout_closes_worker(tmp_path: Path) -> None:
     with pytest.raises(TimeoutError):
         asyncio.run(session.send("never finishes"))
     assert session.closed
+
+
+def test_session_memory_settings_carry_role_as_agent_id(tmp_path: Path) -> None:
+    memory = MemoryConfig(
+        enabled=True,
+        host="http://localhost:8888",
+        api_key_env="MEM0_API_KEY",
+        user_id="team",
+    )
+    session = HermesSession(
+        ModelConfig(model="test"),
+        cwd=tmp_path,
+        system_prompt="role",
+        toolsets=["skills"],
+        role="c2",
+        memory=memory,
+    )
+    settings = session._memory_settings()
+    assert settings == MemorySettings(
+        host="http://localhost:8888",
+        api_key_env="MEM0_API_KEY",
+        user_id="team",
+        agent_id="c2",
+    )
+
+
+def test_session_memory_disabled_or_absent_sends_no_settings(tmp_path: Path) -> None:
+    for memory in (None, MemoryConfig(enabled=False)):
+        session = HermesSession(
+            ModelConfig(model="test"),
+            cwd=tmp_path,
+            system_prompt="role",
+            toolsets=[],
+            role="planner",
+            memory=memory,
+        )
+        assert session._memory_settings() is None
+
+
+def test_configure_memory_exports_plugin_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("MEM0_MODE", "MEM0_HOST", "MEM0_USER_ID", "MEM0_AGENT_ID", "MEM0_API_KEY"):
+        monkeypatch.setenv(name, "stale")
+    monkeypatch.setenv("LASSI_MEM0_KEY", "memory-secret")
+    request = WorkerInit(
+        model="test",
+        role="c1",
+        memory=MemorySettings(
+            host="http://localhost:8888",
+            api_key_env="LASSI_MEM0_KEY",
+            user_id="lassi-x",
+            agent_id="c1",
+        ),
+    )
+    assert configure_memory(request) == "memory-secret"
+    assert os.environ["MEM0_MODE"] == "platform"
+    assert os.environ["MEM0_HOST"] == "http://localhost:8888"
+    assert os.environ["MEM0_USER_ID"] == "lassi-x"
+    assert os.environ["MEM0_AGENT_ID"] == "c1"
+    assert os.environ["MEM0_API_KEY"] == "memory-secret"
+
+
+def test_configure_memory_requires_named_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LASSI_MEM0_KEY", raising=False)
+    request = WorkerInit(
+        model="test",
+        role="c1",
+        memory=MemorySettings(
+            host="http://localhost:8888",
+            api_key_env="LASSI_MEM0_KEY",
+            user_id="lassi-x",
+            agent_id="c1",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="LASSI_MEM0_KEY"):
+        configure_memory(request)
+
+
+def test_configure_memory_is_inert_without_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MEM0_HOST", raising=False)
+    assert configure_memory(WorkerInit(model="test", role="c1")) is None
+    assert "MEM0_HOST" not in os.environ
+
+
+def test_worker_toggles_memory_layers_per_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    agent_kwargs: dict[str, object] = {}
+    fake_run_agent = ModuleType("run_agent")
+    fake_mcp_tool = ModuleType("tools.mcp_tool")
+
+    class FakeAgent:
+        def __init__(self, **kwargs: object) -> None:
+            agent_kwargs.update(kwargs)
+
+    fake_run_agent.AIAgent = FakeAgent  # type: ignore[attr-defined]
+    fake_mcp_tool.discover_mcp_tools = lambda: []  # type: ignore[attr-defined]
+    fake_mcp_tool.mcp_prefixed_tool_name = (  # type: ignore[attr-defined]
+        lambda server, tool: f"mcp__{server}__{tool}"
+    )
+    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "tools.mcp_tool", fake_mcp_tool)
+
+    memory = MemorySettings(host="http://localhost:8888", user_id="lassi-x", agent_id="planner")
+    create_agent(WorkerInit(model="test", role="planner", toolsets=["skills"], memory=memory), None)
+    assert agent_kwargs["skip_memory"] is False
+    assert agent_kwargs["enabled_toolsets"] == ["skills", "memory"]
+
+    create_agent(WorkerInit(model="test", role="planner", toolsets=["skills"]), None)
+    assert agent_kwargs["skip_memory"] is True
+    assert agent_kwargs["enabled_toolsets"] == ["skills"]

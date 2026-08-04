@@ -134,3 +134,28 @@ def test_claude_settings_credential_helper(tmp_path: Path) -> None:
     settings.write_text('{"apiKeyHelper": "printf test-credential"}')
     init = WorkerInit(model="planner", role="planner", claude_settings=str(settings))
     assert resolve_api_key(init) == "test-credential"
+
+
+def test_memory_defaults_off_and_configures_from_yaml(tmp_path: Path) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    assert not config.memory.enabled
+    assert config.memory.user_id == "lassi-x"
+    data = minimal_config(tmp_path)
+    data["memory"] = {
+        "enabled": True,
+        "host": "http://localhost:9999",
+        "api_key_env": "MEM0_API_KEY",
+        "user_id": "team-lp",
+    }
+    config = RunConfig.model_validate(data)
+    assert config.memory.enabled
+    assert config.memory.host == "http://localhost:9999"
+    assert config.memory.api_key_env == "MEM0_API_KEY"
+    assert config.memory.user_id == "team-lp"
+
+
+def test_memory_rejects_inline_credentials(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["memory"] = {"enabled": True, "api_key": "sk-inline-secret"}
+    with pytest.raises(ValidationError):
+        RunConfig.model_validate(data)

@@ -14,6 +14,7 @@ from lassi_x.protocol import (
     FileGet,
     FilePut,
     ListDir,
+    MemorySettings,
     TurnUsage,
     WorkerFailure,
     WorkerInit,
@@ -139,3 +140,32 @@ def test_worker_process_speaks_typed_protocol_for_errors_and_close() -> None:
     assert "ValidationError" in responses[0].error
     assert isinstance(responses[1], WorkerFailure)
     assert "worker has not been initialized" in responses[1].error
+
+
+def test_worker_init_memory_settings_round_trip() -> None:
+    init = WorkerInit(
+        model="gpt-x",
+        role="c1",
+        toolsets=["skills", "lassi-x-c1"],
+        memory=MemorySettings(
+            host="http://localhost:8888",
+            api_key_env="MEM0_API_KEY",
+            user_id="lassi-x",
+            agent_id="c1",
+        ),
+    )
+    parsed = parse_worker_request(init.model_dump_json())
+    assert parsed == init
+    assert isinstance(parsed, WorkerInit)
+    assert parsed.memory is not None
+    assert parsed.memory.agent_id == "c1"
+
+
+def test_worker_init_memory_rejects_credential_material() -> None:
+    with pytest.raises(ValidationError):
+        MemorySettings(
+            host="http://localhost:8888",
+            api_key="sk-secret",  # type: ignore[call-arg]
+            user_id="lassi-x",
+            agent_id="c1",
+        )

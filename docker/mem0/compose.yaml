@@ -1,0 +1,90 @@
+# This stack runs the self-hosted Mem0 OSS server that the Hermes mem0 memory
+# plugin talks to when LASSI-X runs with `memory.enabled: true`. The server is
+# built from the upstream mem0 repository (FastAPI `server/`), which exposes
+# the `/memories` and `/search` REST routes Hermes expects, backed by Postgres
+# with pgvector. Interpolated variables are read from `.env` in this directory
+# (copy `.env.example`).
+#
+# Fact extraction happens server-side with an LLM, so the server itself needs
+# a model credential (OPENAI_API_KEY by default) — this is independent of the
+# provider credentials used by the LASSI-X agents.
+
+name: lassi-x-mem0
+
+services:
+  mem0:
+    build:
+      # Build the production image straight from the upstream repository; the
+      # `:server` suffix roots the build context at the FastAPI server.
+      context: https://github.com/mem0ai/mem0.git#main:server
+    ports:
+      - "${MEM0_PORT:-8888}:8000"
+    # The production image does not run migrations; apply them before serving.
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MEM0_DEFAULT_LLM_MODEL=${MEM0_DEFAULT_LLM_MODEL:-gpt-5-mini}
+      - MEM0_DEFAULT_EMBEDDER_MODEL=${MEM0_DEFAULT_EMBEDDER_MODEL:-text-embedding-3-small}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mem0-local}
+      - POSTGRES_COLLECTION_NAME=memories
+      - APP_DB_NAME=mem0_app
+      # Local development default. Set AUTH_DISABLED=false plus ADMIN_API_KEY
+      # to require the X-API-Key header (mirror the key in memory.api_key_env).
+      - AUTH_DISABLED=${AUTH_DISABLED:-true}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-lassi-x-local-dev-secret}
+      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
+    volumes:
+      - mem0_history:/app/history
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: on-failure
+    shm_size: "128mb"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mem0-local}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d postgres -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+
+  # Optional web UI for browsing stored memories:
+  #   docker compose --profile dashboard up -d
+  mem0-dashboard:
+    profiles: ["dashboard"]
+    build:
+      context: https://github.com/mem0ai/mem0.git#main:server/dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:${MEM0_PORT:-8888}
+      - API_INTERNAL_URL=http://mem0:8000
+      - NEXT_PUBLIC_INSTANCE_NAME=LASSI-X Mem0
+    depends_on:
+      mem0:
+        condition: service_started
+
+volumes:
+  postgres_db:
+  mem0_history:

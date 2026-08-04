@@ -85,12 +85,30 @@ def _validate_relative_path(value: str) -> str:
 # --------------------------------------------------------------------------
 
 
+class MemorySettings(BaseModel):
+    """Mem0 memory-provider settings carried inside :class:`WorkerInit`.
+
+    ``api_key_env`` names an environment variable resolved on the executing
+    side; the credential itself never crosses the wire. It is optional because
+    a self-hosted Mem0 server may run with authentication disabled.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    host: str
+    api_key_env: str | None = None
+    user_id: str
+    agent_id: str
+
+
 class WorkerInit(WireModel):
     """Initialize one persistent Hermes agent inside a worker process.
 
     Credential fields name external sources only: ``api_key_env`` is resolved
     from the worker's own environment and ``claude_settings`` is a local
     settings file whose ``apiKeyHelper`` command produces the credential.
+    A present ``memory`` field enables the external Mem0 memory provider for
+    the agent; an absent one keeps every memory layer disabled.
     """
 
     op: Literal["init"] = "init"
@@ -108,6 +126,7 @@ class WorkerInit(WireModel):
     system_prompt: str | None = None
     toolsets: list[str] = Field(default_factory=list)
     role: str
+    memory: MemorySettings | None = None
 
 
 class WorkerSend(WireModel):

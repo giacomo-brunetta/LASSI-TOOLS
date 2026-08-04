@@ -13,8 +13,10 @@ from mcp.shared._httpx_utils import create_mcp_http_client
 
 from lassi_x.execution import LocalExecutionBackend
 from lassi_x.hermes_config import (
+    enable_memory_provider,
     register_workspace_servers,
     registered_lassi_servers,
+    restore_memory_provider,
     server_name,
     unregister_workspace_servers,
 )
@@ -142,3 +144,44 @@ def test_hermes_registration_round_trip_preserves_foreign_entries(tmp_path: Path
     data = yaml.safe_load((home / "config.yaml").read_text())
     assert set(data["mcp_servers"]) == {"github"}
     assert registered_lassi_servers(home) == {}
+
+
+def test_memory_provider_enable_and_restore_preserve_other_settings(tmp_path: Path) -> None:
+    home = tmp_path / "hermes"
+    home.mkdir()
+    (home / "config.yaml").write_text(
+        yaml.safe_dump({"default_model": "gpt-x", "memory": {"memory_enabled": True}})
+    )
+    previous = enable_memory_provider(home=home)
+    assert previous is None
+    data = yaml.safe_load((home / "config.yaml").read_text())
+    assert data["memory"]["provider"] == "mem0"
+    assert data["memory"]["memory_enabled"] is True
+    assert data["default_model"] == "gpt-x"
+
+    restore_memory_provider(previous, home=home)
+    data = yaml.safe_load((home / "config.yaml").read_text())
+    assert "provider" not in data["memory"]
+    assert data["memory"]["memory_enabled"] is True
+
+
+def test_memory_provider_restore_returns_prior_provider(tmp_path: Path) -> None:
+    home = tmp_path / "hermes"
+    home.mkdir()
+    (home / "config.yaml").write_text(yaml.safe_dump({"memory": {"provider": "honcho"}}))
+    previous = enable_memory_provider(home=home)
+    assert previous == "honcho"
+    assert yaml.safe_load((home / "config.yaml").read_text())["memory"]["provider"] == "mem0"
+
+    restore_memory_provider(previous, home=home)
+    assert yaml.safe_load((home / "config.yaml").read_text())["memory"]["provider"] == "honcho"
+
+
+def test_memory_provider_restore_removes_empty_section_in_fresh_home(tmp_path: Path) -> None:
+    home = tmp_path / "hermes"
+    previous = enable_memory_provider(home=home)
+    assert previous is None
+    assert yaml.safe_load((home / "config.yaml").read_text()) == {"memory": {"provider": "mem0"}}
+
+    restore_memory_provider(previous, home=home)
+    assert yaml.safe_load((home / "config.yaml").read_text()) == {}

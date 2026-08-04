@@ -370,6 +370,7 @@ class ExecutionContext:
         mirror_root: Path,
         mcp_timeout_s: float,
         hermes_home: Path | None = None,
+        enable_memory: bool = False,
     ) -> None:
         """Wire the context; use :meth:`start` instead of calling this directly.
 
@@ -380,6 +381,8 @@ class ExecutionContext:
                 every workspace's artifacts of record.
             mcp_timeout_s: Per-tool-call timeout written into Hermes entries.
             hermes_home: Hermes home override for configuration registration.
+            enable_memory: Whether to activate the Mem0 memory provider in the
+                Hermes configuration for the duration of the run.
 
         """
         from .mcp_server import LassiMCPServer, MCPServerRunner  # noqa: PLC0415
@@ -389,10 +392,13 @@ class ExecutionContext:
         self.mirror_root = mirror_root
         self.mcp_timeout_s = mcp_timeout_s
         self.hermes_home = hermes_home
+        self.enable_memory = enable_memory
         self.mcp = LassiMCPServer(backends, default_resource=default_resource)
         self.runner = MCPServerRunner(self.mcp)
         self.registered_servers: list[str] = []
         self._manager: object | None = None
+        self._memory_active = False
+        self._memory_previous: str | None = None
 
     @classmethod
     async def start(
@@ -488,10 +494,16 @@ class ExecutionContext:
             mirror_root=mirror_root,
             mcp_timeout_s=execution.mcp_timeout_s,
             hermes_home=hermes_home,
+            enable_memory=config.memory.enabled,
         )
         context._manager = manager
         try:
             await context.runner.start()
+            if context.enable_memory:
+                from .hermes_config import enable_memory_provider  # noqa: PLC0415
+
+                context._memory_previous = enable_memory_provider(home=context.hermes_home)
+                context._memory_active = True
         except BaseException:
             await context.close()
             raise
@@ -611,11 +623,18 @@ class ExecutionContext:
         (for example when the exchange is unreachable) is logged and
         suppressed so it never masks the error that ended the run.
         """
-        from .hermes_config import unregister_workspace_servers  # noqa: PLC0415
+        from .hermes_config import (  # noqa: PLC0415
+            restore_memory_provider,
+            unregister_workspace_servers,
+        )
 
         if self.registered_servers:
             unregister_workspace_servers(self.registered_servers, home=self.hermes_home)
             self.registered_servers = []
+        if self._memory_active:
+            restore_memory_provider(self._memory_previous, home=self.hermes_home)
+            self._memory_active = False
+            self._memory_previous = None
         await self.runner.stop()
         manager = self._manager
         self._manager = None

@@ -68,6 +68,27 @@ configured `execution` resources (in-process by default, Academy execution
 agents in `academy` mode), with each Hermes session pinned to its workspace by
 a connection header.
 
+## Agent memory (optional)
+
+Agents can store and recall long-term memories across runs through the Hermes
+mem0 memory provider, backed by a self-hosted [Mem0](https://github.com/mem0ai/mem0)
+server. Start the stack in [docker/mem0](docker/mem0/README.md) and add a
+`memory` section to the run config:
+
+```yaml
+memory:
+  enabled: true
+  host: http://localhost:8888
+  user_id: lassi-x
+```
+
+Memories are off by default; omitting the section (or `enabled: false`) keeps
+every memory layer disabled and agents behave exactly as before. When enabled,
+each role (`planner`, `c1`…`cN`, `compensation-*`) writes memories under its
+own Mem0 `agent_id` inside the shared `user_id` scope. Verify storage with
+`pytest -m mem0` (runs against the live stack) or the REST queries in the
+stack README.
+
 ## Remote execution
 
 > **Status: live-tested.** On August 3, 2026, the complete PolyBench 3mm flow ran

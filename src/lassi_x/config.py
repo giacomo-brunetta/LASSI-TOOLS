@@ -81,6 +81,22 @@ class ModelConfig(StrictModel):
         return self
 
 
+class MemoryConfig(StrictModel):
+    """Long-term agent memory backed by a self-hosted Mem0 server.
+
+    When enabled, every Hermes agent session gains the ``mem0_*`` tools and
+    stores facts on the configured server, scoped by ``user_id`` plus a
+    per-role agent identifier. ``api_key_env`` names the environment variable
+    holding the server API key; leave it unset for servers running with
+    ``AUTH_DISABLED``.
+    """
+
+    enabled: bool = False
+    host: str = "http://localhost:8888"
+    api_key_env: str | None = None
+    user_id: str = "lassi-x"
+
+
 class ModelsConfig(StrictModel):
     planner: ModelConfig
     candidates: list[ModelConfig]
@@ -248,6 +264,7 @@ class RunConfig(StrictModel):
     oracle: OracleConfig
     arena: ArenaConfig = Field(default_factory=ArenaConfig)
     models: ModelsConfig
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
     measure: MeasureConfig
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)

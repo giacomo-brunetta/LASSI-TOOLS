@@ -58,6 +58,7 @@ testpaths = ["tests"]
 markers = [
   "hardware: requires real accelerator hardware",
   "hermes: requires configured Hermes credentials",
+  "mem0: requires a running self-hosted Mem0 server (docker/mem0)",
 ]
 
 [tool.ruff]
@@ -95,4 +96,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "globus_compute_sdk"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "plugins.*"
 ignore_missing_imports = true

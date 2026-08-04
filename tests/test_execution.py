@@ -281,3 +281,24 @@ def test_resolve_member_rejects_symlink_escape(tmp_path: Path) -> None:
     (workspace / "link").symlink_to(outside)
     with pytest.raises(ValueError, match="escapes the workspace"):
         resolve_member(workspace, "link/file.txt")
+
+
+def test_execution_context_activates_and_restores_memory_provider(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["memory"] = {"enabled": True}
+    config = RunConfig.model_validate(data)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    home = tmp_path / "hermes"
+    home.mkdir()
+    (home / "config.yaml").write_text(safe_dump({"memory": {"provider": "honcho"}}))
+
+    async def run() -> None:
+        context = await ExecutionContext.start(config, run_dir, hermes_home=home)
+        try:
+            assert safe_load((home / "config.yaml").read_text())["memory"]["provider"] == "mem0"
+        finally:
+            await context.close()
+        assert safe_load((home / "config.yaml").read_text())["memory"]["provider"] == "honcho"
+
+    asyncio.run(run())

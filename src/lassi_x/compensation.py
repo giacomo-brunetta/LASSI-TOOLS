@@ -382,6 +382,7 @@ After editing and byte-compiling the target, return JSON only:
         system_prompt=COMPENSATION_SYSTEM,
         toolsets=["skills", toolset],
         role=f"compensation-{slug}",
+        memory=config.memory,
     )
     try:
         turn = await session.send(prompt)

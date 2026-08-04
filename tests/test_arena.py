@@ -53,8 +53,9 @@ class FakeHermesSession:
         system_prompt: str,
         toolsets: list[str],
         role: str,
+        memory: object | None = None,
     ) -> None:
-        del model, system_prompt, toolsets
+        del model, system_prompt, toolsets, memory
         self.cwd = Path(cwd)
         self.role = role
         self.turn = 0

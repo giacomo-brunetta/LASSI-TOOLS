@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from .protocol import (
+    MemorySettings,
     WireModel,
     WorkerClose,
     WorkerFailure,
@@ -26,7 +27,7 @@ from .protocol import (
 from .types import Usage
 
 if TYPE_CHECKING:
-    from .config import ModelConfig
+    from .config import MemoryConfig, ModelConfig
 
 
 @dataclass(slots=True)
@@ -60,6 +61,7 @@ class HermesSession:
         system_prompt: str,
         toolsets: list[str],
         role: str,
+        memory: MemoryConfig | None = None,
     ) -> None:
         """Configure a lazy persistent agent session.
 
@@ -69,6 +71,9 @@ class HermesSession:
             system_prompt: Stable role and behavioral instructions for the agent.
             toolsets: Hermes toolset names enabled for the session.
             role: Human-readable role identifier used for auditability.
+            memory: Mem0 memory settings; the session stays memoryless when
+                ``None`` or disabled. The role becomes the Mem0 agent
+                identifier so stored facts are attributable per agent.
 
         """
         self.model = model
@@ -76,6 +81,7 @@ class HermesSession:
         self.system_prompt = system_prompt
         self.toolsets = toolsets
         self.role = role
+        self.memory = memory
         self._process: asyncio.subprocess.Process | None = None
 
     async def start(self) -> None:
@@ -125,6 +131,7 @@ class HermesSession:
                 system_prompt=self.system_prompt,
                 toolsets=self.toolsets,
                 role=self.role,
+                memory=self._memory_settings(),
             )
         )
         response = await self._read()
@@ -134,6 +141,23 @@ class HermesSession:
         if not isinstance(response, WorkerReady):
             await self.close()
             raise RuntimeError(f"unexpected worker initialization response: {response.kind}")
+
+    def _memory_settings(self) -> MemorySettings | None:
+        """Build the wire memory settings for this session's role.
+
+        Returns:
+            Settings carrying the session role as the Mem0 agent identifier,
+            or ``None`` when run memory is absent or disabled.
+
+        """
+        if self.memory is None or not self.memory.enabled:
+            return None
+        return MemorySettings(
+            host=self.memory.host,
+            api_key_env=self.memory.api_key_env,
+            user_id=self.memory.user_id,
+            agent_id=self.role,
+        )
 
     async def send(self, prompt: str) -> HermesTurn:
         """Send one user prompt through the persistent agent conversation.

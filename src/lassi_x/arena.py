@@ -250,6 +250,7 @@ Source context:
         system_prompt=PLANNER_SYSTEM,
         toolsets=["skills"],
         role="planner",
+        memory=config.memory,
     ) as session:
         for attempt in range(config.arena.planner_format_retries + 1):
             request = (
@@ -460,6 +461,7 @@ async def generate_candidate(
         system_prompt=CANDIDATE_SYSTEM,
         toolsets=["skills", toolset],
         role=candidate_id,
+        memory=config.memory,
     )
     try:
         turn = await session.send(
