@@ -370,6 +370,8 @@ Choose one primary technique suited to the failure and backend. Edit the target 
 Import reusable arithmetic from lassi_x.precision where applicable. Update the module's
 LASSI_PRECISION metadata honestly. High-precision behavior must remain equivalent to the
 original C/C++ reference and the compensation must collapse to the base behavior at FP32.
+Preserve support for both the `{config.kernel.validation_dataset}` accuracy dataset and
+the `{config.measure.performance_dataset}` performance dataset.
 
 After editing and byte-compiling the target, return JSON only:
 {{"technique":"one allowed name","summary":"what changed"}}

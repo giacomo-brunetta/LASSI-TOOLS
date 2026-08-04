@@ -81,6 +81,7 @@ def test_worker_discovers_mcp_tools_before_constructing_agent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     events: list[str] = []
+    agent_kwargs: dict[str, object] = {}
     fake_run_agent = ModuleType("run_agent")
     fake_mcp_tool = ModuleType("tools.mcp_tool")
 
@@ -92,7 +93,8 @@ def test_worker_discovers_mcp_tools_before_constructing_agent(
         return f"mcp__{server.replace('-', '_')}__{tool}"
 
     class FakeAgent:
-        def __init__(self, **_: object) -> None:
+        def __init__(self, **kwargs: object) -> None:
+            agent_kwargs.update(kwargs)
             events.append("construct")
 
     fake_run_agent.AIAgent = FakeAgent  # type: ignore[attr-defined]
@@ -101,9 +103,15 @@ def test_worker_discovers_mcp_tools_before_constructing_agent(
     monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
     monkeypatch.setitem(sys.modules, "tools.mcp_tool", fake_mcp_tool)
 
-    request = WorkerInit(model="test", role="candidate", toolsets=["lassi-x-c1"])
+    request = WorkerInit(
+        model="test",
+        role="candidate",
+        toolsets=["lassi-x-c1"],
+        reasoning_effort="xhigh",
+    )
     assert isinstance(create_agent(request, None), FakeAgent)
     assert events == ["discover", "construct"]
+    assert agent_kwargs["reasoning_config"] == {"enabled": True, "effort": "xhigh"}
 
 
 def test_worker_rejects_missing_workspace_tools(monkeypatch: pytest.MonkeyPatch) -> None:

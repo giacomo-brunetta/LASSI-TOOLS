@@ -16,7 +16,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .protocol import MAX_INLINE_BYTES, ExecRequest, FileGet, FilePut
 from .remote import ops
@@ -51,6 +51,30 @@ for part in parts:
     part.unlink()
 parts[0].parent.rmdir()
 """
+
+
+def _disable_academy_stream_deadline(transport: Any) -> None:
+    """Remove aiohttp's total deadline from Academy's long-lived SSE stream.
+
+    Academy 0.4 creates its HTTP session with aiohttp's five-minute default
+    total timeout. That deadline also covers the hosted exchange's event
+    stream, so a healthy multi-minute run can silently lose its response
+    listener. The hosted exchange currently requires Academy 0.4; adjust each
+    new transport before the listener starts while retaining explicit timeout
+    limits on individual LASSI-X operations.
+
+    Args:
+        transport: Newly created Academy HTTP exchange transport.
+
+    """
+    import aiohttp  # noqa: PLC0415
+
+    transport._session._timeout = aiohttp.ClientTimeout(  # noqa: SLF001
+        total=None,
+        sock_connect=60,
+        sock_read=None,
+    )
+
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
@@ -430,8 +454,16 @@ class ExecutionContext:
             else:
                 from academy.exchange.cloud.client import HttpExchangeFactory  # noqa: PLC0415
 
+                class PersistentHttpExchangeFactory(HttpExchangeFactory):
+                    """Create hosted-exchange transports safe for long pipelines."""
+
+                    async def _create_transport(self, *args: Any, **kwargs: Any) -> Any:
+                        transport = await super()._create_transport(*args, **kwargs)
+                        _disable_academy_stream_deadline(transport)
+                        return transport
+
                 manager = await Manager.from_exchange_factory(
-                    factory=HttpExchangeFactory(
+                    factory=PersistentHttpExchangeFactory(
                         execution.exchange_url,
                         auth_method="globus" if execution.auth == "globus" else None,
                     ),

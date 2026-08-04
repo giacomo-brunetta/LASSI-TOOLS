@@ -1,0 +1,103 @@
+schema_version: 1
+suite: lassi-x-paper-scientific-polybench
+datasets:
+  accuracy: mini
+  performance: extralarge
+sources:
+  polybench:
+    title: PolyBench/C 4.2.1 beta
+    upstream: https://www.cs.colostate.edu/~pouchet/software/polybench/
+    repository: https://github.com/MatthiasJReisinger/PolyBenchC-4.2.1
+    commit: 3e872547cef7e5c9909422ef1e6af03cf4e56072
+  scientific:
+    title: LASSI scientific PolyBench-conformant additions
+    repository: https://github.com/giacomo-brunetta/LASSI-TOOLS
+    commit: 32f56a571e91572ca94d15017279a3af37d5b68c
+models:
+  - id: gpt-5.6-sol-xhigh
+    endpoint_model: GPT-5.6 Sol
+    reasoning_effort: xhigh
+  - id: claude-opus-5-xhigh
+    endpoint_model: Claude Opus 5
+    reasoning_effort: xhigh
+kernels:
+  - id: gemm
+    family: polybench
+    reference: linear-algebra/blas/gemm/gemm.c
+    header: linear-algebra/blas/gemm/gemm.h
+    mini: NI=20, NJ=25, NK=30
+    extralarge: NI=2000, NJ=2300, NK=2600
+    live_out: C
+    task: Perform the reference GEMM update C = beta*C + alpha*A@B.
+  - id: 3mm
+    family: polybench
+    reference: linear-algebra/kernels/3mm/3mm.c
+    header: linear-algebra/kernels/3mm/3mm.h
+    mini: NI=16, NJ=18, NK=20, NL=22, NM=24
+    extralarge: NI=1600, NJ=1800, NK=2000, NL=2200, NM=2400
+    live_out: G
+    task: Perform E=A@B, F=C@D, and G=E@F and return G.
+  - id: covariance
+    family: polybench
+    reference: datamining/covariance/covariance.c
+    header: datamining/covariance/covariance.h
+    mini: M=28, N=32
+    extralarge: M=2600, N=3000
+    live_out: cov
+    task: Reproduce reference centering and covariance computation and return cov.
+  - id: jacobi-2d
+    family: polybench
+    reference: stencils/jacobi-2d/jacobi-2d.c
+    header: stencils/jacobi-2d/jacobi-2d.h
+    mini: TSTEPS=20, N=30
+    extralarge: TSTEPS=1000, N=2800
+    live_out: A
+    task: Reproduce both five-point Jacobi sweeps per time step and return final A.
+  - id: lu
+    family: polybench
+    reference: linear-algebra/solvers/lu/lu.c
+    header: linear-algebra/solvers/lu/lu.h
+    mini: N=40
+    extralarge: N=4000
+    live_out: A
+    task: Reproduce the in-place no-pivot LU factorization and return packed A.
+  - id: gramschmidt
+    family: polybench
+    reference: linear-algebra/solvers/gramschmidt/gramschmidt.c
+    header: linear-algebra/solvers/gramschmidt/gramschmidt.h
+    mini: M=20, N=30
+    extralarge: M=2000, N=2600
+    live_out: A, R, Q
+    task: Reproduce classical Gram-Schmidt and return A, R, Q in print order.
+  - id: cg-3d
+    family: scientific
+    reference: scientific/cg-3d/cg-3d.c
+    header: scientific/cg-3d/cg-3d.h
+    mini: ITERS=10, N=8
+    extralarge: ITERS=200, N=128
+    live_out: u
+    task: Reproduce the fixed-iteration matrix-free 3D Poisson conjugate-gradient kernel and return u.
+  - id: diffusion-3d
+    family: scientific
+    reference: scientific/diffusion-3d/diffusion-3d.c
+    header: scientific/diffusion-3d/diffusion-3d.h
+    mini: TSTEPS=20, N=10
+    extralarge: TSTEPS=1000, N=200
+    live_out: A
+    task: Reproduce the explicit seven-point 3D diffusion time stepping and return final A.
+  - id: lbm-d2q9
+    family: scientific
+    reference: scientific/lbm-d2q9/lbm-d2q9.c
+    header: scientific/lbm-d2q9/lbm-d2q9.h
+    mini: TSTEPS=20, N=16
+    extralarge: TSTEPS=500, N=256
+    live_out: rho
+    task: Reproduce D2Q9 BGK collision and periodic streaming and return final rho.
+  - id: md-lj
+    family: scientific
+    reference: scientific/md-lj/md-lj.c
+    header: scientific/md-lj/md-lj.h
+    mini: TSTEPS=20, NP=3, N=27
+    extralarge: TSTEPS=400, NP=10, N=1000
+    live_out: pos
+    task: Reproduce the fixed-neighbor Lennard-Jones velocity-Verlet kernel and return final pos.

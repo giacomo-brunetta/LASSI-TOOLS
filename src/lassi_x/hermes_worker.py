@@ -148,6 +148,11 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
         base_url=request.base_url,
         api_key=api_key,
         api_mode=request.api_mode,
+        reasoning_config=(
+            {"enabled": True, "effort": request.reasoning_effort}
+            if request.reasoning_effort
+            else None
+        ),
         max_tokens=request.max_tokens,
         max_iterations=request.max_iterations,
         enabled_toolsets=request.toolsets,

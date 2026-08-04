@@ -12,6 +12,7 @@ from typing import Any, Protocol, TypeVar
 
 from pydantic_graph import GraphBuilder
 
+from .accuracy import candidate_accuracy
 from .arena import run_arena
 from .artifacts import (
     append_jsonl,
@@ -33,6 +34,7 @@ from .pareto import frontier_indices
 from .skills import AUTOMATION_SKILLS, install_root, require_automation_skills
 from .types import Candidate, Diagnostic, Measurement, Status
 from .validation import OracleResult, build_oracle
+from .visualization import write_pareto_visualizations
 
 
 @dataclass(slots=True)
@@ -50,6 +52,7 @@ class PipelineState:
     generated_measurements: list[Measurement] = field(default_factory=list)
     measurements: list[Measurement] = field(default_factory=list)
     frontier: list[dict[str, Any]] = field(default_factory=list)
+    visualizations: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,12 +151,15 @@ def _summary(record: dict[str, Any]) -> str:
         "",
         f"- Status: **{record['status']}**",
         f"- Oracle: original C/C++ FP64 (`{record['oracle']['output_path']}`)",
+        f"- Accuracy dataset: `{record['datasets']['accuracy']}`",
+        f"- Performance dataset: `{record['datasets']['performance']}`",
         f"- Candidates generated: {len(candidates)}",
         f"- Candidates passing FP64 reference validation: "
         f"{sum(c['status'] == 'ok' for c in candidates)}",
         f"- Compensation variants: {len(record['compensation_variants'])}",
         f"- Measurements: {len(measurements)}",
         f"- Frontier points: {len(frontier)}",
+        f"- Pareto plots: [overall]({record['visualizations']['overall']['svg']})",
         "",
         "## Candidates",
         "",
@@ -459,6 +465,10 @@ async def _finalize_step(
     for measurement in state.measurements:
         append_jsonl(deps.run_dir / "measurements.jsonl", measurement.to_dict())
     write_json(deps.run_dir / "frontier.json", state.frontier)
+    state.visualizations = write_pareto_visualizations(
+        deps.run_dir / "visualizations",
+        state.measurements,
+    )
     record = {
         "schema_version": 1,
         "status": status,
@@ -469,9 +479,14 @@ async def _finalize_step(
         "config_path": str(deps.config_path.resolve()),
         "oracle": {
             "kind": "c_reference_fp64",
+            "dataset": config.kernel.validation_dataset,
             "reference_path": str(config.resolve_project_path(config.kernel.reference)),
             "output_path": str(oracle.output_path),
             "numel": int(oracle.values.size),
+        },
+        "datasets": {
+            "accuracy": config.kernel.validation_dataset,
+            "performance": config.measure.performance_dataset,
         },
         "security": {
             "execution_mode": f"trusted_{config.execution.mode}_unsandboxed",
@@ -490,10 +505,12 @@ async def _finalize_step(
             },
         },
         "planner": state.planner_record,
+        "accuracy": candidate_accuracy(state.candidates),
         "candidates": [candidate.to_dict() for candidate in state.candidates],
         "compensation_variants": [variant.to_dict() for variant in state.compensation_variants],
         "measurements": [measurement.to_dict() for measurement in state.measurements],
         "frontier": state.frontier,
+        "visualizations": state.visualizations,
     }
     write_json(deps.run_dir / "run.json", record)
     atomic_write(deps.run_dir / "summary.md", _summary(record))

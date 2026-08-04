@@ -321,6 +321,7 @@ async def execute_candidate(
     fixture = fixture_relative_path(config)
     if fixture is not None:
         command += ["--fixture", fixture]
+    command += ["--dataset", config.kernel.validation_dataset]
     result = await backend.execute(
         ExecRequest(workspace=workspace, argv=command, timeout_s=config.arena.timeout_s)
     )

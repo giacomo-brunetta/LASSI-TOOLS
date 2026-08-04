@@ -26,3 +26,8 @@ def point(latency: float, error: float) -> Measurement:
 def test_frontier_excludes_dominated_points() -> None:
     points = [point(1, 0.5), point(2, 0.3), point(3, 0.1), point(3, 0.6)]
     assert frontier_indices(points) == [0, 1, 2]
+
+
+def test_frontier_excludes_nonphysical_axes() -> None:
+    points = [point(1, 0.5), point(0, 0.1), point(2, -0.1)]
+    assert frontier_indices(points) == [0]

@@ -113,6 +113,7 @@ class HermesSession:
                 provider=self.model.provider,
                 base_url=self.model.base_url,
                 api_mode=self.model.api_mode,
+                reasoning_effort=self.model.reasoning_effort,
                 api_key_env=self.model.api_key_env,
                 claude_settings=(
                     str(self.model.claude_settings.expanduser())

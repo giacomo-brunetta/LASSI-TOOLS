@@ -33,6 +33,19 @@ Use `run-sonnet.yaml` to assign Claude Sonnet 5 to the planner, all three
 candidate sessions, and compensation role. `run-sol.yaml` provides the analogous
 all-GPT-5.6-Sol configuration.
 
+`run-sol-groq.yaml` is the live-tested heterogeneous configuration: the arena,
+external validation, and Torch CPU/CUDA cells run on the local Academy harness,
+while Groq FP16 cells are staged to Globus endpoint
+`266f3128-cc9a-403e-ab61-9284ed57d54b` on the ALCF AI Testbed login node and
+submitted to an exclusive GroqRack compute node through PBS. Start the login-node
+endpoint in `lassi-globus-compute`; the generated PBS script activates `groqflow`
+only on the compute node.
+
+```bash
+lassi-x execution doctor --config examples/polybench-3mm/run-sol-groq.yaml
+lassi-x run examples/polybench-3mm/run-sol-groq.yaml
+```
+
 The example reuses `~/.claude/settings.json`: Hermes executes its
 `apiKeyHelper` and sends the resulting credential only to Argo's
 OpenAI-compatible endpoint. No credential is stored in this repository.

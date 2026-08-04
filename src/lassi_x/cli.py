@@ -40,6 +40,7 @@ from .validation import (
     load_reference_output,
     validate_candidate,
 )
+from .visualization import write_pareto_visualizations
 
 
 def emit(tool: str, payload: dict[str, Any], *, json_output: bool = True) -> None:
@@ -295,16 +296,51 @@ async def _benchmark_command(args: argparse.Namespace) -> int:
         return 0 if result.status == Status.OK else 1
 
 
-def command_pareto(args: argparse.Namespace) -> int:
+def _load_measurements(path: Path) -> list[Measurement]:
+    """Load measurement records from the pipeline JSONL format.
+
+    Args:
+        path: JSONL file containing serialized ``Measurement`` records.
+
+    Returns:
+        Parsed measurement objects.
+
+    """
     points: list[Measurement] = []
-    for line in args.measurements.read_text().splitlines():
+    for line in path.read_text().splitlines():
         if not line.strip():
             continue
         raw = json.loads(line)
         raw.pop("y_error", None)
         raw["status"] = Status(raw["status"])
         points.append(Measurement(**raw))
+    return points
+
+
+def command_pareto(args: argparse.Namespace) -> int:
+    """Build exact or visual Pareto artifacts from measurements.
+
+    Args:
+        args: Parsed ``pareto`` command arguments.
+
+    Returns:
+        Zero when at least one valid frontier point exists, otherwise one.
+
+    """
+    points = _load_measurements(args.measurements)
     frontier = [points[index].to_dict() for index in frontier_indices(points)]
+    if args.pareto_command == "visualize":
+        manifest = write_pareto_visualizations(args.output_dir, points)
+        emit(
+            "pareto.visualize",
+            {
+                "ok": bool(frontier),
+                "output_dir": str(args.output_dir),
+                "manifest": manifest,
+            },
+            json_output=args.json,
+        )
+        return 0 if frontier else 1
     write_json(args.output, frontier)
     emit(
         "pareto.build",
@@ -548,6 +584,10 @@ def build_parser() -> argparse.ArgumentParser:
     pareto_build.add_argument("--measurements", type=Path, required=True)
     pareto_build.add_argument("--output", type=Path, required=True)
     pareto_build.add_argument("--json", action="store_true", default=True)
+    pareto_visualize = pareto_sub.add_parser("visualize")
+    pareto_visualize.add_argument("--measurements", type=Path, required=True)
+    pareto_visualize.add_argument("--output-dir", type=Path, required=True)
+    pareto_visualize.add_argument("--json", action="store_true", default=True)
 
     report = sub.add_parser("report")
     report_sub = report.add_subparsers(dest="report_command", required=True)

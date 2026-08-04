@@ -22,6 +22,7 @@ class KernelConfig(StrictModel):
     task: str
     invariant: str | None = None
     invariant_threshold: float | None = None
+    validation_dataset: str = "default"
 
 
 class OracleConfig(StrictModel):
@@ -60,6 +61,9 @@ class ModelConfig(StrictModel):
     provider: str | None = None
     base_url: str | None = None
     api_mode: Literal["chat_completions", "responses", "anthropic_messages"] | None = None
+    reasoning_effort: Literal[
+        "minimal", "low", "medium", "high", "xhigh", "max", "ultra"
+    ] | None = None
     api_key_env: str | None = None
     claude_settings: Path | None = None
     max_tokens: int = Field(default=16_384, ge=256, le=131_072)
@@ -98,12 +102,25 @@ class BackendCapabilities(StrictModel):
     fp64: bool | None = None
 
 
+class GroqPBSConfig(StrictModel):
+    """PBS launch settings for a GroqRack measurement resource."""
+
+    qsub: Path = Path("/opt/pbs/bin/qsub")
+    conda_sh: Path
+    conda_env: str = "groqflow"
+    python: Path
+    pythonpath: list[Path] = Field(default_factory=list)
+    select: str = "select=1,place=excl"
+    walltime: str = Field(default="01:00:00", pattern=r"^\d{1,3}:\d{2}:\d{2}$")
+
+
 class BackendConfig(StrictModel):
     type: Literal["torch", "groq"]
     name: str
     device: str | None = None
     resource: str | None = None
     queue_dir: Path | None = None
+    pbs: GroqPBSConfig | None = None
     precisions: list[Literal["fp64", "fp32", "fp16", "bf16"]]
     timeout_s: float = 600.0
     healthcheck_max_age_s: float = Field(default=30.0, gt=0.0)
@@ -114,8 +131,16 @@ class BackendConfig(StrictModel):
     def backend_requirements(self) -> BackendConfig:
         if self.type == "torch" and not self.device:
             raise ValueError("torch backend requires device")
-        if self.type == "groq" and self.queue_dir is None:
-            raise ValueError("groq backend requires queue_dir")
+        if self.type == "groq":
+            queue_mode = self.queue_dir is not None
+            pbs_mode = self.resource is not None and self.pbs is not None
+            if queue_mode == pbs_mode:
+                raise ValueError(
+                    "groq backend requires exactly one execution mode: queue_dir, "
+                    "or resource plus pbs"
+                )
+        elif self.pbs is not None:
+            raise ValueError("pbs settings are only valid for a groq backend")
         return self
 
 
@@ -138,6 +163,7 @@ class MeasureConfig(StrictModel):
     stochastic_seeds: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
     strict_precisions: list[Precision] = Field(default_factory=_default_strict_precisions)
     serialize_torch_backends: bool = True
+    performance_dataset: str = "default"
 
 
 class ResourceConfig(StrictModel):

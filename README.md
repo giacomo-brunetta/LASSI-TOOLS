@@ -51,6 +51,11 @@ runs/<timestamp>-<kernel>/
 ├── diagnostics/
 ├── measurements.jsonl
 ├── frontier.json
+├── visualizations/
+│   ├── pareto-overall.svg
+│   ├── pareto-<backend>.svg
+│   ├── frontiers.json
+│   └── manifest.json
 ├── pipeline-graph.mmd
 ├── run.json
 └── summary.md
@@ -70,6 +75,13 @@ a connection header.
 > two NVIDIA A100 GPUs: oracle, three-candidate arena, validation, CPU/CUDA
 > measurements, compensation, and frontier construction all completed. Run
 > `lassi-x execution doctor` for each new endpoint before spending an allocation.
+>
+> **Groq status: live-tested.** On August 4, 2026, the complete three-candidate
+> PolyBench 3mm flow also ran through Academy and Globus Compute endpoint
+> `266f3128-cc9a-403e-ab61-9284ed57d54b`. LASSI-X submitted each Groq cell from
+> the AI Testbed login node to an exclusive GroqRack PBS compute node, activated
+> `groqflow` inside the job, and recorded SDK-measured device latency against the
+> external C FP64 oracle.
 
 In `academy` mode with an `exchange_url`, resources carrying a Globus Compute
 `endpoint_id` run on that endpoint: reference sources and fixtures are staged
@@ -101,6 +113,57 @@ judging device availability from the resource's measured handshake. Every
 measurement records its `resource`, so the Pareto frontier can legitimately mix
 points from different machines. Oracle builds still run on the harness machine.
 
+### Groq login endpoint and PBS compute jobs
+
+The Globus Compute endpoint runs on the Groq **login** node in an environment
+containing LASSI-X, Academy, and Globus Compute. It must not activate `groqflow`:
+Groq device libraries belong on the PBS compute node. Configure a Groq backend
+with `resource` plus `pbs` to make the login-node execution agent stage inputs,
+submit an exclusive job, and poll its result:
+
+```yaml
+execution:
+  mode: academy
+  exchange_url: https://exchange.academy-agents.org
+  auth: globus
+  resources:
+    groq-login:
+      endpoint_id: 266f3128-cc9a-403e-ab61-9284ed57d54b
+      workspace_root: /home/gbrun/lassi-x-groq-academy
+
+measure:
+  backends:
+    - type: groq
+      name: groq-lpu
+      resource: groq-login
+      precisions: [fp16]
+      pbs:
+        qsub: /opt/pbs/bin/qsub
+        select: select=1,place=excl
+        conda_sh: /home/gbrun/miniconda3/etc/profile.d/conda.sh
+        conda_env: groqflow
+        python: /home/gbrun/miniconda3/envs/groqflow/bin/python
+```
+
+Start the endpoint on the login node, then run the doctor from the harness:
+
+```bash
+# Groq login node
+conda activate lassi-globus-compute
+globus-compute-endpoint start lassi-x
+
+# Harness
+lassi-x execution doctor --config examples/polybench-3mm/run-sol-groq.yaml
+lassi-x run examples/polybench-3mm/run-sol-groq.yaml
+```
+
+Direct Groq measurements are serialized as complete stage-submit-poll
+transactions because one long-lived Academy agent owns the login endpoint.
+Reported `latency_s` comes only from `GroqModel.benchmark()` on the GroqRack;
+Globus, Academy, PBS queueing, file transfer, and input construction are excluded.
+The legacy shared-filesystem `queue_dir` mode remains available for standalone
+workers.
+
 ## Flow
 
 The orchestration state machine is defined with Pydantic Graph's typed
@@ -108,6 +171,16 @@ The orchestration state machine is defined with Pydantic Graph's typed
 `PipelineDeps` injects immutable configuration and execution services. The
 generated `pipeline-graph.mmd` records the exact left-to-right topology used by
 the run, including the explicit compensation decision and bypass branch.
+
+Every finalized run also creates self-contained, vector-native Pareto plots in
+`visualizations/`. The overall plot compares all successful backend/device cells
+and emphasizes the global frontier. Each backend plot recomputes the frontier
+within that device only, so a useful GPU or Groq tradeoff remains visible even
+when a small CPU kernel dominates it globally. SVG marker tooltips retain the
+candidate, variant, resource, precision, compensation, latency, and error.
+Color encodes backend in the overall view and precision in each device view;
+marker shape encodes `variant_id` consistently across every plot in the run.
+The exact color-independent shape mapping is stored in `manifest.json`.
 
 1. Build and execute the original C/C++ FP64 oracle.
 2. Ask a Hermes planner for `arena.candidates` materially distinct strategies.
@@ -117,6 +190,7 @@ the run, including the explicit compensation decision and bypass branch.
 6. Apply hardware-aware compensation to weak FP16/BF16 points.
 7. Gate compensation against the C/C++ FP64 oracle and base PyTorch FP32 behavior.
 8. Measure surviving variants and construct the Pareto frontier.
+9. Render overall and per-backend/device Pareto frontiers as publication-ready SVG.
 
 Planner shape errors receive a bounded repair turn, and transient provider failures receive
 bounded exponential backoff according to each model's `turn_retries` and `retry_*` settings.
@@ -161,10 +235,11 @@ lassi-x output compare --reference oracle.csv --candidate candidate.npy
 lassi-x validate candidate --config run.yaml --module candidate.py --artifact-dir check
 lassi-x benchmark run --config run.yaml --module candidate.py --backend cuda --precision fp16
 lassi-x pareto build --measurements measurements.jsonl --output frontier.json
+lassi-x pareto visualize --measurements measurements.jsonl --output-dir visualizations
 lassi-x report verification --run runs/<run>
 ```
 
-On a Groq-connected host, use:
+For the legacy shared-filesystem Groq mode, use:
 
 ```bash
 lassi-x groq worker --queue-dir /shared/lassi-x-groq --executor \

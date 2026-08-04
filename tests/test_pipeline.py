@@ -119,6 +119,11 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
     assert len(record["compensation_variants"]) == 1
     assert captured_specs[0][4:] == ("cpu", "fp16")
     assert record["security"]["execution_mode"] == "trusted_local_unsandboxed"
+    assert record["visualizations"]["overall"]["frontier_points"] == 1
+    assert (run_dir / "visualizations" / "pareto-overall.svg").is_file()
+    assert (run_dir / "visualizations" / "pareto-cpu.svg").is_file()
+    assert (run_dir / "visualizations" / "frontiers.json").is_file()
+    assert "Pareto plots: [overall]" in (run_dir / "summary.md").read_text()
     graph = (run_dir / "pipeline-graph.mmd").read_text()
     assert "direction LR" in graph
     assert "compensation_decision" in graph

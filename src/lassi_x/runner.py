@@ -41,6 +41,7 @@ def run_module(
     device: str,
     precision: str,
     fixture: Path | None = None,
+    dataset: str = "default",
 ) -> tuple[np.ndarray, str]:
     module = load_module(module_path)
     if not callable(getattr(module, "build_inputs", None)):
@@ -51,6 +52,8 @@ def run_module(
     kwargs = {"device": device, "dtype": dtype}
     if fixture is not None and "fixture" in inspect.signature(module.build_inputs).parameters:
         kwargs["fixture"] = fixture
+    if "dataset" in inspect.signature(module.build_inputs).parameters:
+        kwargs["dataset"] = dataset
     inputs = module.build_inputs(**kwargs)
     if not isinstance(inputs, tuple):
         raise TypeError("build_inputs must return a tuple")
@@ -79,6 +82,7 @@ def main() -> int:
     parser.add_argument("--precision", choices=sorted(PRECISIONS), required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--fixture", type=Path)
+    parser.add_argument("--dataset", default="default")
     args = parser.parse_args()
     try:
         output, output_dtype = run_module(
@@ -86,6 +90,7 @@ def main() -> int:
             device=args.device,
             precision=args.precision,
             fixture=args.fixture,
+            dataset=args.dataset,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         np.save(args.output, output)

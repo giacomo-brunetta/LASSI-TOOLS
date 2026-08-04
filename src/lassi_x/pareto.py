@@ -12,6 +12,8 @@ def valid_point(point: Measurement) -> bool:
         and point.y_error is not None
         and math.isfinite(point.latency_s)
         and math.isfinite(point.y_error)
+        and point.latency_s > 0
+        and point.y_error >= 0
     )
 
 

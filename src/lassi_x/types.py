@@ -75,6 +75,7 @@ class Candidate:
     provider: str | None
     strategy: str
     module_path: Path
+    reasoning_effort: str | None = None
     status: Status = Status.CRASHED
     correction_rounds: int = 0
     diagnostics: list[Diagnostic] = field(default_factory=list)
@@ -102,6 +103,8 @@ class Measurement:
     operator_precision: str
     accumulator_precision: str
     output_precision: str
+    accuracy_dataset: str = "default"
+    performance_dataset: str = "default"
     resource: str = ""
     latency_s: float | None = None
     min_s: float | None = None

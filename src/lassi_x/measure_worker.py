@@ -24,6 +24,8 @@ def main() -> int:
     parser.add_argument("--device", required=True)
     parser.add_argument("--precision", choices=sorted(PRECISIONS), required=True)
     parser.add_argument("--fixture", type=Path)
+    parser.add_argument("--accuracy-dataset", default="default")
+    parser.add_argument("--performance-dataset", default="default")
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--iterations", type=int, default=20)
     parser.add_argument("--rtol", type=float, default=1e-3)
@@ -41,8 +43,11 @@ def main() -> int:
         if args.fixture and "fixture" in inspect.signature(module.build_inputs).parameters:
             kwargs["fixture"] = args.fixture
 
-        def build_inputs() -> tuple[torch.Tensor, ...]:
-            built = module.build_inputs(**kwargs)
+        def build_inputs(dataset: str) -> tuple[torch.Tensor, ...]:
+            selected = dict(kwargs)
+            if "dataset" in inspect.signature(module.build_inputs).parameters:
+                selected["dataset"] = dataset
+            built = module.build_inputs(**selected)
             if not isinstance(built, tuple):
                 raise TypeError("build_inputs must return a tuple")
             return cast("tuple[torch.Tensor, ...]", built)
@@ -69,9 +74,9 @@ def main() -> int:
         cuda = args.device.startswith("cuda")
         with torch.no_grad():
             torch.manual_seed(args.seed)
-            flat, tensors = flatten(model(*build_inputs()))
+            flat, tensors = flatten(model(*build_inputs(args.accuracy_dataset)))
             torch.manual_seed(args.seed)
-            repeated, _ = flatten(model(*build_inputs()))
+            repeated, _ = flatten(model(*build_inputs(args.accuracy_dataset)))
             if not np.array_equal(flat, repeated, equal_nan=True):
                 raise RuntimeError(
                     "candidate is stateful or nondeterministic across identical fresh inputs"
@@ -79,12 +84,12 @@ def main() -> int:
             # The purity probe may itself change model state. Start timing from a fresh model.
             model = build_model()
             for _ in range(args.warmup):
-                model(*build_inputs())
+                model(*build_inputs(args.performance_dataset))
             if cuda:
                 torch.cuda.synchronize()
             samples = []
             for _ in range(args.iterations):
-                inputs = build_inputs()
+                inputs = build_inputs(args.performance_dataset)
                 if cuda:
                     torch.cuda.synchronize()
                 start = time.perf_counter()
@@ -147,6 +152,10 @@ def main() -> int:
                 "output": precision.get("output", output_dtype),
             },
             "source_hash": hashlib.sha256(args.module.read_bytes()).hexdigest(),
+            "datasets": {
+                "accuracy": args.accuracy_dataset,
+                "performance": args.performance_dataset,
+            },
         }
         print(json.dumps(payload))
         return 0

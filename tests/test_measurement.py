@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
 import time
 import uuid
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ import lassi_x.measurement as measurement
 from lassi_x.config import BackendConfig, RunConfig
 from lassi_x.execution import LocalExecutionBackend
 from lassi_x.measurement import Backend, GroqBackend, TorchBackend
+from lassi_x.protocol import ExecRequest, ExecResult
 from lassi_x.types import Measurement, Status
 from lassi_x.validation import OracleResult, build_oracle
 
@@ -111,6 +113,151 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
     assert result.status == Status.OK
     assert result.latency_s == 0.001
     assert result.max_rel_error == 0.02
+
+
+class FakePBSExecutionBackend(LocalExecutionBackend):
+    """Synthesize a compute-node result while recording the PBS request."""
+
+    def __init__(self, workspace_root: Path) -> None:
+        super().__init__(workspace_root, "groq-login")
+        self.requests: list[ExecRequest] = []
+
+    async def execute(self, request: ExecRequest) -> ExecResult:
+        """Record qsub and materialize the result named by its job script."""
+        self.requests.append(request)
+        script = (self.workspace_root / request.workspace / request.argv[-1]).read_text()
+        command = shlex.split(script.splitlines()[-1])
+        output_name = command[command.index("--output") + 1]
+        result_path = self.workspace_root / request.workspace / output_name
+        result_path.write_text(
+            json.dumps(
+                {
+                    "ok": True,
+                    "valid": True,
+                    "equivalent": False,
+                    "diagnostic": {"gate": "equivalence"},
+                    "median_s": 0.000123,
+                    "min_s": 0.000123,
+                    "metrics": {
+                        "max_abs_error": 0.01,
+                        "max_rel_error": 0.02,
+                        "relative_l2": 0.003,
+                    },
+                    "timing": {
+                        "scope": "model_forward",
+                        "source": "groq_sdk_benchmark",
+                        "clock": "groq_runtime",
+                        "includes_input_construction": False,
+                    },
+                    "precision": {
+                        "storage": "fp16",
+                        "operator": "fp16",
+                        "accumulator": "groq-backend-defined",
+                        "output": "fp16",
+                    },
+                }
+            )
+        )
+        return ExecResult(
+            workspace=request.workspace,
+            exit_code=0,
+            stdout="12345.groq-r01-control\n",
+            duration_s=1.0,
+        )
+
+
+def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
+    config, module, oracle = setup_run(tmp_path)
+    spec = BackendConfig.model_validate(
+        {
+            "type": "groq",
+            "name": "groq-lpu",
+            "resource": "groq-login",
+            "precisions": ["fp16"],
+            "timeout_s": 60,
+            "pbs": {
+                "conda_sh": "/shared/miniconda3/etc/profile.d/conda.sh",
+                "conda_env": "groqflow",
+                "python": "/shared/miniconda3/envs/groqflow/bin/python",
+                "pythonpath": ["/shared/LASSI-TOOLS/src"],
+            },
+        }
+    )
+    execution = FakePBSExecutionBackend(tmp_path / "remote")
+    result = asyncio.run(
+        GroqBackend(spec, execution, "groq-login").measure(
+            config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp16",
+            compensation="none",
+        )
+    )
+    assert result.status == Status.OK
+    assert result.resource == "groq-login"
+    assert result.latency_s == 0.000123
+    assert result.latency_source == "groq_sdk_benchmark"
+    assert result.worker_wall_s is None
+    request = execution.requests[0]
+    assert request.argv[0] == "/opt/pbs/bin/qsub"
+    assert "select=1,place=excl" in request.argv
+    job_script = (tmp_path / "remote" / "groq-c1-base" / request.argv[-1]).read_text()
+    assert "conda activate groqflow" in job_script
+    assert "--accuracy-dataset default" in job_script
+    assert "--performance-dataset default" in job_script
+    assert (tmp_path / "remote" / "groq-c1-base" / "groq_measure_worker.py").is_file()
+
+
+def test_groq_pbs_transactions_are_serialized(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, module, oracle = setup_run(tmp_path)
+    spec = BackendConfig.model_validate(
+        {
+            "type": "groq",
+            "name": "groq-lpu",
+            "resource": "groq-login",
+            "precisions": ["fp16"],
+            "pbs": {
+                "conda_sh": "/shared/conda.sh",
+                "python": "/shared/groqflow/bin/python",
+            },
+        }
+    )
+    backend = GroqBackend(spec, LocalExecutionBackend(tmp_path / "remote"), "groq-login")
+    active = 0
+    maximum = 0
+
+    async def fake_measure(*_args: object, **_kwargs: object) -> object:
+        nonlocal active, maximum
+        active += 1
+        maximum = max(maximum, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        return object()
+
+    monkeypatch.setattr(backend, "_measure_pbs", fake_measure)
+
+    async def run() -> None:
+        await asyncio.gather(
+            *(
+                backend.measure(
+                    config,
+                    oracle,
+                    module,
+                    candidate_id=f"c{index}",
+                    variant_id=f"c{index}-base",
+                    precision="fp16",
+                    compensation="none",
+                )
+                for index in range(3)
+            )
+        )
+
+    asyncio.run(run())
+    assert maximum == 1
 
 
 def test_stale_groq_requests_are_reaped(tmp_path: Path) -> None:

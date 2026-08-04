@@ -125,3 +125,48 @@ def test_stateful_candidate_is_rejected(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert payload["ok"] is False
     assert "stateful or nondeterministic" in payload["error"]
+
+
+def test_accuracy_and_performance_use_distinct_datasets(tmp_path: Path) -> None:
+    module = tmp_path / "datasets.py"
+    module.write_text(
+        "import torch\n"
+        "from torch import nn\n"
+        "def build_inputs(device='cpu', dtype=torch.float64, dataset='mini'):\n"
+        "    size = 1 if dataset == 'mini' else 64\n"
+        "    return (torch.ones(size, device=device, dtype=dtype),)\n"
+        "class Model(nn.Module):\n"
+        "    def forward(self, x): return x\n"
+        "def make_model(): return Model()\n"
+    )
+    oracle = tmp_path / "oracle.npy"
+    np.save(oracle, np.asarray([1.0]))
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lassi_x.measure_worker",
+            "--module",
+            str(module),
+            "--oracle",
+            str(oracle),
+            "--device",
+            "cpu",
+            "--precision",
+            "fp64",
+            "--accuracy-dataset",
+            "mini",
+            "--performance-dataset",
+            "extralarge",
+            "--warmup",
+            "0",
+            "--iterations",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    payload = json.loads(result.stdout)
+    assert payload["equivalent"] is True
+    assert payload["datasets"] == {"accuracy": "mini", "performance": "extralarge"}

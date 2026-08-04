@@ -231,7 +231,9 @@ Task: {config.kernel.task}
 
 The implementations will be generated concurrently by {count} configured model sessions.
 Every strategy must preserve initialization, operation semantics, output ordering, and
-the build_inputs(device, dtype) / make_model() module contract.
+the build_inputs(device, dtype, dataset) / make_model() module contract. Each strategy
+must support validation dataset `{config.kernel.validation_dataset}` and performance
+dataset `{config.measure.performance_dataset}` in one dimension-flexible module.
 
 Return a JSON array containing exactly {count} objects:
 [{{"name":"short name","plan":"complete self-contained implementation plan"}}, ...]
@@ -368,8 +370,12 @@ Mandatory contract:
 - Write one complete Python module to candidate.py using write_file.
 - Write candidate.py on the default machine (omit the resource argument for write_file);
   other machines are for exploration and scratch commands only.
-- Define build_inputs(device="cpu", dtype=torch.float64, fixture=None) returning a tuple.
+- Define build_inputs(device="cpu", dtype=torch.float64, fixture=None, dataset="default")
+  returning a tuple. It must support the validation profile
+  `{config.kernel.validation_dataset}` and performance profile
+  `{config.measure.performance_dataset}` exactly as described by the kernel task.
 - Define make_model() returning torch.nn.Module.
+- make_model() and forward() must work for both dataset profiles without editing the module.
 - forward(*inputs) returns a tensor or tuple of tensors in canonical reference order.
 - At FP64, output must match the original C/C++ reference, not merely the PyTorch code.
 - Do not write benchmark, CSV, MLIR, or unrelated files.
@@ -446,6 +452,7 @@ async def generate_candidate(
         provider=model.provider,
         strategy=strategy,
         module_path=mirror / "candidate.py",
+        reasoning_effort=model.reasoning_effort,
     )
     session = HermesSession(
         model,

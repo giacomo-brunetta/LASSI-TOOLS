@@ -74,6 +74,39 @@ def test_backend_requirements(tmp_path: Path) -> None:
         RunConfig.model_validate(data)
 
 
+def test_groq_backend_requires_queue_or_resource_pbs(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    backend: dict[str, Any] = {
+        "type": "groq",
+        "name": "groq",
+        "precisions": ["fp16"],
+    }
+    data["measure"]["backends"] = [backend]
+    with pytest.raises(ValidationError, match="exactly one execution mode"):
+        RunConfig.model_validate(data)
+
+    backend["queue_dir"] = str(tmp_path / "queue")
+    assert RunConfig.model_validate(data).measure.backends[0].queue_dir is not None
+
+    backend.pop("queue_dir")
+    backend["resource"] = "groq-login"
+    backend["pbs"] = {
+        "conda_sh": "/shared/miniconda3/etc/profile.d/conda.sh",
+        "python": "/shared/miniconda3/envs/groqflow/bin/python",
+    }
+    data["execution"] = {
+        "mode": "academy",
+        "resources": {"groq-login": {}},
+    }
+    parsed = RunConfig.model_validate(data).measure.backends[0]
+    assert parsed.pbs is not None
+    assert parsed.pbs.select == "select=1,place=excl"
+
+    backend["queue_dir"] = str(tmp_path / "queue")
+    with pytest.raises(ValidationError, match="exactly one execution mode"):
+        RunConfig.model_validate(data)
+
+
 def test_execution_defaults_to_local_mode(tmp_path: Path) -> None:
     config = RunConfig.model_validate(minimal_config(tmp_path))
     assert config.execution.mode == "local"

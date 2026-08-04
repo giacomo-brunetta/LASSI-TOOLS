@@ -25,6 +25,7 @@ from lassi_x.execution import (
     ExecutionBackend,
     ExecutionContext,
     LocalExecutionBackend,
+    _disable_academy_stream_deadline,
     fetch_bytes,
     put_bytes,
 )
@@ -71,6 +72,16 @@ async def _exercise_backend(backend: ExecutionBackend) -> None:
 
 def test_local_backend_write_execute_read_cycle(tmp_path: Path) -> None:
     asyncio.run(_exercise_backend(LocalExecutionBackend(tmp_path)))
+
+
+def test_academy_stream_has_no_total_or_read_deadline() -> None:
+    session = type("Session", (), {"_timeout": object()})()
+    transport = type("Transport", (), {"_session": session})()
+    _disable_academy_stream_deadline(transport)
+    timeout = vars(session)["_timeout"]
+    assert timeout.total is None
+    assert timeout.sock_connect == 60
+    assert timeout.sock_read is None
 
 
 def test_academy_backend_write_execute_read_cycle(tmp_path: Path) -> None:
