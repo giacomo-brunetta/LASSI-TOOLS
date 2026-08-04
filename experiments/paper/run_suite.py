@@ -172,8 +172,8 @@ def main() -> int:
                 if args.dry_run:
                     print(" ".join(command))
                     continue
-                log_path = journal.parent / "logs" / (
-                    f"{journal.stem}-{model}-{kernel}-r{repetition}.log"
+                log_path = (
+                    journal.parent / "logs" / (f"{journal.stem}-{model}-{kernel}-r{repetition}.log")
                 )
                 started = dt.datetime.now(dt.UTC).isoformat()
                 _append(

@@ -61,9 +61,9 @@ class ModelConfig(StrictModel):
     provider: str | None = None
     base_url: str | None = None
     api_mode: Literal["chat_completions", "responses", "anthropic_messages"] | None = None
-    reasoning_effort: Literal[
-        "minimal", "low", "medium", "high", "xhigh", "max", "ultra"
-    ] | None = None
+    reasoning_effort: (
+        Literal["minimal", "low", "medium", "high", "xhigh", "max", "ultra"] | None
+    ) = None
     api_key_env: str | None = None
     claude_settings: Path | None = None
     max_tokens: int = Field(default=16_384, ge=256, le=131_072)

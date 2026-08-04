@@ -29,9 +29,7 @@ def test_candidate_accuracy_separates_initial_and_repaired_passes(tmp_path: Path
             status=Status.OK,
             correction_rounds=1,
         ),
-        Candidate(
-            "c3", "model", "provider", "three", tmp_path / "c3", status=Status.REJECTED
-        ),
+        Candidate("c3", "model", "provider", "three", tmp_path / "c3", status=Status.REJECTED),
     ]
     metrics = candidate_accuracy(candidates)
     assert metrics["initial_passes"] == 1
