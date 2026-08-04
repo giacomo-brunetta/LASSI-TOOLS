@@ -206,6 +206,26 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
     )
 
 
+def shutdown_agent_memory(agent: Any | None, history: list[dict[str, Any]] | None) -> None:
+    """Flush and close an agent's external memory provider.
+
+    Hermes queues provider writes asynchronously after a completed turn. The
+    SDK worker is the session boundary, so it must explicitly drain that queue
+    before the process exits or the final turn's memories may be lost.
+
+    Args:
+        agent: Initialized Hermes agent, or ``None`` when initialization failed.
+        history: Latest successful conversation history to pass to Hermes's
+            session-end hooks.
+
+    """
+    if agent is None:
+        return
+    shutdown = getattr(agent, "shutdown_memory_provider", None)
+    if callable(shutdown):
+        shutdown(history or [])
+
+
 def main() -> int:
     """Run the stateful Hermes SDK worker over a standard-input JSONL protocol.
 
@@ -299,6 +319,12 @@ def main() -> int:
                     traceback=trace,
                 )
             )
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            shutdown_agent_memory(agent, history)
+    except BaseException as exc:  # cleanup must never corrupt the JSONL protocol
+        error = scrub_sensitive(f"{type(exc).__name__}: {exc}", secrets)
+        print(f"Hermes memory shutdown failed: {error}", file=sys.stderr)
     return 0
 
 

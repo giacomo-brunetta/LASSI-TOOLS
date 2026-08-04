@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import sys
 from types import ModuleType
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from lassi_x import hermes_worker
 from lassi_x.config import MemoryConfig, ModelConfig
 from lassi_x.hermes import HermesSession
 from lassi_x.hermes_worker import configure_memory, create_agent, scrub_sensitive
@@ -15,9 +17,11 @@ from lassi_x.protocol import (
     MemorySettings,
     TurnUsage,
     WireModel,
+    WorkerClose,
     WorkerFailure,
     WorkerInit,
     WorkerResponse,
+    WorkerSend,
     WorkerTurn,
 )
 
@@ -280,3 +284,43 @@ def test_worker_toggles_memory_layers_per_request(monkeypatch: pytest.MonkeyPatc
     create_agent(WorkerInit(model="test", role="planner", toolsets=["skills"]), None)
     assert agent_kwargs["skip_memory"] is True
     assert agent_kwargs["enabled_toolsets"] == ["skills"]
+
+
+def test_worker_drains_memory_provider_on_close(monkeypatch: pytest.MonkeyPatch) -> None:
+    history = [{"role": "assistant", "content": "done"}]
+
+    class FakeAgent:
+        session_input_tokens = 0
+        session_output_tokens = 0
+        session_estimated_cost_usd = 0.0
+
+        def __init__(self) -> None:
+            self.shutdown_history: list[dict[str, object]] | None = None
+
+        def run_conversation(self, **_: object) -> dict[str, object]:
+            return {
+                "messages": history,
+                "final_response": "done",
+                "completed": True,
+                "turn_exit_reason": "completed",
+            }
+
+        def shutdown_memory_provider(self, messages: list[dict[str, object]]) -> None:
+            self.shutdown_history = messages
+
+    agent = FakeAgent()
+    requests = "\n".join(
+        (
+            WorkerInit(model="test", role="planner").model_dump_json(),
+            WorkerSend(prompt="plan").model_dump_json(),
+            WorkerClose().model_dump_json(),
+        )
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(requests))
+    monkeypatch.setattr(hermes_worker, "PROTOCOL_STREAM", io.StringIO())
+    monkeypatch.setattr(hermes_worker, "resolve_api_key", lambda _: None)
+    monkeypatch.setattr(hermes_worker, "configure_memory", lambda _: None)
+    monkeypatch.setattr(hermes_worker, "create_agent", lambda *_: agent)
+
+    assert hermes_worker.main() == 0
+    assert agent.shutdown_history == history
