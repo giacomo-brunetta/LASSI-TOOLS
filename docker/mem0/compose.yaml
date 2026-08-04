@@ -14,9 +14,22 @@ name: lassi-x-mem0
 services:
   mem0:
     build:
-      # Build the production image straight from the upstream repository; the
-      # `:server` suffix roots the build context at the FastAPI server.
+      # Build straight from the upstream repository; the `:server` suffix
+      # roots the build context at the FastAPI server. The inline Dockerfile
+      # mirrors upstream's production one but adds libpq5, which psycopg
+      # needs at runtime and the upstream python:3.12-slim image lacks.
       context: https://github.com/mem0ai/mem0.git#main:server
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        WORKDIR /app
+        RUN apt-get update \
+          && apt-get install -y --no-install-recommends libpq5 \
+          && rm -rf /var/lib/apt/lists/*
+        COPY requirements.txt .
+        RUN pip install --no-cache-dir -r requirements.txt
+        COPY . .
+        EXPOSE 8000
+        ENV PYTHONUNBUFFERED=1
     ports:
       - "${MEM0_PORT:-8888}:8000"
     # The production image does not run migrations; apply them before serving.
