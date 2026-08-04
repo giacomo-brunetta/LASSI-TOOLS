@@ -10,3 +10,4 @@ dist/
 
 # Generated benchmark artifacts.
 runs/
+docker/mem0/.env
