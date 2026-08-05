@@ -9,10 +9,26 @@ and recall long-term memories across runs through the Hermes
 
 ```bash
 cd docker/mem0
-cp .env.example .env      # set OPENAI_API_KEY (used server-side for fact extraction)
+cp .env.example .env      # set OPENAI_API_KEY (used server-side by Argo)
 docker compose up -d --build
 curl -s http://localhost:8888/docs >/dev/null && echo "mem0 is up"
 ```
+
+The checked-in example points the OpenAI client at Argo and selects
+`text-embedding-3-large`, whose 3072-dimensional output is matched explicitly
+by the pgvector collection. If you select another embedding model, update
+`MEM0_DEFAULT_EMBEDDING_DIMS` before creating the collection; an existing
+collection cannot mix vector dimensions.
+
+The extraction model is `GPT-5-mini`; Argo model names are case-sensitive, so
+do not replace this with Mem0's lowercase upstream default. Its extraction
+temperature is set to `1`, the only value this model accepts through Argo.
+
+Because pgvector's HNSW index for the `vector` type is limited to 2000
+dimensions, this large-model configuration uses exact search
+(`MEM0_PGVECTOR_HNSW=false`). For a large memory corpus where indexed search
+matters more than embedding quality, use `text-embedding-3-small`, 1536
+dimensions, and enable HNSW.
 
 Optional web UI for browsing memories:
 

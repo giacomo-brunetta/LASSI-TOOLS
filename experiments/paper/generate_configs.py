@@ -115,6 +115,10 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
             "candidates": [dict(model_spec) for _ in range(3)],
             "compensation": dict(model_spec),
         },
+        # Paper trials must remain independent: do not retrieve or persist
+        # cross-run agent memory. Keep this explicit in each generated
+        # artifact instead of relying on MemoryConfig's default.
+        "memory": {"enabled": False},
         "execution": {
             "mode": "academy",
             "exchange_url": "https://exchange.academy-agents.org",

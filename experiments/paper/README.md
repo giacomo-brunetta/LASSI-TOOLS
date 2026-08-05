@@ -6,6 +6,10 @@ profile on the local harness, measures accelerator accuracy on that same profile
 times the `extralarge` profile on CUDA and Groq. Input construction, Academy transport,
 PBS queueing, and MCP latency are outside the timed region.
 
+Every generated configuration explicitly sets `memory.enabled: false`. This keeps the
+GPT-5.6 Sol and Claude Opus 5 trials independent: no agent recall is read or persisted
+between kernels, models, candidates, or repetitions.
+
 The official kernels are from [PolyBench/C 4.2.1 beta](https://www.cs.colostate.edu/~pouchet/software/polybench/),
 using the exact public source snapshot
 [`3e872547`](https://github.com/MatthiasJReisinger/PolyBenchC-4.2.1/commit/3e872547cef7e5c9909422ef1e6af03cf4e56072).
@@ -31,13 +35,26 @@ python experiments/paper/run_suite.py --dry-run
 Run the full session (all GPT-5.6 Sol runs first, then all Claude Opus 5 runs):
 
 ```bash
-python experiments/paper/run_suite.py
+bash experiments/paper/launch_suite.sh
 ```
 
-The runner performs one Academy execution doctor check, continues past individual kernel
-failures by default, saves one full log per run, and writes a resumable JSONL journal
-under `runs/paper-suite/`. Resume with `--resume PATH`. Use `--repetitions N` for repeated
-model trials and `--kernel NAME` / `--model NAME` for a subset.
+Before launching, start the configured Globus Compute endpoint on the Groq login node:
+
+```bash
+conda activate lassi-globus-compute
+globus-compute-endpoint start lassi-x
+```
+
+On the CUDA harness, activate the `LASSI` environment and ensure the Globus client extra
+is installed with `pip install -e '.[globus]'`. The launcher regenerates every config and
+performs one Academy execution doctor check before spending model or accelerator time. Use
+`bash experiments/paper/launch_suite.sh --doctor-only` to validate the endpoint setup
+without launching an experiment.
+
+The runner continues past individual kernel failures by default, saves one full log per
+run, and writes a resumable JSONL journal under `runs/paper-suite/`. Resume with
+`--resume PATH`. Use `--repetitions N` for repeated model trials and `--kernel NAME` /
+`--model NAME` for a subset.
 
 Aggregate the journal's candidate pass rates and kernel solve rates with:
 

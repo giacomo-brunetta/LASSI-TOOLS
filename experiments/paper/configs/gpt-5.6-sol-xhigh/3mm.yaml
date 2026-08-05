@@ -98,6 +98,8 @@ models:
     max_iterations: 120
     turn_timeout_s: 1200
     turn_retries: 3
+memory:
+  enabled: false
 execution:
   mode: academy
   exchange_url: https://exchange.academy-agents.org
