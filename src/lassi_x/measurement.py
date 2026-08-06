@@ -20,11 +20,26 @@ from .types import Measurement, Status
 from .validation import fixture_relative_path
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     from .config import BackendConfig, RunConfig
     from .execution import ExecutionBackend, ExecutionContext
     from .validation import OracleResult
 
 _DEVICE_ACCELERATORS = {"cuda": "cuda", "xpu": "xpu", "mps": "mps"}
+
+
+class _SubmitTimeoutError(Exception):
+    """Raised when staging or submitting remote work exceeds the submit deadline.
+
+    Distinct from the execution timeout: this means the request never reached a
+    worker, so no job exists to poll or cancel.
+    """
+
+    def __init__(self, stage: str, limit_s: float) -> None:
+        super().__init__(f"{stage} exceeded the {limit_s:g}s submit deadline")
+        self.stage = stage
+        self.limit_s = limit_s
 
 
 class Backend(ABC):
@@ -53,6 +68,51 @@ class Backend(ABC):
         compensation: str,
         seed: int = 0,
     ) -> Measurement: ...
+
+
+def _submit_timeout_measurement(
+    config: RunConfig,
+    spec: BackendConfig,
+    module_path: Path,
+    candidate_id: str,
+    variant_id: str,
+    precision: str,
+    compensation: str,
+    resource: str,
+    exc: _SubmitTimeoutError,
+) -> Measurement:
+    """Record a cell whose work never reached a worker.
+
+    Args:
+        config: Active run configuration.
+        spec: Backend that failed to submit.
+        module_path: Candidate module under measurement.
+        candidate_id: Arena candidate identifier.
+        variant_id: Base or compensated variant identifier.
+        precision: Requested precision.
+        compensation: Compensation label recorded in provenance.
+        resource: Execution resource name recorded in provenance.
+        exc: Deadline breach describing which stage stalled.
+
+    Returns:
+        Timeout measurement whose note names the stalled stage, so an
+        unreachable endpoint is distinguishable from a slow PBS queue.
+    """
+    return _base_measurement(
+        config,
+        spec,
+        module_path,
+        candidate_id,
+        variant_id,
+        precision,
+        compensation,
+        Status.TIMEOUT,
+        resource=resource,
+        notes=(
+            f"Groq submission stalled: {exc}. No PBS job was created. The execution "
+            "endpoint is most likely online but has no free worker to claim the task."
+        ),
+    )
 
 
 def _base_measurement(
@@ -340,6 +400,28 @@ class GroqBackend(Backend):
         self.resource = resource
         self._transaction_semaphore = asyncio.Semaphore(1)
 
+    async def _bounded(self, stage: str, awaitable: Awaitable[Any]) -> Any:
+        """Await one staging or submission RPC under the submit deadline.
+
+        An :class:`ExecRequest` timeout is enforced by the worker that runs it,
+        so it never fires while the task sits unclaimed on an endpoint that is
+        heartbeating but has no free worker. This bound is enforced locally.
+
+        Args:
+            stage: Short label naming the RPC, used in the failure note.
+            awaitable: Coroutine performing the RPC.
+
+        Returns:
+            Whatever the awaited coroutine returns.
+
+        Raises:
+            _SubmitTimeoutError: The deadline expired before the RPC completed.
+        """
+        try:
+            return await asyncio.wait_for(awaitable, self.spec.submit_timeout_s)
+        except TimeoutError:
+            raise _SubmitTimeoutError(stage, self.spec.submit_timeout_s) from None
+
     async def measure(
         self,
         config: RunConfig,
@@ -353,11 +435,12 @@ class GroqBackend(Backend):
         seed: int = 0,
     ) -> Measurement:
         if self.execution is not None:
-            # One Academy execution agent serves the login node. Keep staging,
-            # qsub, and polling for each cell together so concurrent candidate
+            # One Academy execution agent serves the resource. Keep staging,
+            # launch, and polling for each cell together so concurrent candidate
             # fan-out cannot interleave multiple RPC streams on that agent.
+            launch = self._measure_pbs if self.spec.pbs is not None else self._measure_direct
             async with self._transaction_semaphore:
-                return await self._measure_pbs(
+                return await launch(
                     config,
                     oracle,
                     module_path,
@@ -473,6 +556,179 @@ class GroqBackend(Backend):
             notes="Groq worker did not return before timeout",
         )
 
+    async def _measure_direct(
+        self,
+        config: RunConfig,
+        oracle: OracleResult,
+        module_path: Path,
+        *,
+        candidate_id: str,
+        variant_id: str,
+        precision: str,
+        compensation: str,
+        seed: int,
+    ) -> Measurement:
+        """Stage and measure one candidate in place on a GroqRack compute node.
+
+        Used when the execution endpoint already runs on a node that owns LPUs,
+        so no batch job is needed. This removes the PBS queue entirely: the
+        worker starts as soon as the endpoint claims the task. As in PBS mode,
+        only the SDK's on-LPU benchmark latency is reported.
+
+        Args:
+            config: Validated run configuration.
+            oracle: External C FP64 oracle generated by the harness.
+            module_path: Candidate module in the harness artifact tree.
+            candidate_id: Arena candidate identifier.
+            variant_id: Base or compensated variant identifier.
+            precision: Requested precision; GroqFlow mode supports FP16.
+            compensation: Compensation label recorded in provenance.
+            seed: Deterministic measurement seed, retained for interface parity.
+
+        Returns:
+            Structured measurement populated from the compute-node worker.
+        """
+        del seed
+        if not self.supports(precision) or precision != "fp16":
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.UNSUPPORTED,
+                resource=self.resource,
+                notes="GroqFlow hardware execution is configured for FP16",
+            )
+        runtime = self.spec.runtime
+        assert runtime is not None
+        assert self.execution is not None
+        workspace = "groq-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:54]
+        oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
+        worker_name = "groq_measure_worker.py"
+        request_id = uuid.uuid4().hex
+        result_name = f"result-{request_id}.json"
+        script_name = f"run-{request_id}.sh"
+        source_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
+        try:
+            handshake = await self._bounded("handshake", self.execution.cached_handshake())
+            await self._bounded(
+                "stage candidate",
+                put_bytes(self.execution, workspace, "candidate.py", module_path.read_bytes()),
+            )
+            await self._bounded(
+                "stage oracle",
+                put_bytes(self.execution, workspace, oracle_name, oracle.output_path.read_bytes()),
+            )
+            await self._bounded(
+                "stage worker",
+                put_bytes(
+                    self.execution,
+                    workspace,
+                    worker_name,
+                    Path(__file__).with_name(worker_name).read_bytes(),
+                ),
+            )
+            remote_workspace = Path(handshake.workspace_root) / workspace
+            command = [
+                str(runtime.python),
+                worker_name,
+                "--module",
+                "candidate.py",
+                "--oracle",
+                oracle_name,
+                "--output",
+                result_name,
+                "--iterations",
+                str(config.measure.iterations),
+                "--rtol",
+                str(config.arena.equivalence.rtol),
+                "--atol",
+                str(config.arena.equivalence.atol),
+                "--cache-dir",
+                str(remote_workspace / "groq-cache" / source_hash[:16]),
+                "--build-name",
+                f"lassi-{variant_id}-{source_hash[:12]}",
+                "--accuracy-dataset",
+                config.kernel.validation_dataset,
+                "--performance-dataset",
+                config.measure.performance_dataset,
+            ]
+            script_lines = [
+                "#!/usr/bin/env bash",
+                "set -euo pipefail",
+                f"source {shlex.quote(str(runtime.conda_sh))}",
+                f"conda activate {shlex.quote(runtime.conda_env)}",
+            ]
+            if runtime.pythonpath:
+                script_lines.append(
+                    "export PYTHONPATH="
+                    + shlex.quote(":".join(str(path) for path in runtime.pythonpath))
+                )
+            script_lines.extend([f"cd {shlex.quote(str(remote_workspace))}", shlex.join(command)])
+            await self._bounded(
+                "stage run script",
+                put_bytes(
+                    self.execution,
+                    workspace,
+                    script_name,
+                    ("\n".join(script_lines) + "\n").encode(),
+                ),
+            )
+        except _SubmitTimeoutError as exc:
+            return _submit_timeout_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                self.resource,
+                exc,
+            )
+        async with self.semaphore:
+            result = await self.execution.execute(
+                ExecRequest(
+                    workspace=workspace,
+                    argv=["bash", script_name],
+                    timeout_s=self.spec.timeout_s,
+                )
+            )
+        if result.timed_out:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.TIMEOUT,
+                resource=self.resource,
+                notes=f"Groq direct worker exceeded {self.spec.timeout_s:g}s on the compute node",
+            )
+        try:
+            payload: Any = json.loads(await fetch_bytes(self.execution, workspace, result_name))
+        except (OSError, ValueError, json.JSONDecodeError):
+            payload = {
+                "ok": False,
+                "error": (result.stderr or result.stdout)[-2000:]
+                or "Groq direct worker produced no result file",
+            }
+        return self._finalize(
+            payload,
+            config,
+            module_path,
+            candidate_id=candidate_id,
+            variant_id=variant_id,
+            precision=precision,
+            compensation=compensation,
+            mode="direct",
+        )
+
     async def _measure_pbs(
         self,
         config: RunConfig,
@@ -523,18 +779,40 @@ class GroqBackend(Backend):
         pbs = self.spec.pbs
         assert pbs is not None
         assert self.execution is not None
-        handshake = await self.execution.cached_handshake()
         workspace = "groq-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:54]
         oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
         worker_name = "groq_measure_worker.py"
-        await put_bytes(self.execution, workspace, "candidate.py", module_path.read_bytes())
-        await put_bytes(self.execution, workspace, oracle_name, oracle.output_path.read_bytes())
-        await put_bytes(
-            self.execution,
-            workspace,
-            worker_name,
-            Path(__file__).with_name(worker_name).read_bytes(),
-        )
+        try:
+            handshake = await self._bounded("handshake", self.execution.cached_handshake())
+            await self._bounded(
+                "stage candidate",
+                put_bytes(self.execution, workspace, "candidate.py", module_path.read_bytes()),
+            )
+            await self._bounded(
+                "stage oracle",
+                put_bytes(self.execution, workspace, oracle_name, oracle.output_path.read_bytes()),
+            )
+            await self._bounded(
+                "stage worker",
+                put_bytes(
+                    self.execution,
+                    workspace,
+                    worker_name,
+                    Path(__file__).with_name(worker_name).read_bytes(),
+                ),
+            )
+        except _SubmitTimeoutError as exc:
+            return _submit_timeout_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                self.resource,
+                exc,
+            )
         request_id = uuid.uuid4().hex
         result_name = f"result-{request_id}.json"
         stdout_name = f"pbs-{request_id}.stdout"
@@ -584,7 +862,23 @@ class GroqBackend(Backend):
             ]
         )
         job_script = "\n".join(script_lines) + "\n"
-        await put_bytes(self.execution, workspace, job_name, job_script.encode())
+        try:
+            await self._bounded(
+                "stage job script",
+                put_bytes(self.execution, workspace, job_name, job_script.encode()),
+            )
+        except _SubmitTimeoutError as exc:
+            return _submit_timeout_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                self.resource,
+                exc,
+            )
         qsub = [
             str(pbs.qsub),
             "-l",
@@ -598,13 +892,29 @@ class GroqBackend(Backend):
             job_name,
         ]
         async with self.semaphore:
-            submission = await self.execution.execute(
-                ExecRequest(
-                    workspace=workspace,
-                    argv=qsub,
-                    timeout_s=min(self.spec.timeout_s, 120.0),
+            try:
+                submission = await self._bounded(
+                    "qsub",
+                    self.execution.execute(
+                        ExecRequest(
+                            workspace=workspace,
+                            argv=qsub,
+                            timeout_s=min(self.spec.timeout_s, 120.0),
+                        )
+                    ),
                 )
-            )
+            except _SubmitTimeoutError as exc:
+                return _submit_timeout_measurement(
+                    config,
+                    self.spec,
+                    module_path,
+                    candidate_id,
+                    variant_id,
+                    precision,
+                    compensation,
+                    self.resource,
+                    exc,
+                )
             if submission.timed_out or submission.exit_code != 0:
                 return _base_measurement(
                     config,
@@ -707,6 +1017,47 @@ class GroqBackend(Backend):
                         )
                     )
                 raise
+        return self._finalize(
+            payload,
+            config,
+            module_path,
+            candidate_id=candidate_id,
+            variant_id=variant_id,
+            precision=precision,
+            compensation=compensation,
+            mode="PBS",
+        )
+
+    def _finalize(
+        self,
+        payload: Any,
+        config: RunConfig,
+        module_path: Path,
+        *,
+        candidate_id: str,
+        variant_id: str,
+        precision: str,
+        compensation: str,
+        mode: str,
+    ) -> Measurement:
+        """Convert a Groq worker payload into a measurement.
+
+        Shared by the PBS and direct compute-node modes, which differ only in
+        how the worker is launched, not in what it reports.
+
+        Args:
+            payload: Decoded worker result, or any non-object on corruption.
+            config: Active run configuration.
+            module_path: Candidate module under measurement.
+            candidate_id: Arena candidate identifier.
+            variant_id: Base or compensated variant identifier.
+            precision: Requested precision.
+            compensation: Compensation label recorded in provenance.
+            mode: Launch mode named in failure notes.
+
+        Returns:
+            Structured measurement populated from the worker payload.
+        """
         if not isinstance(payload, dict):
             return _base_measurement(
                 config,
@@ -718,7 +1069,7 @@ class GroqBackend(Backend):
                 compensation,
                 Status.CRASHED,
                 resource=self.resource,
-                notes="Groq PBS worker returned a non-object JSON payload",
+                notes=f"Groq {mode} worker returned a non-object JSON payload",
             )
         if not payload.get("ok"):
             return _base_measurement(
@@ -731,7 +1082,7 @@ class GroqBackend(Backend):
                 compensation,
                 Status.CRASHED,
                 resource=self.resource,
-                notes=str(payload.get("error") or "Groq PBS measurement failed"),
+                notes=str(payload.get("error") or f"Groq {mode} measurement failed"),
             )
         metrics = payload.get("metrics") or {}
         timing = payload.get("timing") or {}
@@ -836,7 +1187,7 @@ def build_backends(config: RunConfig, execution: ExecutionContext) -> list[Backe
                 )
             )
         else:
-            if spec.pbs is None:
+            if spec.queue_dir is not None:
                 result.append(GroqBackend(spec))
             else:
                 resource = spec.resource or execution.default_resource

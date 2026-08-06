@@ -210,6 +210,101 @@ def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
     assert (tmp_path / "remote" / "groq-c1-base" / "groq_measure_worker.py").is_file()
 
 
+def test_groq_direct_mode_runs_the_worker_without_pbs(tmp_path: Path) -> None:
+    config, module, oracle = setup_run(tmp_path)
+    spec = BackendConfig.model_validate(
+        {
+            "type": "groq",
+            "name": "groq-lpu",
+            "resource": "groq-compute",
+            "precisions": ["fp16"],
+            "timeout_s": 60,
+            "runtime": {
+                "conda_sh": "/shared/miniconda3/etc/profile.d/conda.sh",
+                "conda_env": "groqflow",
+                "python": "/shared/miniconda3/envs/groqflow/bin/python",
+                "pythonpath": ["/shared/LASSI-TOOLS/src"],
+            },
+        }
+    )
+    execution = FakePBSExecutionBackend(tmp_path / "remote")
+    result = asyncio.run(
+        GroqBackend(spec, execution, "groq-compute").measure(
+            config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp16",
+            compensation="none",
+        )
+    )
+    assert result.status == Status.OK
+    assert result.resource == "groq-compute"
+    assert result.latency_s == 0.000123
+    request = execution.requests[0]
+    # The worker runs in place; no batch system is involved.
+    assert request.argv[0] == "bash"
+    assert not any("qsub" in argument for argument in request.argv)
+    script = (tmp_path / "remote" / "groq-c1-base" / request.argv[-1]).read_text()
+    assert "conda activate groqflow" in script
+    assert "--performance-dataset default" in script
+
+
+class StalledExecutionBackend(LocalExecutionBackend):
+    """Model an endpoint that heartbeats but never claims a submitted task."""
+
+    async def execute(self, request: ExecRequest) -> ExecResult:
+        """Never return, the way an unclaimed Globus Compute task never returns."""
+        del request
+        await asyncio.sleep(3600)
+        raise AssertionError("unreachable")
+
+
+def test_groq_submission_deadline_bounds_an_unclaimed_task(tmp_path: Path) -> None:
+    config, module, oracle = setup_run(tmp_path)
+    spec = BackendConfig.model_validate(
+        {
+            "type": "groq",
+            "name": "groq-lpu",
+            "resource": "groq-login",
+            "precisions": ["fp16"],
+            # Execution may wait hours in the PBS queue; submission may not.
+            "timeout_s": 7200,
+            "submit_timeout_s": 0.25,
+            "pbs": {
+                "conda_sh": "/shared/miniconda3/etc/profile.d/conda.sh",
+                "conda_env": "groqflow",
+                "python": "/shared/miniconda3/envs/groqflow/bin/python",
+            },
+        }
+    )
+    backend = GroqBackend(
+        spec, StalledExecutionBackend(tmp_path / "remote", "groq-login"), "groq-login"
+    )
+    started = time.monotonic()
+    result = asyncio.run(
+        backend.measure(
+            config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp16",
+            compensation="none",
+        )
+    )
+    elapsed = time.monotonic() - started
+    assert result.status == Status.TIMEOUT
+    # The cell must fail on submit_timeout_s, not the 7200s execution ceiling.
+    assert elapsed < 30.0
+    # The note must name the stalled stage and say no job was created, so an
+    # unreachable endpoint is not mistaken for a slow PBS queue.
+    assert "submit deadline" in (result.notes or "")
+    assert "No PBS job was created" in (result.notes or "")
+    assert "no free worker" in (result.notes or "")
+
+
 def test_groq_pbs_transactions_are_serialized(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

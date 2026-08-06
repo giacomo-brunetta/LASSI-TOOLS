@@ -118,14 +118,23 @@ class BackendCapabilities(StrictModel):
     fp64: bool | None = None
 
 
-class GroqPBSConfig(StrictModel):
-    """PBS launch settings for a GroqRack measurement resource."""
+class GroqRuntimeConfig(StrictModel):
+    """Interpreter settings for a GroqRack measurement worker.
 
-    qsub: Path = Path("/opt/pbs/bin/qsub")
+    Shared by both launch modes: the worker needs the same ``groqflow``
+    environment whether PBS starts it or it runs in place on a compute node.
+    """
+
     conda_sh: Path
     conda_env: str = "groqflow"
     python: Path
     pythonpath: list[Path] = Field(default_factory=list)
+
+
+class GroqPBSConfig(GroqRuntimeConfig):
+    """PBS launch settings for a GroqRack measurement resource."""
+
+    qsub: Path = Path("/opt/pbs/bin/qsub")
     select: str = "select=1,place=excl"
     walltime: str = Field(default="01:00:00", pattern=r"^\d{1,3}:\d{2}:\d{2}$")
 
@@ -137,8 +146,15 @@ class BackendConfig(StrictModel):
     resource: str | None = None
     queue_dir: Path | None = None
     pbs: GroqPBSConfig | None = None
+    # Direct mode: the endpoint already runs on a compute node with LPUs, so
+    # the worker executes in place and no batch job is involved.
+    runtime: GroqRuntimeConfig | None = None
     precisions: list[Literal["fp64", "fp32", "fp16", "bf16"]]
     timeout_s: float = 600.0
+    # Bounds staging and submission, not execution. A Globus Compute endpoint
+    # that heartbeats but has no free worker leaves every RPC pending forever,
+    # so the remote timeout on the call never gets a chance to fire.
+    submit_timeout_s: float = Field(default=300.0, gt=0.0)
     healthcheck_max_age_s: float = Field(default=30.0, gt=0.0)
     stale_request_s: float = Field(default=3600.0, gt=0.0)
     capabilities: BackendCapabilities | None = None
@@ -148,15 +164,20 @@ class BackendConfig(StrictModel):
         if self.type == "torch" and not self.device:
             raise ValueError("torch backend requires device")
         if self.type == "groq":
-            queue_mode = self.queue_dir is not None
-            pbs_mode = self.resource is not None and self.pbs is not None
-            if queue_mode == pbs_mode:
+            if (self.queue_dir is None) == (self.resource is None):
                 raise ValueError(
                     "groq backend requires exactly one execution mode: queue_dir, "
-                    "or resource plus pbs"
+                    "or a resource running either PBS or direct mode"
                 )
-        elif self.pbs is not None:
-            raise ValueError("pbs settings are only valid for a groq backend")
+            if self.pbs is not None and self.runtime is not None:
+                raise ValueError("groq backend accepts pbs or runtime, not both")
+            if self.resource is not None and self.pbs is None and self.runtime is None:
+                raise ValueError(
+                    "groq direct mode requires runtime settings naming the "
+                    "compute-node groqflow interpreter"
+                )
+        elif self.pbs is not None or self.runtime is not None:
+            raise ValueError("pbs and runtime settings are only valid for a groq backend")
         return self
 
 
