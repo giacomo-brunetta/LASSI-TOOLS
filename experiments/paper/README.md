@@ -146,6 +146,15 @@ stuck. The cure is a manager restart on the node (`globus-compute-endpoint stop 
 then `start <name>`); the prevention is installing the user-config templates above, which
 unset `idle_heartbeats_soft`, pin `min_blocks: 1`, and raise `max_workers_per_node`.
 
+If the endpoints are restarted from somewhere other than this harness, leave
+
+```bash
+bash experiments/paper/wait_and_launch.sh
+```
+
+running here: it polls `--doctor-only` and launches the suite on the first pass. It never
+touches an endpoint itself. Extra options are forwarded to the launcher.
+
 The stock template's defaults are actively incompatible with this suite. LASSI launches
 one long-lived `ExecutionAgent` per resource and keeps it for the whole run — every tool
 call and measurement is an Academy round trip to that agent, not a fresh Globus task. With

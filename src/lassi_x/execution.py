@@ -380,6 +380,9 @@ STALL_WARN_INTERVAL_S = 60.0
 CALL_TIMEOUT_S = 300.0
 """Default ceiling for one Academy round trip, excluding remote run time."""
 
+SHUTDOWN_TIMEOUT_S = 60.0
+"""Ceiling on agent shutdown, so teardown cannot outlive the run it follows."""
+
 
 class RemoteCallTimeoutError(TimeoutError):
     """One Academy call outlived its bound and was abandoned.
@@ -872,6 +875,13 @@ class ExecutionContext:
         Cleanup is best-effort: a failure while shutting remote agents down
         (for example when the exchange is unreachable) is logged and
         suppressed so it never masks the error that ended the run.
+
+        Agent shutdown is bounded for the same reason the calls it mirrors
+        are. ``Manager.close`` asks each agent to stop and waits for it to
+        acknowledge, so closing against the very resource that just went mute
+        hangs exactly where the run did -- and does it in teardown, after the
+        result is already known. A preflight that had correctly abandoned two
+        unreachable resources still failed to print its verdict because of it.
         """
         from .hermes_config import (  # noqa: PLC0415
             restore_memory_provider,
@@ -899,7 +909,13 @@ class ExecutionContext:
             # outside a single task's context.
             token = exchange_context.set(manager.exchange_client)
             try:
-                await manager.close()
+                await asyncio.wait_for(manager.close(), SHUTDOWN_TIMEOUT_S)
+            except TimeoutError:
+                logger.warning(
+                    "execution manager shutdown abandoned after %.0fs; "
+                    "one or more agents did not acknowledge",
+                    SHUTDOWN_TIMEOUT_S,
+                )
             except Exception as exc:  # noqa: BLE001  # cleanup must not mask run errors
                 logger.warning("execution manager shutdown failed: %s: %s", type(exc).__name__, exc)
             finally:

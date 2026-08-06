@@ -56,6 +56,10 @@ def emit(tool: str, payload: dict[str, Any], *, json_output: bool = True) -> Non
     else:
         for key, value in envelope.items():
             print(f"{key}: {value}")
+    # Redirected stdout is block-buffered, so a verdict this small sits in the
+    # buffer. Runs that are killed rather than exiting -- a suite timeout, a
+    # blocked interpreter shutdown -- lose it entirely without this.
+    sys.stdout.flush()
 
 
 def _load_any(path: Path) -> np.ndarray:
@@ -648,7 +652,47 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+EXIT_GRACE_S = 30.0
+"""Seconds to allow for orderly interpreter shutdown before forcing it."""
+
+
+def _force_exit_after(code: int, grace_s: float = EXIT_GRACE_S) -> None:
+    """Guarantee the process exits even if a stray task blocks loop teardown.
+
+    On completion :func:`asyncio.run` cancels whatever tasks remain and waits
+    for them. Academy shields its response sends from cancellation, so one
+    aimed at an unreachable exchange never finishes and the interpreter never
+    exits -- a preflight that had already diagnosed two mute resources still
+    had to be killed from outside. The verdict is emitted before this arms, so
+    nothing is lost by giving up on the stragglers.
+
+    A daemon thread is used rather than an ``atexit`` hook because the hang
+    happens before interpreter shutdown begins. It is set well beyond any
+    orderly exit, and dies with the process if one happens first.
+
+    Args:
+        code: Status to exit with if the grace period expires.
+        grace_s: Seconds to wait before forcing the exit.
+
+    """
+
+    def bail() -> None:
+        time.sleep(grace_s)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code)  # noqa: SLF001
+
+    threading.Thread(target=bail, daemon=True, name="lassi-x-exit-watchdog").start()
+
+
 def main() -> int:
+    """Dispatch one CLI command, forcing an exit if teardown blocks."""
+    code = _dispatch()
+    _force_exit_after(code)
+    return code
+
+
+def _dispatch() -> int:
     args = build_parser().parse_args()
     configure_logging(args.log_level)
     if args.command == "run":
