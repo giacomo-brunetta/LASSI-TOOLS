@@ -101,7 +101,12 @@ class RepairingPlannerSession(FakeHermesSession):
     async def send(self, prompt: str) -> HermesTurn:
         self.turn += 1
         if self.turn == 1:
-            return HermesTurn('[{"name":"only","plan":"one"}]', Usage())
+            # Two different arrays of the same length: the planner has offered no
+            # single answer, which is the shape the retry exists to repair.
+            return HermesTurn(
+                '[{"name":"a","plan":"one"}] and also [{"name":"b","plan":"two"}]',
+                Usage(),
+            )
         assert "Repair only the output shape" in prompt
         return HermesTurn(
             json.dumps(
@@ -129,6 +134,30 @@ def test_planner_repairs_configurable_strategy_count(
     assert len(strategies) == 2
     assert len(record["attempts"]) == 2
     assert "parse_error" in record["attempts"][0]
+
+
+class ShortPlannerSession(FakeHermesSession):
+    async def send(self, prompt: str) -> HermesTurn:
+        self.turn += 1
+        return HermesTurn('[{"name":"only","plan":"one vectorized formulation"}]', Usage())
+
+
+def test_planner_may_return_fewer_strategies_than_requested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A kernel with only one distinct vectorized formulation must not be padded."""
+    data = minimal_config(tmp_path)
+    data["arena"] = {"candidates": 2, "planner_format_retries": 1}
+    data["models"]["candidates"].pop()
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+    config = RunConfig.load(config_path)
+    monkeypatch.setattr(arena, "HermesSession", ShortPlannerSession)
+    strategies, record = asyncio.run(arena.plan_strategies(config, tmp_path))
+    assert len(strategies) == 1
+    assert len(record["attempts"]) == 1
+    assert "parse_error" not in record["attempts"][0]
 
 
 def test_arena_generates_three_and_repairs_failures(

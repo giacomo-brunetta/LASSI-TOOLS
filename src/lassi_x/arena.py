@@ -35,6 +35,22 @@ Planning responsibilities:
 - Identify the important correctness risks and the concrete checks an implementer should
   perform. Do not invent missing facts; state conservative assumptions in the plan.
 
+Vectorization requirement (hard):
+- Every strategy must be measurable at the performance dataset size. A Python loop whose
+  trip count grows with a data dimension, performing scalar or per-element tensor work
+  inside, is not measurable: it issues one kernel launch per element, so a single forward
+  runs for hours and the measurement is abandoned rather than recorded.
+- Do not propose transliterating the reference's scalar loop nest. Python-level iteration is
+  allowed only over a coarse, bounded axis -- blocks, panels, tiles, sweeps, or a fixed
+  number of stages -- where each iteration performs whole-tensor work on a substantial
+  slice. Prefer a blocked or batched formulation to an elementwise one.
+- Reduction order and update dependencies still bind. When faithfulness genuinely requires a
+  sequential recurrence, express it over a coarse axis or state plainly in the plan that the
+  dependency is elementwise and sequential.
+- Returning fewer strategies is correct and expected when the kernel does not admit the
+  requested number of materially distinct vectorized formulations. Never pad the array with
+  a scalar-loop strategy to reach the requested count.
+
 Tool and scope rules:
 - Consult the lassi-x-machine-info and lassi-x-translate-kernel skills when useful.
 - You are an architect, not the implementer: do not create, edit, or delete files.
@@ -60,6 +76,23 @@ Engineering responsibilities:
   outputs, generated datasets, MLIR, reports, or unrelated helper files.
 - Compile-check the target before reporting completion. Describe what you implemented briefly
   and accurately; do not claim validation that you did not run.
+
+Vectorization requirement (hard):
+- The module you write is measured at a performance dataset size far larger than the
+  correctness dataset. A Python loop whose trip count grows with a data dimension, performing
+  scalar or per-element tensor work inside, issues one kernel launch per element: a single
+  forward then runs for hours and the measurement is abandoned rather than recorded. Passing
+  the small correctness check is not evidence that such an implementation is measurable.
+- Do not transliterate the reference's scalar loop nest. Python-level iteration is allowed only
+  over a coarse, bounded axis -- blocks, panels, tiles, sweeps, or a fixed number of stages --
+  where each iteration performs whole-tensor work on a substantial slice. Indexing a single
+  element inside a data-sized loop, as in `a[i, j] = a[i, j] - a[i, k] * a[k, j]`, is the shape
+  to avoid; the blocked equivalent operating on submatrices is the shape to write.
+- Reduction order and update dependencies still bind, and a blocked formulation must reproduce
+  the reference's arithmetic, not merely its result shape.
+- If you cannot express the assigned strategy without a data-sized scalar loop, do not ship one.
+  Report failure, name the dependency that resists vectorization, and stop. An honest failure is
+  a usable result; an unmeasurable candidate is not.
 
 Repair responsibilities:
 - Treat validator diagnostics as evidence. Locate the earliest violated assumption and repair
@@ -149,19 +182,25 @@ def _parse_json(text: str) -> list[object] | dict[str, object]:
 def _parse_strategies(text: str, expected_count: int) -> list[dict[str, object]]:
     """Parse one unambiguous, schema-valid strategy array.
 
-    Unlike the generic recovery parser, this function does not guess by array size. A
-    response containing multiple plausible strategy arrays is rejected so the planner can
-    repair its output on the next turn.
+    A short array is a legitimate planner answer: a kernel that admits fewer than the
+    requested number of materially distinct vectorized formulations should return what it
+    has rather than pad the array. Any length from one to ``expected_count`` is therefore
+    accepted, and the longest such length wins so that a nested or illustrative fragment
+    cannot displace the real answer.
+
+    Ambiguity is still rejected. Within the winning length the array must be unique, so a
+    response offering two different candidate sets is sent back for repair instead of being
+    guessed at.
 
     Args:
         text: Raw planner response.
-        expected_count: Number of strategy objects required by the arena.
+        expected_count: Largest number of strategy objects the arena can use.
 
     Returns:
-        The unique array whose length and object schema match the request.
+        The unique longest array whose length and object schema match the request.
 
     Raises:
-        ValueError: If no matching array exists or more than one is present.
+        ValueError: If no matching array exists or the longest length is ambiguous.
 
     """
     stripped = text.strip()
@@ -179,10 +218,10 @@ def _parse_strategies(text: str, expected_count: int) -> list[dict[str, object]]
             except json.JSONDecodeError:
                 continue
             decoded.append(value)
-    matches: list[list[dict[str, object]]] = []
+    by_length: dict[int, list[list[dict[str, object]]]] = {}
     fingerprints: set[str] = set()
     for value in decoded:
-        if not isinstance(value, list) or len(value) != expected_count:
+        if not isinstance(value, list) or not 1 <= len(value) <= expected_count:
             continue
         if not all(
             isinstance(item, dict)
@@ -195,11 +234,17 @@ def _parse_strategies(text: str, expected_count: int) -> list[dict[str, object]]
         if fingerprint in fingerprints:
             continue
         fingerprints.add(fingerprint)
-        matches.append(cast("list[dict[str, object]]", value))
+        by_length.setdefault(len(value), []).append(cast("list[dict[str, object]]", value))
+    if not by_length:
+        raise ValueError(
+            f"expected one unambiguous array of 1 to {expected_count} strategy objects; found 0"
+        )
+    longest = max(by_length)
+    matches = by_length[longest]
     if len(matches) != 1:
         raise ValueError(
-            f"expected one unambiguous array of {expected_count} strategy objects; "
-            f"found {len(matches)}"
+            f"expected one unambiguous array of 1 to {expected_count} strategy objects; "
+            f"found {len(matches)} distinct arrays of length {longest}"
         )
     return matches[0]
 
@@ -224,18 +269,23 @@ async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str]
 
     """
     count = config.arena.candidates
-    prompt = f"""Create exactly {count} materially distinct PyTorch translation strategies.
+    prompt = f"""Create up to {count} materially distinct PyTorch translation strategies.
 
 Kernel: {config.kernel.name}
 Task: {config.kernel.task}
 
-The implementations will be generated concurrently by {count} configured model sessions.
+The implementations will be generated concurrently, one model session per strategy.
 Every strategy must preserve initialization, operation semantics, output ordering, and
 the build_inputs(device, dtype, dataset) / make_model() module contract. Each strategy
 must support validation dataset `{config.kernel.validation_dataset}` and performance
 dataset `{config.measure.performance_dataset}` in one dimension-flexible module.
 
-Return a JSON array containing exactly {count} objects:
+Return {count} strategies if this kernel admits {count} genuinely distinct vectorized
+formulations. If it does not, return fewer -- a shorter array is a valid answer. Do not
+pad the array with a near-duplicate or with a scalar-loop transliteration of the
+reference.
+
+Return a JSON array containing 1 to {count} objects:
 [{{"name":"short name","plan":"complete self-contained implementation plan"}}, ...]
 
 Source context:
@@ -257,9 +307,10 @@ Source context:
                 prompt
                 if attempt == 0
                 else (
-                    f"Your previous response was not one unambiguous JSON array of exactly {count} "
+                    f"Your previous response was not one unambiguous JSON array of 1 to {count} "
                     "strategy objects with non-empty name and plan fields. Repair only the output "
-                    "shape. Return the complete JSON array and nothing else."
+                    "shape, keeping the same strategies. Return the complete JSON array and "
+                    "nothing else."
                 )
             )
             turn = await session.send(request)
@@ -286,7 +337,8 @@ Source context:
     (workspace / "planner-responses.json").write_text(json.dumps(attempts, indent=2) + "\n")
     if strategies is None:
         raise ValueError(
-            f"Hermes planner did not return {count} valid strategies after {len(attempts)} attempts"
+            f"Hermes planner did not return 1 to {count} valid strategies "
+            f"after {len(attempts)} attempts"
         )
     return strategies, {
         "text": attempts[-1]["text"],
@@ -535,7 +587,7 @@ async def run_arena(
 
     Raises:
         json.JSONDecodeError: If the planner does not return decodable JSON.
-        ValueError: If the planner does not return exactly three valid strategies.
+        ValueError: If the planner returns no unambiguous, schema-valid strategy array.
 
     """
     strategies, planner_record = await plan_strategies(config, run_dir)
