@@ -163,8 +163,8 @@ def _task(kernel: dict[str, Any]) -> str:
         f"Translate the cited C kernel into a semantically equivalent, export-friendly "
         f"PyTorch module. Reproduce init_array and operation order from the staged source. "
         f"{kernel['task']} build_inputs(device, dtype, fixture=None, dataset='mini') must "
-        f"accept dataset='mini' with {kernel['mini']} and dataset='extralarge' with "
-        f"{kernel['extralarge']}. The same make_model()/forward implementation must support "
+        f"accept dataset='mini' with {kernel['mini']} and dataset='large' with "
+        f"{kernel['large']}. The same make_model()/forward implementation must support "
         f"both profiles. Return live-out {kernel['live_out']} in the exact PolyBench print order."
     )
 
@@ -331,7 +331,14 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
         "measure": {
             "precisions": ["fp64", "fp32", "fp16", "bf16"],
             "strict_precisions": ["fp64", "fp32"],
-            "performance_dataset": "extralarge",
+            # PolyBench LARGE, not EXTRALARGE. GroqFlow sizes a build by parameter
+            # count (build.py::calculate_num_chips), and these kernels are pure
+            # dataflow with essentially no parameters, so it always picks one chip
+            # regardless of dataset. EXTRALARGE then overruns the single-chip
+            # scheduler and the compile dies in Proxy Buffer Allocation. LARGE fits
+            # one chip on every kernel measured, keeping all backends comparable
+            # without a multi-chip partition that would also rescale Groq latency.
+            "performance_dataset": "large",
             "warmup": 5,
             "iterations": 30,
             "stochastic_seeds": [0, 1, 2, 3, 4],

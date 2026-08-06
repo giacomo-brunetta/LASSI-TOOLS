@@ -42,7 +42,7 @@
 #     `waiting-for-ep` forever while the endpoint still reported `online`.
 #   - idle_heartbeats_soft unset, so the endpoint does not self-terminate
 #     between kernels during a long suite. The stock template sets it to 10
-#     (five minutes), which is shorter than a single extralarge compile.
+#     (five minutes), which is shorter than a single large-profile compile.
 
 endpoint_setup: {{ endpoint_setup|default() }}
 

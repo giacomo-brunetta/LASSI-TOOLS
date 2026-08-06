@@ -3,7 +3,7 @@
 This suite runs the six PolyBench kernels and four scientific kernels identified by the
 earlier LASSI breadth manifest. It validates FP64 semantic equivalence with the `mini`
 profile on the local harness, measures accelerator accuracy on that same profile, and
-times the `extralarge` profile on CUDA and Groq. Input construction, Academy transport,
+times the `large` profile on CUDA and Groq. Input construction, Academy transport,
 PBS queueing, and MCP latency are outside the timed region.
 
 Every generated configuration explicitly sets `memory.enabled: false`. This keeps the

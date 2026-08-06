@@ -11,7 +11,7 @@ kernel:
   task: Translate the cited C kernel into a semantically equivalent, export-friendly PyTorch module. Reproduce
     init_array and operation order from the staged source. Reproduce the explicit seven-point 3D diffusion
     time stepping and return final A. build_inputs(device, dtype, fixture=None, dataset='mini') must accept
-    dataset='mini' with TSTEPS=20, N=10 and dataset='extralarge' with TSTEPS=1000, N=200. The same make_model()/forward
+    dataset='mini' with TSTEPS=20, N=10 and dataset='large' with TSTEPS=500, N=120. The same make_model()/forward
     implementation must support both profiles. Return live-out A in the exact PolyBench print order.
 oracle:
   build:
@@ -116,13 +116,12 @@ execution:
       labels:
       - cuda
       - a100
-    groq-compute:
-      endpoint_id: 428a680f-1efb-488e-9558-96eb7f54a910
+    groq-login:
+      endpoint_id: 266f3128-cc9a-403e-ab61-9284ed57d54b
       workspace_root: /home/gbrun/lassi-x-groq-academy
       labels:
-      - groq-compute
-      - lpu
-      - direct
+      - groq-login
+      - pbs
   mcp_timeout_s: 1200
 measure:
   precisions:
@@ -133,7 +132,7 @@ measure:
   strict_precisions:
   - fp64
   - fp32
-  performance_dataset: extralarge
+  performance_dataset: large
   warmup: 5
   iterations: 30
   stochastic_seeds:
@@ -156,17 +155,20 @@ measure:
     timeout_s: 7200
   - type: groq
     name: groq-lpu
-    resource: groq-compute
+    resource: groq-login
     precisions:
     - fp16
     timeout_s: 7200
     submit_timeout_s: 300
-    runtime:
+    pbs:
       conda_sh: /home/gbrun/miniconda3/etc/profile.d/conda.sh
       conda_env: groqflow
       python: /home/gbrun/miniconda3/envs/groqflow/bin/python
       pythonpath:
       - /home/gbrun/LASSI-TOOLS/src
+      qsub: /opt/pbs/bin/qsub
+      select: select=1,place=excl
+      walltime: 02:00:00
     capabilities:
       storage:
       - fp16
