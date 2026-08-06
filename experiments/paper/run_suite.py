@@ -16,9 +16,15 @@ from typing import Any
 import yaml
 from generate_configs import HERE, REPO, generate
 
-# A stalled child must not block the whole matrix.  The measurement backends
-# already bound themselves at 7200s, so anything past that is a hang, not work.
-DEFAULT_RUN_TIMEOUT_S = 7200.0
+# A stalled child must not block the whole matrix.  This is the outer backstop
+# only: each measurement is already bounded by its backend's timeout_s in
+# generate_configs.py (CUDA 180s, Groq 1800s to cover a cold GroqFlow compile),
+# so a run that reaches this ceiling is hung somewhere those bounds do not
+# reach -- agent transport, teardown, an endpoint that stopped answering.
+# Healthy kernels in the first full session took 10-26 minutes end to end, so
+# one hour is ~2.3x the slowest observed run and still fails fast enough that a
+# wedged kernel costs an hour rather than the rest of the evening.
+DEFAULT_RUN_TIMEOUT_S = 3600.0
 
 # Grace period between SIGTERM and SIGKILL when reaping a timed-out run.
 TERM_GRACE_S = 30.0
