@@ -57,6 +57,45 @@ CONDA_ENV = "groqflow"
 GROQ_PYTHON = "/home/gbrun/miniconda3/envs/groqflow/bin/python"
 GROQ_PYTHONPATH = ["/home/gbrun/LASSI-TOOLS/src"]
 
+# Per-measurement ceilings, enforced by the remote worker. These bound ONE cell,
+# not the kernel and not the suite, so the useful question is "how long can a
+# healthy measurement take?" rather than "how long are we willing to wait?".
+#
+# A candidate that declines to vectorise sets these apart from every other
+# failure mode. The LU c1 arena entry wrote its forward as a triple-nested
+# Python loop over an n=2000 matrix -- ~1.3e9 innermost iterations, each
+# launching its own GPU op, so a single forward runs for hours against a
+# 35-forward protocol. It cannot finish, but it also never errors, so only a
+# deadline ends it. At the previous 7200 s that cost two hours per occurrence
+# and starved the rest of the matrix; the shape recurs on any kernel where a
+# candidate keeps the reference's scalar loop structure.
+#
+# Values are set from the observed distribution over one full session
+# (65 CUDA measurements, 19 Groq):
+#
+#   a100-node      p50 3.0 s   p90 8.2 s   max 34.5 s
+#   groq-compute   p50  71 s   p90 230 s   max 1084 s (cold compile, cache miss)
+#
+# CUDA is tightly clustered because the work is a fixed number of forwards on an
+# already-warm device -- no compilation step hides in the tail. 180 s is ~5x the
+# worst case ever observed and kills a wedged cell in three minutes instead of
+# two hours. The margin is deliberately not tighter: the observed distribution
+# comes from gemm, 3mm, covariance, and jacobi-2d, and a legitimately heavier
+# kernel later in the matrix must not be cut off. A false timeout silently
+# corrupts a paper row, while a late one now costs three minutes.
+#
+# Groq is exempt from the tightening, because its tail is compilation rather than
+# execution. The GroqFlow assembler is single-threaded and `groq-cache` is keyed
+# by build hash, so a first-touch compile is the expected worst case, not an
+# anomaly. 1800 s is ~1.7x the slowest real compile.
+#
+# Raise via the environment rather than editing, so a one-off slow run does not
+# become the checked-in default.
+CUDA_TIMEOUT_ENV_VAR = "LASSI_PAPER_CUDA_TIMEOUT_S"
+GROQ_TIMEOUT_ENV_VAR = "LASSI_PAPER_GROQ_TIMEOUT_S"
+CUDA_TIMEOUT_S = 180
+GROQ_TIMEOUT_S = 1800
+
 
 def _groq_enabled() -> bool:
     """Report whether generated configs should include the Groq backend.
@@ -65,6 +104,31 @@ def _groq_enabled() -> bool:
         ``False`` only when the environment explicitly disables the leg.
     """
     return os.environ.get(GROQ_ENV_VAR, "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _measurement_timeout_s(variable: str, default: int) -> int:
+    """Resolve one backend's per-measurement ceiling from the environment.
+
+    Args:
+        variable: Environment variable holding an override, in seconds.
+        default: Value to use when the variable is unset or empty.
+
+    Returns:
+        The ceiling to write into the backend entry.
+
+    Raises:
+        ValueError: If the override is not a positive integer.
+    """
+    raw = os.environ.get(variable, "").strip()
+    if not raw:
+        return default
+    try:
+        seconds = int(raw)
+    except ValueError as error:
+        raise ValueError(f"{variable} must be a positive integer, got {raw!r}") from error
+    if seconds <= 0:
+        raise ValueError(f"{variable} must be a positive integer, got {raw!r}")
+    return seconds
 
 
 def _groq_direct() -> bool:
@@ -221,7 +285,7 @@ def _groq_backend() -> dict[str, Any]:
         "name": "groq-lpu",
         "resource": _groq_resource_name(),
         "precisions": ["fp16"],
-        "timeout_s": 7200,
+        "timeout_s": _measurement_timeout_s(GROQ_TIMEOUT_ENV_VAR, GROQ_TIMEOUT_S),
         # Execution may legitimately wait hours in the PBS queue, but staging
         # and qsub must not. An endpoint that heartbeats without a free worker
         # leaves them pending indefinitely; fail the cell instead of the suite.
@@ -273,7 +337,7 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
             "device": "cuda",
             "resource": gpu_resource,
             "precisions": ["fp64", "fp32", "fp16", "bf16"],
-            "timeout_s": 7200,
+            "timeout_s": _measurement_timeout_s(CUDA_TIMEOUT_ENV_VAR, CUDA_TIMEOUT_S),
         },
     ]
     if groq:
