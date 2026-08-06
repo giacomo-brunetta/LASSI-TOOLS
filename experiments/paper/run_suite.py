@@ -7,6 +7,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +15,13 @@ from typing import Any
 
 import yaml
 from generate_configs import HERE, REPO, generate
+
+# A stalled child must not block the whole matrix.  The measurement backends
+# already bound themselves at 7200s, so anything past that is a hang, not work.
+DEFAULT_RUN_TIMEOUT_S = 7200.0
+
+# Grace period between SIGTERM and SIGKILL when reaping a timed-out run.
+TERM_GRACE_S = 30.0
 
 
 def _arguments() -> argparse.Namespace:
@@ -30,9 +38,20 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-doctor", action="store_true")
     parser.add_argument("--stop-on-failure", action="store_true")
+    parser.add_argument(
+        "--run-timeout-s",
+        type=float,
+        default=DEFAULT_RUN_TIMEOUT_S,
+        help=(
+            "Wall-clock ceiling for one kernel run. The run is terminated and "
+            "journaled as a failure instead of stalling the matrix. Use 0 to disable."
+        ),
+    )
     args = parser.parse_args()
     if args.repetitions < 1:
         parser.error("--repetitions must be positive")
+    if args.run_timeout_s < 0:
+        parser.error("--run-timeout-s must not be negative")
     return args
 
 
@@ -69,37 +88,69 @@ def _completed(path: Path | None) -> set[tuple[str, str, int]]:
     return result
 
 
-def _run(command: list[str], log_path: Path) -> int:
-    """Execute one command while preserving a complete combined log.
+def _reap(process: subprocess.Popen[bytes]) -> None:
+    """Terminate a timed-out run and every process it spawned.
+
+    The child leads its own process group, so signalling the group also reaps
+    MCP servers, Academy agents, and endpoint workers that would otherwise
+    survive the parent and hold the log file open.
+
+    Args:
+        process: Running child that exceeded its deadline.
+    """
+    for number in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(process.pid, number)
+        except ProcessLookupError:  # Already gone; nothing left to signal.
+            return
+        try:
+            process.wait(timeout=TERM_GRACE_S)
+            return
+        except subprocess.TimeoutExpired:
+            continue  # Escalate to SIGKILL.
+    process.wait()
+
+
+def _run(command: list[str], log_path: Path, timeout_s: float) -> tuple[int, bool]:
+    """Execute one command under a deadline while preserving a combined log.
 
     Args:
         command: Argument vector to execute.
         log_path: File receiving stdout and stderr.
+        timeout_s: Wall-clock ceiling, or zero to wait indefinitely.
 
     Returns:
-        Child exit code.
+        Pair of the child exit code and whether the deadline was hit. A timed
+        out run reports a negative signal-style code from the reap.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("w") as stream:
-        process = subprocess.run(
+        process = subprocess.Popen(
             command,
             cwd=REPO,
             stdout=stream,
             stderr=subprocess.STDOUT,
-            check=False,
+            start_new_session=True,  # Own process group so _reap can signal it.
         )
-    return process.returncode
+        try:
+            return process.wait(timeout=timeout_s or None), False
+        except subprocess.TimeoutExpired:
+            _reap(process)
+            return process.returncode or 1, True
+        except KeyboardInterrupt:
+            _reap(process)
+            raise
 
 
-def _run_dir(log_path: Path) -> str | None:
-    """Extract the run artifact path from the CLI's final JSON envelope.
+def _envelope(log_path: Path) -> dict[str, Any] | None:
+    """Extract the CLI's final JSON result envelope from a combined log.
 
     Args:
         log_path: Combined command log.
 
     Returns:
-        Recorded run directory, or ``None`` when the command failed before one
-        was returned.
+        Last ``tool: run`` envelope, or ``None`` when the command failed before
+        emitting one.
     """
     text = log_path.read_text(errors="replace")
     decoder = json.JSONDecoder()
@@ -113,9 +164,19 @@ def _run_dir(log_path: Path) -> str | None:
             continue
         if isinstance(value, dict) and value.get("tool") == "run":
             envelopes.append(value)
-    if not envelopes:
-        return None
-    value = envelopes[-1].get("run_dir")
+    return envelopes[-1] if envelopes else None
+
+
+def _run_dir(envelope: dict[str, Any] | None) -> str | None:
+    """Read the run artifact path out of a result envelope.
+
+    Args:
+        envelope: Envelope from :func:`_envelope`, or ``None``.
+
+    Returns:
+        Recorded run directory, or ``None`` when absent.
+    """
+    value = (envelope or {}).get("run_dir")
     return str(value) if value else None
 
 
@@ -148,9 +209,10 @@ def main() -> int:
     first_config = HERE / "configs" / model_order[0] / f"{kernel_order[0]}.yaml"
     if not args.skip_doctor and not args.dry_run:
         doctor_log = journal.with_suffix(".doctor.log")
-        doctor_code = _run(
+        doctor_code, _ = _run(
             [python, "-m", "lassi_x.cli", "execution", "doctor", "--config", str(first_config)],
             doctor_log,
+            args.run_timeout_s,
         )
         _append(journal, {"event": "doctor", "exit_code": doctor_code, "log": str(doctor_log)})
         if doctor_code:
@@ -187,7 +249,13 @@ def main() -> int:
                         "started_at": started,
                     },
                 )
-                code = _run(command, log_path)
+                code, timed_out = _run(command, log_path, args.run_timeout_s)
+                envelope = _envelope(log_path)
+                # A run that emitted a successful envelope and then stalled did
+                # its work; only teardown hung. Keep the result, flag the hang.
+                teardown_hang = timed_out and bool((envelope or {}).get("ok"))
+                if teardown_hang:
+                    code = 0
                 _append(
                     journal,
                     {
@@ -196,11 +264,22 @@ def main() -> int:
                         "kernel": kernel,
                         "repetition": repetition,
                         "exit_code": code,
+                        "timed_out": timed_out,
+                        "teardown_hang": teardown_hang,
                         "finished_at": dt.datetime.now(dt.UTC).isoformat(),
                         "log": str(log_path),
-                        "run_dir": _run_dir(log_path),
+                        "run_dir": _run_dir(envelope),
                     },
                 )
+                if timed_out:
+                    reason = (
+                        "teardown hung after a successful run" if teardown_hang else "timed out"
+                    )
+                    print(
+                        f"TIMEOUT {model} {kernel} after {args.run_timeout_s:.0f}s "
+                        f"({reason}); see {log_path}",
+                        file=sys.stderr,
+                    )
                 if code:
                     failures += 1
                     print(f"FAIL {model} {kernel}; see {log_path}", file=sys.stderr)

@@ -15,10 +15,12 @@ sources:
     commit: 32f56a571e91572ca94d15017279a3af37d5b68c
 models:
   - id: gpt-5.6-sol-xhigh
-    endpoint_model: GPT-5.6 Sol
+    # Argo's internal model ID is required for tool-call history replay.
+    endpoint_model: gpt56sol
     reasoning_effort: xhigh
   - id: claude-opus-5-xhigh
-    endpoint_model: Claude Opus 5
+    # Argo's internal model ID is required for tool-call history replay.
+    endpoint_model: claudeopus5
     reasoning_effort: xhigh
 kernels:
   - id: gemm
