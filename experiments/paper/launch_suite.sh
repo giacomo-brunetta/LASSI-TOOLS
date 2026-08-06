@@ -2,12 +2,22 @@
 # Launch the paper benchmark suite after the Academy/Globus resources are ready.
 #
 # Required before running this script:
-#   1. On the Groq login node, start the configured Globus Compute endpoint:
+#   1. On the Groq compute node that owns the LPUs, refresh the checkout the
+#      measurement workers import and start the endpoint. PYTHONPATH must be
+#      cleared: GroqRack exports /opt/groq/runtime/site-packages site-wide and
+#      it shadows the conda environment.
+#        ssh groq-r01-gn-01.ai.alcf.anl.gov
+#        git -C /home/gbrun/LASSI-TOOLS pull
 #        conda activate lassi-globus-compute
-#        globus-compute-endpoint start lassi-x
+#        env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute
 #   2. On this harness, activate the LASSI environment and install the Globus extra:
 #        conda activate LASSI
 #        pip install -e '.[globus]'
+#   3. Select the Groq placement. Default is 'pbs' (login node + qsub); direct
+#      mode runs on the compute node and is what the endpoint above provides:
+#        export LASSI_PAPER_GROQ_MODE=direct
+#        export LASSI_PAPER_GROQ_ENDPOINT=<uuid printed by step 1>
+#      CUDA defaults to the A100 Globus endpoint and needs no variable.
 #
 # The endpoint identifier and workspace paths are generated from benchmarks.yaml
 # by generate_configs.py.  This script deliberately does not start or configure
