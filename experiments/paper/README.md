@@ -58,7 +58,7 @@ why the backend name changes with the target.
 The Groq leg needs a Globus Compute endpoint that nothing in the repo can start for you.
 There are two supported placements, selected with `LASSI_PAPER_GROQ_MODE`.
 
-**`direct` (recommended)** — the endpoint runs on a compute node that owns the LPUs, so
+**`direct` (default)** — the endpoint runs on a compute node that owns the LPUs, so
 the measurement worker executes in place and PBS is not involved at all. Copy
 `groq_compute_endpoint_user_config_template.yaml.j2` to
 `~/.globus_compute/lassi-x-compute/user_config_template.yaml.j2` on the node, then:
@@ -87,15 +87,19 @@ failing with `ModuleNotFoundError: No module named 'pydantic'` — the accelerat
 environment is `groqflow`, which has torch but not the configuration stack, and older
 `lassi_x/__init__.py` imported it eagerly.
 
+Direct mode is the default and already points at the registered compute endpoint
+(`428a680f-1efb-488e-9558-96eb7f54a910`), so no variable is needed. Override only if the
+endpoint is re-registered with a new UUID:
+
 ```bash
-export LASSI_PAPER_GROQ_MODE=direct
 export LASSI_PAPER_GROQ_ENDPOINT=<uuid from the compute node>
 ```
 
-**`pbs` (default)** — the endpoint runs on a login node, which has no LPUs, so every
+**`pbs` (opt in)** — the endpoint runs on a login node, which has no LPUs, so every
 measurement is submitted with `qsub` and waits in the batch queue:
 
 ```bash
+export LASSI_PAPER_GROQ_MODE=pbs
 conda activate lassi-globus-compute
 globus-compute-endpoint start lassi-x
 ```

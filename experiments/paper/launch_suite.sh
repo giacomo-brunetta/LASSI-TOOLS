@@ -13,11 +13,11 @@
 #   2. On this harness, activate the LASSI environment and install the Globus extra:
 #        conda activate LASSI
 #        pip install -e '.[globus]'
-#   3. Select the Groq placement. Default is 'pbs' (login node + qsub); direct
-#      mode runs on the compute node and is what the endpoint above provides:
-#        export LASSI_PAPER_GROQ_MODE=direct
-#        export LASSI_PAPER_GROQ_ENDPOINT=<uuid printed by step 1>
-#      CUDA defaults to the A100 Globus endpoint and needs no variable.
+#   3. Nothing to select. Direct mode and the compute endpoint above are the
+#      defaults, as is the A100 endpoint for CUDA. Override only when an
+#      endpoint is re-registered (LASSI_PAPER_GROQ_ENDPOINT,
+#      LASSI_PAPER_GPU_ENDPOINT) or to opt back into the login-node batch
+#      path (LASSI_PAPER_GROQ_MODE=pbs).
 #
 # The endpoint identifier and workspace paths are generated from benchmarks.yaml
 # by generate_configs.py.  This script deliberately does not start or configure

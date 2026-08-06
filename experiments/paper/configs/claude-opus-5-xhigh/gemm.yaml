@@ -116,12 +116,13 @@ execution:
       labels:
       - cuda
       - a100
-    groq-login:
-      endpoint_id: 266f3128-cc9a-403e-ab61-9284ed57d54b
+    groq-compute:
+      endpoint_id: 428a680f-1efb-488e-9558-96eb7f54a910
       workspace_root: /home/gbrun/lassi-x-groq-academy
       labels:
-      - groq-login
-      - pbs
+      - groq-compute
+      - lpu
+      - direct
   mcp_timeout_s: 1200
 measure:
   precisions:
@@ -155,20 +156,17 @@ measure:
     timeout_s: 7200
   - type: groq
     name: groq-lpu
-    resource: groq-login
+    resource: groq-compute
     precisions:
     - fp16
     timeout_s: 7200
     submit_timeout_s: 300
-    pbs:
+    runtime:
       conda_sh: /home/gbrun/miniconda3/etc/profile.d/conda.sh
       conda_env: groqflow
       python: /home/gbrun/miniconda3/envs/groqflow/bin/python
       pythonpath:
       - /home/gbrun/LASSI-TOOLS/src
-      qsub: /opt/pbs/bin/qsub
-      select: select=1,place=excl
-      walltime: 02:00:00
     capabilities:
       storage:
       - fp16

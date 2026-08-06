@@ -36,13 +36,19 @@ A100_ENDPOINT_ID = "b162a840-38b4-4c1a-84cc-579fb62f4dfc"
 # worker runs in place. This removes PBS entirely, which also removes the
 # failure mode where a blocking ``qsub`` occupies the endpoint's only worker
 # and starves every later task into a silent hang.
+#
+# ``direct`` is the default. The login endpoint is normally stopped, so a
+# defaulted-to-PBS run fails at the doctor with ENDPOINT_NOT_ONLINE naming a
+# UUID that appears nowhere in the launch instructions -- an unhelpful failure
+# for the mode nobody wants. PBS remains available, but opt in to it.
 GROQ_MODE_ENV_VAR = "LASSI_PAPER_GROQ_MODE"
 
 # A compute-node endpoint is a different registration with a different UUID, so
-# it cannot be inferred. Point this at the endpoint you started on the node.
+# it cannot be inferred. Override this when the node's endpoint is re-registered.
 GROQ_ENDPOINT_ENV_VAR = "LASSI_PAPER_GROQ_ENDPOINT"
 
 LOGIN_ENDPOINT_ID = "266f3128-cc9a-403e-ab61-9284ed57d54b"
+COMPUTE_ENDPOINT_ID = "428a680f-1efb-488e-9558-96eb7f54a910"
 
 # Home is shared between the Groq login and compute nodes, so one interpreter
 # path serves both launch modes.
@@ -65,12 +71,13 @@ def _groq_direct() -> bool:
     """Report whether the Groq endpoint runs on a compute node.
 
     Returns:
-        ``True`` when direct mode is requested, meaning no PBS submission.
+        ``True`` unless the environment explicitly selects PBS, meaning no
+        ``qsub`` submission.
 
     Raises:
         ValueError: If the mode is neither ``pbs`` nor ``direct``.
     """
-    mode = os.environ.get(GROQ_MODE_ENV_VAR, "pbs").strip().lower()
+    mode = os.environ.get(GROQ_MODE_ENV_VAR, "direct").strip().lower()
     if mode not in {"pbs", "direct"}:
         raise ValueError(f"{GROQ_MODE_ENV_VAR} must be 'pbs' or 'direct', got {mode!r}")
     return mode == "direct"
@@ -177,7 +184,7 @@ def _groq_resource() -> dict[str, Any]:
     """
     if _groq_direct():
         return {
-            "endpoint_id": os.environ.get(GROQ_ENDPOINT_ENV_VAR, LOGIN_ENDPOINT_ID),
+            "endpoint_id": os.environ.get(GROQ_ENDPOINT_ENV_VAR, COMPUTE_ENDPOINT_ID),
             "workspace_root": "/home/gbrun/lassi-x-groq-academy",
             "labels": ["groq-compute", "lpu", "direct"],
         }
