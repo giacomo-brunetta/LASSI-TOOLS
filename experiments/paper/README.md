@@ -8,7 +8,9 @@ PBS queueing, and MCP latency are outside the timed region.
 
 Every generated configuration explicitly sets `memory.enabled: false`. This keeps the
 GPT-5.6 Sol and Claude Opus 5 trials independent: no agent recall is read or persisted
-between kernels, models, candidates, or repetitions.
+between kernels, models, candidates, or repetitions. Argo configs use its internal model
+IDs (`gpt56sol` and `claudeopus5`), which support replaying Hermes tool-call history;
+the suite directory names remain the friendly model labels.
 
 The official kernels are from [PolyBench/C 4.2.1 beta](https://www.cs.colostate.edu/~pouchet/software/polybench/),
 using the exact public source snapshot
@@ -38,12 +40,55 @@ Run the full session (all GPT-5.6 Sol runs first, then all Claude Opus 5 runs):
 bash experiments/paper/launch_suite.sh
 ```
 
-Before launching, start the configured Globus Compute endpoint on the Groq login node:
+### The GPU endpoint
+
+CUDA measurements are timed on the two-A100 Globus Compute endpoint
+(`b162a840-38b4-4c1a-84cc-579fb62f4dfc`), not on the machine driving the suite. The
+backend is named `a100-cuda` and bound to resource `a100-node`; the oracle build/run and
+every agent tool call stay on the local `harness` resource so the reference compile is
+identical across the matrix.
+
+Override with `LASSI_PAPER_GPU_ENDPOINT=<uuid>`. `LASSI_PAPER_GPU=local` falls back to the
+machine's own GPU and renames the backend to `harness-cuda` — use it for smoke tests only.
+The two devices produce different timings and must never be pooled in one table, which is
+why the backend name changes with the target.
+
+### The Groq endpoint
+
+The Groq leg needs a Globus Compute endpoint that nothing in the repo can start for you.
+There are two supported placements, selected with `LASSI_PAPER_GROQ_MODE`.
+
+**`direct` (recommended)** — the endpoint runs on a compute node that owns the LPUs, so
+the measurement worker executes in place and PBS is not involved at all. Copy
+`groq_compute_endpoint_config.yaml` to `~/.globus_compute/lassi-x-compute/config.yaml`
+on the node, then:
+
+```bash
+ssh groq-r01-gn-01.ai.alcf.anl.gov
+conda activate lassi-globus-compute
+globus-compute-endpoint start lassi-x-compute   # note the UUID it prints
+```
+
+```bash
+export LASSI_PAPER_GROQ_MODE=direct
+export LASSI_PAPER_GROQ_ENDPOINT=<uuid from the compute node>
+```
+
+**`pbs` (default)** — the endpoint runs on a login node, which has no LPUs, so every
+measurement is submitted with `qsub` and waits in the batch queue:
 
 ```bash
 conda activate lassi-globus-compute
 globus-compute-endpoint start lassi-x
 ```
+
+PBS mode has a known failure shape: the `qsub` call blocks inside the worker, and an
+endpoint with a single worker then leaves every later task at `waiting-for-ep` while
+still reporting `status: online`. `submit_timeout_s` (300s) bounds staging and submission
+locally so an affected cell fails with a note naming the stalled stage instead of burning
+the full `timeout_s`. Direct mode removes the cause rather than the symptom.
+
+Set `LASSI_PAPER_GROQ=0` to generate a CUDA-only matrix and skip the leg entirely.
 
 On the CUDA harness, activate the `LASSI` environment and ensure the Globus client extra
 is installed with `pip install -e '.[globus]'`. The launcher regenerates every config and
@@ -55,6 +100,13 @@ The runner continues past individual kernel failures by default, saves one full 
 run, and writes a resumable JSONL journal under `runs/paper-suite/`. Resume with
 `--resume PATH`. Use `--repetitions N` for repeated model trials and `--kernel NAME` /
 `--model NAME` for a subset.
+
+Each run is bounded by `--run-timeout-s` (default 7200, matching the measurement backend
+ceiling; `0` disables it). On expiry the runner signals the child's whole process group —
+reaping MCP servers and Academy agents along with it — and journals `timed_out: true`
+rather than stalling the remaining matrix. A run that already emitted a successful result
+envelope and then hung only in teardown is journaled as a success with
+`teardown_hang: true`, so its artifacts still count and `--resume` will not repeat it.
 
 Aggregate the journal's candidate pass rates and kernel solve rates with:
 

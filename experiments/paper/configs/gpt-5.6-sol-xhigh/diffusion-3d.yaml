@@ -46,7 +46,7 @@ arena:
 models:
   planner:
     provider: custom
-    model: GPT-5.6 Sol
+    model: gpt56sol
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     reasoning_effort: xhigh
@@ -57,7 +57,7 @@ models:
     turn_retries: 3
   candidates:
   - provider: custom
-    model: GPT-5.6 Sol
+    model: gpt56sol
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     reasoning_effort: xhigh
@@ -67,7 +67,7 @@ models:
     turn_timeout_s: 1200
     turn_retries: 3
   - provider: custom
-    model: GPT-5.6 Sol
+    model: gpt56sol
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     reasoning_effort: xhigh
@@ -77,7 +77,7 @@ models:
     turn_timeout_s: 1200
     turn_retries: 3
   - provider: custom
-    model: GPT-5.6 Sol
+    model: gpt56sol
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     reasoning_effort: xhigh
@@ -88,7 +88,7 @@ models:
     turn_retries: 3
   compensation:
     provider: custom
-    model: GPT-5.6 Sol
+    model: gpt56sol
     base_url: https://apps.inside.anl.gov/argoapi/v1
     api_mode: chat_completions
     reasoning_effort: xhigh
@@ -110,6 +110,12 @@ execution:
       labels:
       - cpu
       - cuda
+    a100-node:
+      endpoint_id: b162a840-38b4-4c1a-84cc-579fb62f4dfc
+      workspace_root: /tmp/lassi-x-a100
+      labels:
+      - cuda
+      - a100
     groq-login:
       endpoint_id: 266f3128-cc9a-403e-ab61-9284ed57d54b
       workspace_root: /home/gbrun/lassi-x-groq-academy
@@ -138,9 +144,9 @@ measure:
   serialize_torch_backends: true
   backends:
   - type: torch
-    name: harness-cuda
+    name: a100-cuda
     device: cuda
-    resource: harness
+    resource: a100-node
     precisions:
     - fp64
     - fp32
@@ -153,13 +159,14 @@ measure:
     precisions:
     - fp16
     timeout_s: 7200
+    submit_timeout_s: 300
     pbs:
-      qsub: /opt/pbs/bin/qsub
       conda_sh: /home/gbrun/miniconda3/etc/profile.d/conda.sh
       conda_env: groqflow
       python: /home/gbrun/miniconda3/envs/groqflow/bin/python
       pythonpath:
       - /home/gbrun/LASSI-TOOLS/src
+      qsub: /opt/pbs/bin/qsub
       select: select=1,place=excl
       walltime: 02:00:00
     capabilities:
