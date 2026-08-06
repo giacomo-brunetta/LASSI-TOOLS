@@ -207,6 +207,9 @@ def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
     assert "conda activate groqflow" in job_script
     assert "--accuracy-dataset default" in job_script
     assert "--performance-dataset default" in job_script
+    # GroqRack exports /opt/groq/runtime/site-packages site-wide, which precedes the
+    # conda env on sys.path and shadows it; the worker must not inherit that.
+    assert job_script.index("unset PYTHONPATH") < job_script.index("conda activate")
     assert (tmp_path / "remote" / "groq-c1-base" / "groq_measure_worker.py").is_file()
 
 
@@ -249,6 +252,7 @@ def test_groq_direct_mode_runs_the_worker_without_pbs(tmp_path: Path) -> None:
     script = (tmp_path / "remote" / "groq-c1-base" / request.argv[-1]).read_text()
     assert "conda activate groqflow" in script
     assert "--performance-dataset default" in script
+    assert script.index("unset PYTHONPATH") < script.index("conda activate")
 
 
 class StalledExecutionBackend(LocalExecutionBackend):

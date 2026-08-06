@@ -22,7 +22,7 @@ from .validation import fixture_relative_path
 if TYPE_CHECKING:
     from collections.abc import Awaitable
 
-    from .config import BackendConfig, RunConfig
+    from .config import BackendConfig, GroqRuntimeConfig, RunConfig
     from .execution import ExecutionBackend, ExecutionContext
     from .validation import OracleResult
 
@@ -68,6 +68,35 @@ class Backend(ABC):
         compensation: str,
         seed: int = 0,
     ) -> Measurement: ...
+
+
+def _runtime_prelude(runtime: GroqRuntimeConfig) -> list[str]:
+    """Open a worker script with a clean interpreter environment.
+
+    ``PYTHONPATH`` is cleared before conda is sourced rather than merely
+    overwritten. Entries on it precede the environment's own ``site-packages``
+    in ``sys.path``, so a site-wide export such as GroqRack's
+    ``/opt/groq/runtime/site-packages`` shadows the conda environment and
+    breaks imports before any of our code runs.
+
+    Args:
+        runtime: Interpreter settings for the measurement worker.
+
+    Returns:
+        Script lines up to and including the environment setup.
+    """
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "unset PYTHONPATH",
+        f"source {shlex.quote(str(runtime.conda_sh))}",
+        f"conda activate {shlex.quote(runtime.conda_env)}",
+    ]
+    if runtime.pythonpath:
+        lines.append(
+            "export PYTHONPATH=" + shlex.quote(":".join(str(path) for path in runtime.pythonpath))
+        )
+    return lines
 
 
 def _submit_timeout_measurement(
@@ -656,17 +685,7 @@ class GroqBackend(Backend):
                 "--performance-dataset",
                 config.measure.performance_dataset,
             ]
-            script_lines = [
-                "#!/usr/bin/env bash",
-                "set -euo pipefail",
-                f"source {shlex.quote(str(runtime.conda_sh))}",
-                f"conda activate {shlex.quote(runtime.conda_env)}",
-            ]
-            if runtime.pythonpath:
-                script_lines.append(
-                    "export PYTHONPATH="
-                    + shlex.quote(":".join(str(path) for path in runtime.pythonpath))
-                )
+            script_lines = _runtime_prelude(runtime)
             script_lines.extend([f"cd {shlex.quote(str(remote_workspace))}", shlex.join(command)])
             await self._bounded(
                 "stage run script",
@@ -845,16 +864,7 @@ class GroqBackend(Backend):
             "--performance-dataset",
             config.measure.performance_dataset,
         ]
-        script_lines = [
-            "#!/usr/bin/env bash",
-            "set -euo pipefail",
-            f"source {shlex.quote(str(pbs.conda_sh))}",
-            f"conda activate {shlex.quote(pbs.conda_env)}",
-        ]
-        if pbs.pythonpath:
-            script_lines.append(
-                "export PYTHONPATH=" + shlex.quote(":".join(str(path) for path in pbs.pythonpath))
-            )
+        script_lines = _runtime_prelude(pbs)
         script_lines.extend(
             [
                 f"cd {shlex.quote(str(remote_workspace))}",

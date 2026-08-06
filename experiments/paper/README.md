@@ -66,8 +66,15 @@ on the node, then:
 ```bash
 ssh groq-r01-gn-01.ai.alcf.anl.gov
 conda activate lassi-globus-compute
-globus-compute-endpoint start lassi-x-compute   # note the UUID it prints
+env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute   # note the UUID
 ```
+
+`env -u PYTHONPATH` is required. GroqRack compute nodes export
+`/opt/groq/runtime/site-packages` site-wide, and `PYTHONPATH` precedes an environment's own
+`site-packages` on `sys.path`, so its stale `typing_extensions` shadows the conda env and
+the endpoint fails to import (`cannot import name 'Sentinel' from 'typing_extensions'`).
+Workers inherit the daemon's environment, so clearing it once at start covers everything.
+The generated worker scripts clear it themselves as well.
 
 ```bash
 export LASSI_PAPER_GROQ_MODE=direct
