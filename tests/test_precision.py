@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+
 import torch
 
 from lassi_x.precision import (
@@ -41,3 +44,20 @@ def test_stochastic_cast_preserves_exact_values() -> None:
     values = torch.tensor([0.0, 1.0, -2.0, 8.0], dtype=torch.float32)
     for _ in range(10):
         assert torch.equal(stochastic_cast(values, torch.float16).float(), values)
+
+
+def test_precision_helpers_do_not_import_the_config_stack() -> None:
+    """Compensation candidates reach these helpers from the accelerator's env.
+
+    That environment -- groqflow on a GroqRack node -- has torch but no
+    pydantic, so importing ``lassi_x.precision`` must not drag in
+    ``lassi_x.config``.
+    """
+    code = (
+        "import lassi_x.precision, sys\n"
+        "assert 'lassi_x.config' not in sys.modules, sorted(\n"
+        "    m for m in sys.modules if m.startswith('lassi_x')\n"
+        ")\n"
+        "assert 'pydantic' not in sys.modules\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True, text=True)
