@@ -60,8 +60,8 @@ There are two supported placements, selected with `LASSI_PAPER_GROQ_MODE`.
 
 **`direct` (recommended)** — the endpoint runs on a compute node that owns the LPUs, so
 the measurement worker executes in place and PBS is not involved at all. Copy
-`groq_compute_endpoint_config.yaml` to `~/.globus_compute/lassi-x-compute/config.yaml`
-on the node, then:
+`groq_compute_endpoint_user_config_template.yaml.j2` to
+`~/.globus_compute/lassi-x-compute/user_config_template.yaml.j2` on the node, then:
 
 ```bash
 ssh groq-r01-gn-01.ai.alcf.anl.gov
@@ -69,12 +69,23 @@ conda activate lassi-globus-compute
 env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute   # note the UUID
 ```
 
+It is a user-config template, not a `config.yaml`. The endpoint is multi-user: its
+`config.yaml` holds only endpoint-wide settings and refuses to start if it contains an
+`engine` block (`endpoint will not start ... move the engine block to
+user_config_template.yaml.j2`). Leave `config.yaml` as configured.
+
 `env -u PYTHONPATH` is required. GroqRack compute nodes export
 `/opt/groq/runtime/site-packages` site-wide, and `PYTHONPATH` precedes an environment's own
 `site-packages` on `sys.path`, so its stale `typing_extensions` shadows the conda env and
 the endpoint fails to import (`cannot import name 'Sentinel' from 'typing_extensions'`).
 Workers inherit the daemon's environment, so clearing it once at start covers everything.
 The generated worker scripts clear it themselves as well.
+
+The node runs the checkout at `/home/gbrun/LASSI-TOOLS/src`, not the one you launch the
+suite from, so `git pull` there before a run. A stale checkout surfaces as a candidate
+failing with `ModuleNotFoundError: No module named 'pydantic'` — the accelerator
+environment is `groqflow`, which has torch but not the configuration stack, and older
+`lassi_x/__init__.py` imported it eagerly.
 
 ```bash
 export LASSI_PAPER_GROQ_MODE=direct

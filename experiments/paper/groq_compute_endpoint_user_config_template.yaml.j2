@@ -1,0 +1,64 @@
+# Globus Compute user-config template for a GroqRack *compute* node.
+#
+# Install as
+#   ~/.globus_compute/lassi-x-compute/user_config_template.yaml.j2
+# on the node itself (for example groq-r01-gn-01), then:
+#
+#   ssh groq-r01-gn-01.ai.alcf.anl.gov
+#   conda activate lassi-globus-compute
+#   env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute
+#
+# This is a template, not a config.yaml. Endpoints configured by recent
+# globus-compute-endpoint releases are multi-user: `config.yaml` holds only
+# endpoint-wide settings (it is near-empty by default) and rejects startup
+# outright if it contains an `engine` block --
+#
+#   Configuration for endpoint lassi-x-compute contains an `engine` field;
+#   endpoint will not start.
+#
+# -- because the engine belongs to each per-user endpoint process, which the
+# manager renders from this file. Do not merge the two.
+#
+# The `env -u PYTHONPATH` on startup is required, not cosmetic. GroqRack
+# compute nodes export /opt/groq/runtime/site-packages site-wide, and
+# PYTHONPATH entries precede an environment's own site-packages on sys.path,
+# so that directory's stale typing_extensions shadows the conda env:
+#
+#   ImportError: cannot import name 'Sentinel' from 'typing_extensions'
+#     (/opt/groq/runtime/site-packages/typing_extensions.py)
+#
+# It breaks conda's own entry points too, in (base), before you activate
+# anything. Workers inherit the daemon's environment, so clearing it once at
+# start covers the whole process tree.
+#
+# Print the UUID with `globus-compute-endpoint list` and export it as
+# LASSI_PAPER_GROQ_ENDPOINT before generating configs.
+#
+# Differences from the login-node endpoint this replaces:
+#   - LocalProvider, not PBSProProvider. The node already owns the LPUs, so the
+#     worker runs in place and nothing is submitted to the batch system.
+#   - max_workers_per_node > 1. The old endpoint ran a single worker that a
+#     blocking `qsub` could occupy indefinitely; every later task then sat at
+#     `waiting-for-ep` forever while the endpoint still reported `online`.
+#   - idle_heartbeats_soft unset, so the endpoint does not self-terminate
+#     between kernels during a long suite. The stock template sets it to 10
+#     (five minutes), which is shorter than a single extralarge compile.
+
+endpoint_setup: {{ endpoint_setup|default() }}
+
+engine:
+  type: GlobusComputeEngine
+  # One worker per concurrent measurement cell, plus headroom so a slow cell
+  # cannot starve the others. Keep this above 1 on any node that ever shells out.
+  max_workers_per_node: 4
+
+  provider:
+    type: LocalProvider
+    init_blocks: 1
+    min_blocks: 1
+    max_blocks: 1
+    worker_init: {{ worker_init|default() }}
+
+# Measurements are minutes long and the gaps between them are longer; do not
+# let the endpoint expire mid-suite. Left unset on purpose -- see above.
+idle_heartbeats_hard: 5760
