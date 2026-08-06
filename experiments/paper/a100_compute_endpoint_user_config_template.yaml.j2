@@ -1,0 +1,67 @@
+# Globus Compute user-config template for the two-A100 CUDA node (sami).
+#
+# Install as
+#   ~/.globus_compute/lassi-x/user_config_template.yaml.j2
+# on sami itself, then restart the endpoint:
+#
+#   globus-compute-endpoint stop lassi-x
+#   globus-compute-endpoint start lassi-x
+#
+# A restart is required: the template is read when a user endpoint process
+# (UEP) is forked, so an already-running endpoint keeps its old settings.
+#
+# This is a template, not a config.yaml. `config.yaml` holds endpoint-wide
+# settings only (it is near-empty by default) and refuses to start if it
+# contains an `engine` block --
+#
+#   Configuration for endpoint lassi-x contains an `engine` field;
+#   endpoint will not start.
+#
+# -- because the engine belongs to the per-user endpoint process the manager
+# renders from this file. Do not merge the two.
+#
+# Why the stock template cannot run this suite
+# --------------------------------------------
+# LASSI launches one long-lived ExecutionAgent per resource and keeps it for
+# the whole run: every tool call and measurement is an Academy round trip to
+# that agent, not a fresh Globus task. Three stock defaults are incompatible
+# with an agent that must outlive the run:
+#
+#   max_workers_per_node: 1   The agent occupies the only worker, so nothing
+#                             else on the resource can ever be scheduled and
+#                             every later task sits at `waiting-for-ep` while
+#                             the endpoint still reports `online`.
+#   idle_heartbeats_soft: 10  The UEP self-terminates after ~5 idle minutes.
+#                             Gaps between measurements routinely exceed that,
+#                             and the agent dies with the UEP. The harness is
+#                             left awaiting a response from an agent that no
+#                             longer exists, and Academy imposes no deadline of
+#                             its own, so the run hangs until it is reaped.
+#   min_blocks: 0             Lets the provider scale the block away underneath
+#                             the running agent for the same reason.
+#
+# Symptom to recognise: `get_endpoint_status` says `online` (that is only a
+# heartbeat from the manager) while a trivial submitted task stays at
+# `waiting-for-ep` indefinitely. Cure is a manager restart; prevention is this
+# file.
+
+endpoint_setup: {{ endpoint_setup|default() }}
+
+engine:
+  type: GlobusComputeEngine
+  # One worker for the resident ExecutionAgent plus headroom, so a probe or a
+  # second measurement cannot be starved by the agent holding the only slot.
+  max_workers_per_node: 4
+
+  provider:
+    type: LocalProvider
+    # Hold the block for the life of the endpoint; see the note above.
+    init_blocks: 1
+    min_blocks: 1
+    max_blocks: 1
+    worker_init: {{ worker_init|default() }}
+
+# idle_heartbeats_soft is deliberately unset: the endpoint must not expire
+# between kernels. The hard limit still bounds a genuinely stuck endpoint at
+# 5,760 heartbeats (~48 hours at the 30 s default).
+idle_heartbeats_hard: 5760

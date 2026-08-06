@@ -5,18 +5,22 @@ import asyncio
 import base64
 import hashlib
 import json
+import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
+import aiohttp
 import pytest
 from academy.exchange import LocalExchangeFactory
 from academy.manager import Manager
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
+from multidict import CIMultiDict, CIMultiDictProxy
 from yaml import safe_dump, safe_load
+from yarl import URL
 
 from lassi_x.cli import _execution_doctor_command
 from lassi_x.config import RunConfig
@@ -25,6 +29,8 @@ from lassi_x.execution import (
     ExecutionBackend,
     ExecutionContext,
     LocalExecutionBackend,
+    RemoteCallTimeoutError,
+    _add_academy_send_retry,
     _disable_academy_stream_deadline,
     fetch_bytes,
     put_bytes,
@@ -82,6 +88,142 @@ def test_academy_stream_has_no_total_or_read_deadline() -> None:
     assert timeout.total is None
     assert timeout.sock_connect == 60
     assert timeout.sock_read is None
+
+
+def _http_error(status: int) -> object:
+    """Build a realistic aiohttp error; str() on it needs request_info."""
+    info = aiohttp.RequestInfo(
+        URL("https://exchange.academy-agents.org/message"),
+        "PUT",
+        CIMultiDictProxy(CIMultiDict()),
+    )
+    return aiohttp.ClientResponseError(info, (), status=status)
+
+
+def _retry_transport(errors: list[BaseException]) -> tuple[object, list[object]]:
+    """Build a fake transport whose send raises `errors` before succeeding."""
+    sent: list[object] = []
+    pending = list(errors)
+
+    async def send(message: object) -> None:
+        if pending:
+            raise pending.pop(0)
+        sent.append(message)
+
+    transport = type("Transport", (), {"send": staticmethod(send)})()
+    return transport, sent
+
+
+def test_academy_send_retries_transient_gateway_failure() -> None:
+    transport, sent = _retry_transport([_http_error(502), _http_error(503)])
+    _add_academy_send_retry(transport, base_delay_s=0)
+    asyncio.run(transport.send("response"))
+    assert sent == ["response"]
+
+
+def test_academy_send_retries_dropped_connection() -> None:
+    transport, sent = _retry_transport([aiohttp.ClientConnectionError("reset")])
+    _add_academy_send_retry(transport, base_delay_s=0)
+    asyncio.run(transport.send("response"))
+    assert sent == ["response"]
+
+
+def test_academy_send_does_not_retry_client_error() -> None:
+    transport, sent = _retry_transport([_http_error(404), _http_error(404)])
+    _add_academy_send_retry(transport, base_delay_s=0)
+    with pytest.raises(aiohttp.ClientResponseError):
+        asyncio.run(transport.send("response"))
+    assert sent == []
+
+
+def test_academy_send_raises_after_exhausting_attempts() -> None:
+    transport, sent = _retry_transport([_http_error(502) for _ in range(3)])
+    _add_academy_send_retry(transport, attempts=3, base_delay_s=0)
+    with pytest.raises(aiohttp.ClientResponseError):
+        asyncio.run(transport.send("response"))
+    assert sent == []
+
+
+def _stalling_backend(release: asyncio.Event) -> AcademyExecutionBackend:
+    """Build a backend whose handle answers only once `release` is set."""
+
+    class Handle:
+        @staticmethod
+        async def execute(request: object) -> str:
+            await release.wait()
+            return "done"
+
+    return AcademyExecutionBackend(
+        Handle(),  # type: ignore[arg-type]
+        "wedged-node",
+        stall_warn_interval_s=0.01,
+    )
+
+
+def _exec_request(timeout_s: float = 600.0) -> ExecRequest:
+    return ExecRequest(workspace="w", argv=["./bench", "--large"], timeout_s=timeout_s)
+
+
+def test_stalled_remote_call_warns_with_resource_and_command(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def run() -> None:
+        release = asyncio.Event()
+        backend = _stalling_backend(release)
+        call = asyncio.ensure_future(backend.execute(_exec_request()))
+        await asyncio.sleep(0.05)
+        release.set()
+        await call
+
+    with caplog.at_level(logging.WARNING, logger="lassi_x.execution"):
+        asyncio.run(run())
+
+    stalls = [record.getMessage() for record in caplog.records if "unanswered" in record.message]
+    assert stalls, "a call held open past the interval must warn"
+    assert "execute on wedged-node" in stalls[0]
+    assert "./bench --large" in stalls[0]
+
+
+def test_unanswered_remote_call_is_abandoned_not_awaited_forever() -> None:
+    async def run() -> None:
+        backend = _stalling_backend(asyncio.Event())
+        backend.call_timeout_s = 0.05
+        with pytest.raises(RemoteCallTimeoutError) as caught:
+            await backend.execute(_exec_request(timeout_s=0.01))
+        assert caught.value.resource == "wedged-node"
+        assert caught.value.op == "execute"
+
+    asyncio.run(run())
+
+
+def test_execute_bound_allows_the_command_its_own_timeout() -> None:
+    """A slow-but-answering command must not be cut off by the transport bound."""
+
+    async def run() -> None:
+        release = asyncio.Event()
+        backend = _stalling_backend(release)
+        backend.call_timeout_s = 0.2
+        call = asyncio.ensure_future(backend.execute(_exec_request()))
+        await asyncio.sleep(0.3)
+        assert not call.done(), "bound must include the request's own timeout_s"
+        release.set()
+        await call
+
+    asyncio.run(run())
+
+
+def test_completed_remote_call_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:
+    async def run() -> None:
+        release = asyncio.Event()
+        release.set()
+        await _stalling_backend(release).execute(_exec_request())
+        # Give a leaked watchdog the chance to fire before the loop closes.
+        await asyncio.sleep(0.05)
+
+    with caplog.at_level(logging.WARNING, logger="lassi_x.execution"):
+        asyncio.run(run())
+
+    assert not [record for record in caplog.records if "unanswered" in record.message]
 
 
 def test_academy_backend_write_execute_read_cycle(tmp_path: Path) -> None:

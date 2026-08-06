@@ -227,6 +227,14 @@ class ExecutionConfig(StrictModel):
     resources: dict[str, ResourceConfig] = Field(default_factory=dict)
     default_resource: str | None = None
     mcp_timeout_s: float = Field(default=900.0, gt=0.0)
+    call_timeout_s: float = Field(default=300.0, gt=0.0)
+    """Round-trip ceiling for one Academy call, on top of a command's own timeout.
+
+    Bounds only transport and agent dispatch: an execute request adds its own
+    ``timeout_s``, which the remote worker enforces. Raise this if a resource
+    legitimately needs longer to acknowledge work; a response that never comes
+    is what this is here to catch.
+    """
 
     @model_validator(mode="after")
     def consistent_targets(self) -> ExecutionConfig:

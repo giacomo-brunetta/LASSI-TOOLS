@@ -9,9 +9,11 @@
 #   env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute
 #
 # This is a template, not a config.yaml. Endpoints configured by recent
-# globus-compute-endpoint releases are multi-user: `config.yaml` holds only
-# endpoint-wide settings (it is near-empty by default) and rejects startup
-# outright if it contains an `engine` block --
+# globus-compute-endpoint releases render a per-user endpoint process from a
+# template even when they are not multi-user (`multi_user: false` is what both
+# LASSI endpoints report). `config.yaml` holds only endpoint-wide settings (it
+# is near-empty by default) and rejects startup outright if it contains an
+# `engine` block --
 #
 #   Configuration for endpoint lassi-x-compute contains an `engine` field;
 #   endpoint will not start.
@@ -43,6 +45,14 @@
 #   - idle_heartbeats_soft unset, so the endpoint does not self-terminate
 #     between kernels during a long suite. The stock template sets it to 10
 #     (five minutes), which is shorter than a single large-profile compile.
+#   - min_blocks: 1, so the provider cannot scale the block away underneath the
+#     resident ExecutionAgent.
+#
+# Installing this file matters more than it looks. LASSI keeps one long-lived
+# ExecutionAgent per resource for the whole run and reaches it over Academy,
+# which imposes no deadline on a response. If the UEP self-terminates or the
+# block is reclaimed, the agent dies owing the harness a reply that will never
+# arrive. Until lassi_x.execution grew its own call bound, that hung the run.
 
 endpoint_setup: {{ endpoint_setup|default() }}
 

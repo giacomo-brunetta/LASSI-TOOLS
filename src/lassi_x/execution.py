@@ -10,13 +10,15 @@ switching a run between local and remote execution changes transport only.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import logging
+import time
 import uuid
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from .protocol import MAX_INLINE_BYTES, ExecRequest, FileGet, FilePut
 from .remote import ops
@@ -76,7 +78,91 @@ def _disable_academy_stream_deadline(transport: Any) -> None:
     )
 
 
+SEND_RETRY_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+"""Hosted-exchange responses worth retrying: gateway, overload, and timeout."""
+
+SEND_RETRY_ATTEMPTS = 5
+"""Total send attempts, including the first."""
+
+SEND_RETRY_BASE_DELAY_S = 0.5
+"""First backoff pause; doubled after each failed attempt."""
+
+
+def _add_academy_send_retry(
+    transport: Any,
+    *,
+    attempts: int = SEND_RETRY_ATTEMPTS,
+    base_delay_s: float = SEND_RETRY_BASE_DELAY_S,
+) -> None:
+    """Retry hosted-exchange sends that fail with a transient HTTP error.
+
+    Academy returns every action result by sending a response message through
+    the exchange, and shields that send from cancellation without retrying it
+    (``academy/runtime.py`` ``_send_response``). A single 5xx from the hosted
+    exchange therefore discards a response the agent already computed. Because
+    no call in :class:`AcademyExecutionBackend` bounds its await, the caller
+    then blocks forever: one 502 wedged a 3mm run until the suite-level
+    timeout reaped the process nearly two hours later.
+
+    Only transport-level failures are retried. Academy maps mailbox
+    termination, unknown entities, and authorization failures to their own
+    exceptions before ``raise_for_status`` runs, so those propagate on the
+    first attempt rather than being hidden behind five rounds of backoff.
+
+    Retrying a send is not perfectly idempotent -- a 504 can mean the exchange
+    accepted the message and failed only while reporting that -- so a peer may
+    observe a duplicate. Academy routes responses by request tag and the
+    requester resolves the first one it sees, which makes a duplicate response
+    far cheaper than a lost one.
+
+    Args:
+        transport: Newly created Academy HTTP exchange transport.
+        attempts: Total send attempts, including the first.
+        base_delay_s: Initial backoff in seconds, doubled after each failure.
+
+    """
+    import aiohttp  # noqa: PLC0415
+
+    send = transport.send
+
+    async def send_with_retry(message: Any) -> None:
+        delay = base_delay_s
+        for attempt in range(1, attempts + 1):
+            try:
+                await send(message)
+            except (
+                aiohttp.ClientConnectionError,
+                aiohttp.ClientResponseError,
+            ) as exc:
+                retryable = (
+                    isinstance(exc, aiohttp.ClientConnectionError)
+                    or exc.status in SEND_RETRY_STATUSES
+                )
+                if not retryable or attempt == attempts:
+                    raise
+                logger.warning(
+                    "Academy exchange send failed (attempt %d/%d): %s; retrying in %.1fs",
+                    attempt,
+                    attempts,
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                delay *= 2
+            else:
+                if attempt > 1:
+                    logger.info(
+                        "Academy exchange send succeeded on attempt %d/%d",
+                        attempt,
+                        attempts,
+                    )
+                return
+
+    transport.send = send_with_retry
+
+
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
     from concurrent.futures import Executor
     from pathlib import Path
 
@@ -288,37 +374,192 @@ class LocalExecutionBackend(ExecutionBackend):
         return await ops.build_handshake(self.workspace_root, self.resource)
 
 
-class AcademyExecutionBackend(ExecutionBackend):
-    """Forward every operation to a remote ``ExecutionAgent`` handle."""
+STALL_WARN_INTERVAL_S = 60.0
+"""Seconds between "still waiting" warnings for one unanswered remote call."""
 
-    def __init__(self, handle: Handle[ExecutionAgent]) -> None:
+CALL_TIMEOUT_S = 300.0
+"""Default ceiling for one Academy round trip, excluding remote run time."""
+
+
+class RemoteCallTimeoutError(TimeoutError):
+    """One Academy call outlived its bound and was abandoned.
+
+    Academy waits on a response message with no deadline of its own, so a
+    response that is never delivered blocks the caller forever. Every
+    delivery failure this has produced in practice -- a wedged user endpoint,
+    a worker restarted mid-call, a send the hosted exchange dropped -- is
+    permanent for that call, so waiting longer never helps. Failing the cell
+    lets the remaining matrix run.
+    """
+
+    def __init__(self, op: str, resource: str, detail: str, limit_s: float) -> None:
+        """Describe the abandoned call.
+
+        Args:
+            op: Operation name, matching the handle method.
+            resource: Resource whose agent did not answer.
+            detail: Short request summary.
+            limit_s: Bound that expired.
+
+        """
+        super().__init__(
+            f"{op} on {resource} got no response within {limit_s:g}s ({detail}). "
+            "The resource's execution agent is unreachable or its response was lost."
+        )
+        self.op = op
+        self.resource = resource
+        self.limit_s = limit_s
+
+
+_ARGV_LOG_LIMIT = 160
+"""Characters of a command line kept in the call log line."""
+
+ResultT = TypeVar("ResultT")
+"""Whatever one traced remote call resolves to."""
+
+
+async def _warn_while_pending(description: str, interval_s: float) -> None:
+    """Warn once per interval for as long as a remote call stays unanswered.
+
+    Cancelled by :meth:`AcademyExecutionBackend._traced` as soon as the call
+    returns, so a healthy call logs nothing here.
+
+    Args:
+        description: Preformatted "op resource [id] detail" call description.
+        interval_s: Seconds between successive warnings.
+
+    """
+    waited = 0.0
+    while True:
+        await asyncio.sleep(interval_s)
+        waited += interval_s
+        logger.warning("remote call %s unanswered after %.0fs", description, waited)
+
+
+class AcademyExecutionBackend(ExecutionBackend):
+    """Forward every operation to a remote ``ExecutionAgent`` handle.
+
+    Every call is traced. Academy resolves an action by waiting on a response
+    message with no deadline of its own, so a response that is never delivered
+    -- a wedged user endpoint, a restarted worker, a send the exchange dropped
+    -- blocks the caller silently and forever. Untraced, that surfaces only as
+    a log that stops mid-run with no indication of which resource was asked for
+    what. The periodic warning names the stalled call while it is still stuck,
+    which is the difference between reading a stack dump and reading the log.
+
+    Every call is also bounded, so an undelivered response fails one cell
+    instead of the run. The bound covers the round trip only: an
+    :class:`~lassi_x.protocol.ExecRequest` carries its own ``timeout_s`` that
+    the remote worker enforces on the subprocess, so ``execute`` is allowed
+    that long plus the transport margin. A response later than that is not a
+    slow benchmark, it is a lost message.
+    """
+
+    def __init__(
+        self,
+        handle: Handle[ExecutionAgent],
+        resource: str = "?",
+        *,
+        call_timeout_s: float = CALL_TIMEOUT_S,
+        stall_warn_interval_s: float = STALL_WARN_INTERVAL_S,
+    ) -> None:
         """Configure the backend.
 
         Args:
             handle: Academy handle of a launched execution agent.
+            resource: Resource name the handle serves, used in log lines.
+            call_timeout_s: Round-trip ceiling for one call, added to an
+                execute request's own remote timeout.
+            stall_warn_interval_s: Seconds between warnings while a call is
+                outstanding.
 
         """
         self.handle = handle
+        self.resource = resource
+        self.call_timeout_s = call_timeout_s
+        self.stall_warn_interval_s = stall_warn_interval_s
+
+    async def _traced(
+        self,
+        op: str,
+        detail: str,
+        call: Awaitable[ResultT],
+        *,
+        timeout_s: float | None = None,
+    ) -> ResultT:
+        """Await one bounded remote call, logging its start, end, and any stall.
+
+        Args:
+            op: Operation name, matching the handle method.
+            detail: Short request summary, already truncated for logging.
+            call: The unawaited handle coroutine.
+            timeout_s: Round-trip ceiling; ``call_timeout_s`` when omitted.
+
+        Returns:
+            Whatever the remote call returned.
+
+        Raises:
+            RemoteCallTimeoutError: No response arrived before the ceiling.
+
+        """
+        limit = self.call_timeout_s if timeout_s is None else timeout_s
+        description = f"{op} on {self.resource} [{uuid.uuid4().hex[:8]}] {detail}"
+        logger.info("remote call %s started (bound %.0fs)", description, limit)
+        watchdog = asyncio.ensure_future(
+            _warn_while_pending(description, self.stall_warn_interval_s)
+        )
+        started = time.monotonic()
+        try:
+            result = await asyncio.wait_for(call, limit)
+        except TimeoutError:
+            logger.error("remote call %s abandoned after %.0fs", description, limit)
+            raise RemoteCallTimeoutError(op, self.resource, detail, limit) from None
+        except BaseException as exc:
+            logger.warning(
+                "remote call %s failed after %.1fs: %s: %s",
+                description,
+                time.monotonic() - started,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+        else:
+            logger.info("remote call %s finished in %.1fs", description, time.monotonic() - started)
+            return result
+        finally:
+            watchdog.cancel()
 
     async def execute(self, request: ExecRequest) -> ExecResult:
         """Execute one argv command inside its confined remote workspace."""
-        return await self.handle.execute(request)
+        argv = " ".join(request.argv)
+        if len(argv) > _ARGV_LOG_LIMIT:
+            argv = f"{argv[:_ARGV_LOG_LIMIT]}..."
+        detail = f"{request.workspace}: {argv} (timeout {request.timeout_s:.0f}s)"
+        return await self._traced(
+            "execute",
+            detail,
+            self.handle.execute(request),
+            timeout_s=request.timeout_s + self.call_timeout_s,
+        )
 
     async def put_file(self, request: FilePut) -> FileStat:
         """Write one file into its confined remote workspace."""
-        return await self.handle.put_file(request)
+        detail = f"{request.workspace}:{request.path}"
+        return await self._traced("put_file", detail, self.handle.put_file(request))
 
     async def get_file(self, request: FileGet) -> FileContent:
         """Read one file from its confined remote workspace."""
-        return await self.handle.get_file(request)
+        detail = f"{request.workspace}:{request.path} at offset {request.offset}"
+        return await self._traced("get_file", detail, self.handle.get_file(request))
 
     async def list_dir(self, request: ListDir) -> DirListing:
         """List one directory inside its confined remote workspace."""
-        return await self.handle.list_dir(request)
+        detail = f"{request.workspace}:{request.path}"
+        return await self._traced("list_dir", detail, self.handle.list_dir(request))
 
     async def handshake(self) -> HandshakeReport:
         """Measure and report the remote host's capabilities."""
-        return await self.handle.handshake()
+        return await self._traced("handshake", "capability probe", self.handle.handshake())
 
 
 def _resource_executor(name: str, spec: ResourceConfig) -> Executor:
@@ -466,6 +707,7 @@ class ExecutionContext:
                     async def _create_transport(self, *args: Any, **kwargs: Any) -> Any:
                         transport = await super()._create_transport(*args, **kwargs)
                         _disable_academy_stream_deadline(transport)
+                        _add_academy_send_retry(transport)
                         return transport
 
                 manager = await Manager.from_exchange_factory(
@@ -487,7 +729,9 @@ class ExecutionContext:
                 handle: Handle[ExecutionAgent] = Handle(
                     launched.agent_id, exchange=manager.exchange_client
                 )
-                backends[name] = AcademyExecutionBackend(handle)
+                backends[name] = AcademyExecutionBackend(
+                    handle, name, call_timeout_s=execution.call_timeout_s
+                )
         context = cls(
             backends=backends,
             default_resource=default_resource,
@@ -608,13 +852,19 @@ class ExecutionContext:
         return name
 
     async def handshakes(self) -> dict[str, HandshakeReport]:
-        """Measure (or reuse) the handshake of every resource.
+        """Measure (or reuse) the handshake of every resource, concurrently.
+
+        Probing in parallel keeps one mute resource from masking the health of
+        the others: sequentially, the first unanswered handshake consumed the
+        whole preflight and the report named only that resource.
 
         Returns:
             Handshake reports keyed by resource name.
 
         """
-        return {name: await self.mcp.handshake(name) for name in sorted(self.backends)}
+        names = sorted(self.backends)
+        reports = await asyncio.gather(*(self.mcp.handshake(name) for name in names))
+        return dict(zip(names, reports, strict=True))
 
     async def close(self) -> None:
         """Remove Hermes entries and stop the MCP server and agents.

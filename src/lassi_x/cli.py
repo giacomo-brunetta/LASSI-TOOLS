@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import importlib.metadata
 import json
+import logging
 import os
 import platform
 import shutil
@@ -509,8 +510,41 @@ def command_groq(args: argparse.Namespace) -> int:
     return 0
 
 
+def configure_logging(level_name: str) -> None:
+    """Route this package's log records to stderr with timestamps.
+
+    Nothing configured logging before, so every ``lassi_x`` record was
+    discarded by the root logger and a run that stalled left no trace of which
+    call was outstanding. Only the ``lassi_x`` logger is touched, so the MCP
+    server's own Rich handler keeps formatting its records as it always has.
+
+    Args:
+        level_name: Level name such as ``INFO`` or ``DEBUG``; an unrecognised
+            value falls back to ``INFO`` rather than failing the run.
+
+    """
+    level = logging.getLevelNamesMapping().get(level_name.upper(), logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(levelname)-7s %(name)s %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S",
+        )
+    )
+    package_logger = logging.getLogger(__package__)
+    package_logger.handlers.clear()
+    package_logger.addHandler(handler)
+    package_logger.setLevel(level)
+    package_logger.propagate = False
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lassi-x")
+    parser.add_argument(
+        "--log-level",
+        default=os.environ.get("LASSI_LOG_LEVEL", "INFO"),
+        help="Log level for lassi_x records (default: INFO, or $LASSI_LOG_LEVEL).",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run")
@@ -616,6 +650,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    configure_logging(args.log_level)
     if args.command == "run":
         try:
             code, run_dir = asyncio.run(run_pipeline(args.config))

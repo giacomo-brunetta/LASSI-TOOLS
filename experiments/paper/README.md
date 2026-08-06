@@ -48,6 +48,12 @@ backend is named `a100-cuda` and bound to resource `a100-node`; the oracle build
 every agent tool call stay on the local `harness` resource so the reference compile is
 identical across the matrix.
 
+Install
+[`a100_compute_endpoint_user_config_template.yaml.j2`](a100_compute_endpoint_user_config_template.yaml.j2)
+as `~/.globus_compute/lassi-x/user_config_template.yaml.j2` on `sami` before running the
+suite, and restart the endpoint afterwards. The stock template cannot run this suite —
+see [Wedged endpoints](#wedged-endpoints).
+
 Override with `LASSI_PAPER_GPU_ENDPOINT=<uuid>`. `LASSI_PAPER_GPU=local` falls back to the
 machine's own GPU and renames the backend to `harness-cuda` — use it for smoke tests only.
 The two devices produce different timings and must never be pooled in one table, which is
@@ -69,10 +75,12 @@ conda activate lassi-globus-compute
 env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute   # note the UUID
 ```
 
-It is a user-config template, not a `config.yaml`. The endpoint is multi-user: its
-`config.yaml` holds only endpoint-wide settings and refuses to start if it contains an
-`engine` block (`endpoint will not start ... move the engine block to
-user_config_template.yaml.j2`). Leave `config.yaml` as configured.
+It is a user-config template, not a `config.yaml`. Recent endpoint releases render a
+per-user endpoint process (UEP) from a template even when the endpoint is not multi-user
+— both LASSI endpoints report `multi_user: false`. Its `config.yaml` holds only
+endpoint-wide settings and refuses to start if it contains an `engine` block
+(`endpoint will not start ... move the engine block to user_config_template.yaml.j2`).
+Leave `config.yaml` as configured.
 
 `env -u PYTHONPATH` is required. GroqRack compute nodes export
 `/opt/groq/runtime/site-packages` site-wide, and `PYTHONPATH` precedes an environment's own
@@ -111,6 +119,51 @@ locally so an affected cell fails with a note naming the stalled stage instead o
 the full `timeout_s`. Direct mode removes the cause rather than the symptom.
 
 Set `LASSI_PAPER_GROQ=0` to generate a CUDA-only matrix and skip the leg entirely.
+
+### Wedged endpoints
+
+`status: online` is only a heartbeat from the endpoint *manager*. It says nothing about
+whether a user endpoint process (UEP) exists to claim work. The failure to recognise is a
+submitted task that stays at `waiting-for-ep` indefinitely while the endpoint reports
+`online`:
+
+```bash
+python - <<'EOF'
+from globus_compute_sdk import Client, Executor
+import time
+c = Client()
+ex = Executor(endpoint_id="<uuid>", client=c)
+f = ex.submit(lambda: "alive")
+while not getattr(f, "task_id", None):
+    time.sleep(1)
+for _ in range(6):
+    print(c.get_task(f.task_id)["status"]); time.sleep(5)
+EOF
+```
+
+`waiting-for-ep` for more than a few seconds on an idle endpoint means the UEP is gone or
+stuck. The cure is a manager restart on the node (`globus-compute-endpoint stop <name>`
+then `start <name>`); the prevention is installing the user-config templates above, which
+unset `idle_heartbeats_soft`, pin `min_blocks: 1`, and raise `max_workers_per_node`.
+
+The stock template's defaults are actively incompatible with this suite. LASSI launches
+one long-lived `ExecutionAgent` per resource and keeps it for the whole run — every tool
+call and measurement is an Academy round trip to that agent, not a fresh Globus task. With
+`max_workers_per_node: 1` the agent occupies the resource's only worker; with
+`idle_heartbeats_soft: 10` the UEP self-terminates after roughly five idle minutes, which
+is shorter than the gap between measurements, killing the agent mid-run.
+
+A response that dies with its agent never arrives, and Academy imposes no deadline on one.
+`execution.call_timeout_s` (default 300 s) now bounds every Academy round trip on top of a
+command's own `timeout_s`, so an unreachable agent fails the affected cells as `TIMEOUT`
+with `execution agent unreachable` in the notes instead of hanging the run. Set
+`LASSI_LOG_LEVEL=DEBUG`, or pass `--log-level`, to raise the harness log level; at the
+default `INFO` every remote call already logs its start, its resource, and a warning each
+minute it stays unanswered:
+
+```
+remote call handshake on a100-node [021de32b] capability probe unanswered after 120s
+```
 
 On the CUDA harness, activate the `LASSI` environment and ensure the Globus client extra
 is installed with `pip install -e '.[globus]'`. The launcher regenerates every config and

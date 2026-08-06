@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .execution import fetch_bytes, put_bytes
+from .execution import RemoteCallTimeoutError, fetch_bytes, put_bytes
 from .protocol import ExecRequest
 from .types import Measurement, Status
 from .validation import fixture_relative_path
@@ -261,6 +261,50 @@ class TorchBackend(Backend):
         compensation: str,
         seed: int = 0,
     ) -> Measurement:
+        """Measure one variant, degrading to a timeout cell if the agent is mute.
+
+        An unreachable execution agent is a property of the resource, not of
+        the candidate under test. Recording it as a timeout keeps the rest of
+        the matrix running and leaves the affected cells identifiable, rather
+        than aborting the run on the first unanswered call.
+        """
+        try:
+            return await self._measure(
+                config,
+                oracle,
+                module_path,
+                candidate_id=candidate_id,
+                variant_id=variant_id,
+                precision=precision,
+                compensation=compensation,
+                seed=seed,
+            )
+        except RemoteCallTimeoutError as exc:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.TIMEOUT,
+                resource=self.resource,
+                notes=f"execution agent unreachable: {exc}",
+            )
+
+    async def _measure(
+        self,
+        config: RunConfig,
+        oracle: OracleResult,
+        module_path: Path,
+        *,
+        candidate_id: str,
+        variant_id: str,
+        precision: str,
+        compensation: str,
+        seed: int = 0,
+    ) -> Measurement:
         if not self.supports(precision):
             return _base_measurement(
                 config,
@@ -468,16 +512,32 @@ class GroqBackend(Backend):
             # launch, and polling for each cell together so concurrent candidate
             # fan-out cannot interleave multiple RPC streams on that agent.
             launch = self._measure_pbs if self.spec.pbs is not None else self._measure_direct
-            async with self._transaction_semaphore:
-                return await launch(
+            try:
+                async with self._transaction_semaphore:
+                    return await launch(
+                        config,
+                        oracle,
+                        module_path,
+                        candidate_id=candidate_id,
+                        variant_id=variant_id,
+                        precision=precision,
+                        compensation=compensation,
+                        seed=seed,
+                    )
+            except RemoteCallTimeoutError as exc:
+                # A mute agent is a resource fault, not a candidate fault:
+                # record the cell and let the rest of the matrix proceed.
+                return _base_measurement(
                     config,
-                    oracle,
+                    self.spec,
                     module_path,
-                    candidate_id=candidate_id,
-                    variant_id=variant_id,
-                    precision=precision,
-                    compensation=compensation,
-                    seed=seed,
+                    candidate_id,
+                    variant_id,
+                    precision,
+                    compensation,
+                    Status.TIMEOUT,
+                    resource=self.resource,
+                    notes=f"execution agent unreachable: {exc}",
                 )
         if not self.supports(precision):
             return _base_measurement(
