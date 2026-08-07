@@ -46,7 +46,7 @@ from lassi_x.remote.ops import resolve_member
 from .test_config import minimal_config
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
     from pathlib import Path
 
 
@@ -195,6 +195,119 @@ def test_unanswered_remote_call_is_abandoned_not_awaited_forever() -> None:
             await backend.execute(_exec_request(timeout_s=0.01))
         assert caught.value.resource == "wedged-node"
         assert caught.value.op == "execute"
+
+    asyncio.run(run())
+
+
+class _PingableHandle:
+    """Handle whose ping answers only while `alive`, counting every probe."""
+
+    def __init__(self, *, alive: bool = True) -> None:
+        self.alive = alive
+        self.pings = 0
+
+    async def ping(self) -> str:
+        self.pings += 1
+        if not self.alive:
+            msg = "mailbox unreachable"
+            raise RuntimeError(msg)
+        return "flaky-node"
+
+    @staticmethod
+    async def execute(request: object) -> str:
+        return "done"
+
+
+def _heartbeat_backend(handle: _PingableHandle, **kwargs: object) -> AcademyExecutionBackend:
+    """Build a backend heartbeating fast enough to finish inside a test."""
+    return AcademyExecutionBackend(
+        handle,  # type: ignore[arg-type]
+        "flaky-node",
+        heartbeat_interval_s=0.01,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+async def _until(predicate: Callable[[], bool], timeout_s: float = 5.0) -> None:
+    """Poll until `predicate` holds, failing the test if it never does."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_s
+    while loop.time() < deadline:
+        if predicate():
+            return
+        await asyncio.sleep(0.01)
+    pytest.fail("condition never held")
+
+
+def test_missed_heartbeats_pause_work_until_the_resource_answers_again() -> None:
+    async def run() -> None:
+        handle = _PingableHandle(alive=False)
+        backend = _heartbeat_backend(handle, heartbeat_misses=2)
+        await backend.start_keepalive()
+        try:
+            await _until(lambda: backend.paused)
+            call = asyncio.ensure_future(backend.execute(_exec_request()))
+            await asyncio.sleep(0.05)
+            assert not call.done(), "a paused resource must not be sent new work"
+            handle.alive = True
+            assert await call == "done"
+            assert not backend.paused
+        finally:
+            await backend.stop_keepalive()
+
+    asyncio.run(run())
+
+
+def test_single_missed_heartbeat_does_not_pause_work() -> None:
+    async def run() -> None:
+        handle = _PingableHandle(alive=False)
+        backend = _heartbeat_backend(handle, heartbeat_misses=2)
+        await backend.start_keepalive()
+        try:
+            await _until(lambda: handle.pings >= 1)
+            handle.alive = True
+            await _until(lambda: handle.pings >= 4)
+            assert not backend.paused, "one dropped probe is noise, not an outage"
+            assert await backend.execute(_exec_request()) == "done"
+        finally:
+            await backend.stop_keepalive()
+
+    asyncio.run(run())
+
+
+def test_pause_outlasting_its_bound_retires_the_resource() -> None:
+    async def run() -> None:
+        retired: list[tuple[str, str]] = []
+        backend = _heartbeat_backend(
+            _PingableHandle(alive=False),
+            heartbeat_misses=2,
+            pause_max_s=0.05,
+            on_dead=lambda resource, detail: retired.append((resource, detail)),
+        )
+        await backend.start_keepalive()
+        try:
+            await _until(lambda: backend.paused)
+            with pytest.raises(ResourceUnavailableError) as caught:
+                await backend.execute(_exec_request())
+            assert caught.value.resource == "flaky-node"
+            assert retired and retired[0][0] == "flaky-node"
+            assert backend.dead_detail is not None
+        finally:
+            await backend.stop_keepalive()
+
+    asyncio.run(run())
+
+
+def test_keepalive_stops_probing_once_the_context_closes() -> None:
+    async def run() -> None:
+        handle = _PingableHandle()
+        backend = _heartbeat_backend(handle)
+        await backend.start_keepalive()
+        await _until(lambda: handle.pings >= 2)
+        await backend.stop_keepalive()
+        settled = handle.pings
+        await asyncio.sleep(0.05)
+        assert handle.pings == settled, "teardown must not leave a probe running"
 
     asyncio.run(run())
 

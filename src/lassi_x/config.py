@@ -245,6 +245,25 @@ class ExecutionConfig(StrictModel):
     retirement and restores the previous grind-forever behaviour.
     """
 
+    heartbeat_interval_s: float = Field(default=5.0, ge=0.0)
+    """Seconds between liveness pings to each remote agent; ``0`` disables them.
+
+    The ping is a trivial Academy action that touches nothing, so this can be
+    frequent. Detecting a wedged agent is otherwise gated on some real call
+    hitting ``call_timeout_s``, which on 2026-08-07 meant discovering at 16:30
+    that the A100 had stopped answering at 15:55.
+    """
+
+    heartbeat_misses: int = Field(default=2, ge=1)
+    """Consecutive unanswered pings that pause work on a resource."""
+
+    pause_max_s: float = Field(default=900.0, gt=0.0)
+    """How long work may stay paused before the resource is retired instead.
+
+    Long enough to restart an endpoint worker by hand, short enough that an
+    unattended run does not sit paused indefinitely.
+    """
+
     timeout_tolerant_resources: list[str] = Field(default_factory=list)
     """Resources whose abandoned calls must not discard the candidate.
 

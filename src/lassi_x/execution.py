@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import logging
 import time
@@ -204,6 +205,20 @@ class ExecutionBackend(ABC):
     @abstractmethod
     async def handshake(self) -> HandshakeReport:
         """Measure and report the executing host's capabilities."""
+
+    async def ping(self) -> None:  # noqa: B027 -- no-op by design, not abstract
+        """Prove the backend still answers.
+
+        A backend that runs in this process cannot stop answering without the
+        process itself stopping, so the default is a no-op and only the remote
+        backend does real work here.
+        """
+
+    async def start_keepalive(self) -> None:  # noqa: B027 -- see ping
+        """Begin probing liveness, if this backend can lose contact at all."""
+
+    async def stop_keepalive(self) -> None:  # noqa: B027 -- see ping
+        """Stop probing liveness and release the probe task."""
 
     async def cached_handshake(self) -> HandshakeReport:
         """Return the handshake, measuring it at most once per backend.
@@ -449,6 +464,30 @@ in a row has never once been transient in this pipeline -- every occurrence has
 meant the agent was gone until its endpoint was restarted.
 """
 
+HEARTBEAT_INTERVAL_S = 5.0
+"""Seconds between liveness pings while a resource is in service."""
+
+HEARTBEAT_MISSES = 2
+"""Consecutive unanswered pings that pause work on a resource.
+
+One missed ping is noise -- a scheduling hiccup on either side can cost five
+seconds. Two in a row means requests are no longer reaching the agent, which is
+worth acting on ten seconds after it starts rather than five minutes later when
+some real call finally hits its bound.
+"""
+
+HEARTBEAT_TIMEOUT_S = 4.0
+"""Ceiling on one ping, kept under the interval so probes cannot pile up."""
+
+PAUSE_MAX_S = 900.0
+"""How long work may stay paused before the resource is retired instead.
+
+A pause is only worth taking if the agent might come back. When it does not,
+waiting forever is the failure this whole mechanism exists to prevent, so the
+pause has an end: at this point the resource is taken out of service and the
+run fails with the cause named.
+"""
+
 _ARGV_LOG_LIMIT = 160
 """Characters of a command line kept in the call log line."""
 
@@ -508,6 +547,9 @@ class AcademyExecutionBackend(ExecutionBackend):
         stall_warn_interval_s: float = STALL_WARN_INTERVAL_S,
         dead_after_timeouts: int = DEAD_AFTER_TIMEOUTS,
         on_dead: Callable[[str, str], None] | None = None,
+        heartbeat_interval_s: float = HEARTBEAT_INTERVAL_S,
+        heartbeat_misses: int = HEARTBEAT_MISSES,
+        pause_max_s: float = PAUSE_MAX_S,
     ) -> None:
         """Configure the backend.
 
@@ -523,6 +565,11 @@ class AcademyExecutionBackend(ExecutionBackend):
             on_dead: Called once with ``(resource, detail)`` at the moment the
                 resource is taken out of service, so the run can abort rather
                 than continue against a backend that cannot answer.
+            heartbeat_interval_s: Seconds between liveness pings; ``0`` disables
+                the heartbeat entirely.
+            heartbeat_misses: Consecutive unanswered pings that pause work.
+            pause_max_s: How long work may stay paused before the resource is
+                retired instead of waited on.
 
         """
         self.handle = handle
@@ -531,8 +578,14 @@ class AcademyExecutionBackend(ExecutionBackend):
         self.stall_warn_interval_s = stall_warn_interval_s
         self.dead_after_timeouts = dead_after_timeouts
         self.on_dead = on_dead
+        self.heartbeat_interval_s = heartbeat_interval_s
+        self.heartbeat_misses = heartbeat_misses
+        self.pause_max_s = pause_max_s
         self._consecutive_timeouts = 0
         self._dead_detail: str | None = None
+        self._live = asyncio.Event()
+        self._live.set()
+        self._heartbeat: asyncio.Task[None] | None = None
 
     @property
     def dead_detail(self) -> str | None:
@@ -575,6 +628,111 @@ class AcademyExecutionBackend(ExecutionBackend):
         if self.on_dead is not None:
             self.on_dead(self.resource, self._dead_detail)
 
+    @property
+    def paused(self) -> bool:
+        """Whether work on this resource is currently held back."""
+        return not self._live.is_set()
+
+    async def ping(self) -> None:
+        """Ask the agent to answer Academy's own ping, bounded tightly.
+
+        This is deliberately the built-in and not an action of our own.
+        ``Handle.ping`` is answered by the agent runtime rather than by user
+        code, so it needs nothing deployed on the remote side and measures the
+        one thing worth measuring: whether a message still reaches the agent's
+        mailbox and a response still comes back. ``handshake`` was the obvious
+        alternative and is the wrong tool -- it imports torch and probes every
+        accelerator, far too expensive to repeat on a five-second timer.
+        """
+        await asyncio.wait_for(self.handle.ping(), HEARTBEAT_TIMEOUT_S)
+
+    async def start_keepalive(self) -> None:
+        """Start pinging the agent on a timer."""
+        if self.heartbeat_interval_s <= 0 or self._heartbeat is not None:
+            return
+        self._heartbeat = asyncio.ensure_future(self._heartbeat_loop())
+
+    async def stop_keepalive(self) -> None:
+        """Stop the timer and wait for the probe task to unwind."""
+        task, self._heartbeat = self._heartbeat, None
+        if task is None:
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+
+    async def _heartbeat_loop(self) -> None:
+        """Ping on a timer, pausing work once the pings stop being answered.
+
+        Pausing rather than failing is the point. A real call that hits its
+        bound has already spent that bound, and whatever agent turn issued it
+        has already been paid for. A missed ping costs four seconds and lets
+        the pipeline stop *before* it commits anything -- so the run holds
+        still while somebody restarts the worker, instead of burning cells
+        against a resource that stopped answering ten seconds ago.
+        """
+        misses = 0
+        while True:
+            await asyncio.sleep(self.heartbeat_interval_s)
+            if self._dead_detail is not None:
+                return
+            try:
+                await self.ping()
+            except asyncio.CancelledError:
+                raise
+            except BaseException as exc:  # noqa: BLE001 -- any failure is a miss
+                misses += 1
+                logger.warning(
+                    "heartbeat to %s missed (%d/%d): %s: %s",
+                    self.resource,
+                    misses,
+                    self.heartbeat_misses,
+                    type(exc).__name__,
+                    exc,
+                )
+                if misses >= self.heartbeat_misses and self._live.is_set():
+                    self._live.clear()
+                    logger.error(
+                        "resource %s stopped answering after %d missed heartbeats; "
+                        "work is paused -- restart its endpoint worker to resume "
+                        "(giving up in %.0fs)",
+                        self.resource,
+                        misses,
+                        self.pause_max_s,
+                    )
+            else:
+                if not self._live.is_set():
+                    logger.info(
+                        "resource %s is answering again after %d missed heartbeats; resuming",
+                        self.resource,
+                        misses,
+                    )
+                    self._live.set()
+                misses = 0
+
+    async def _await_resume(self, description: str) -> None:
+        """Hold one call until the resource answers again, or retire it.
+
+        Args:
+            description: Preformatted call description, for the log lines.
+
+        Raises:
+            ResourceUnavailableError: The pause outlasted ``pause_max_s``.
+
+        """
+        logger.warning("remote call %s held: resource %s is paused", description, self.resource)
+        try:
+            await asyncio.wait_for(self._live.wait(), self.pause_max_s)
+        except TimeoutError:
+            detail = f"paused for {self.pause_max_s:.0f}s without answering a heartbeat"
+            if self._dead_detail is None:
+                self._dead_detail = detail
+                logger.error("resource %s taken out of service: %s", self.resource, detail)
+                if self.on_dead is not None:
+                    self.on_dead(self.resource, detail)
+            raise ResourceUnavailableError(self.resource, self._dead_detail or detail) from None
+        logger.info("remote call %s released: resource %s resumed", description, self.resource)
+
     async def _traced(
         self,
         op: str,
@@ -604,6 +762,14 @@ class AcademyExecutionBackend(ExecutionBackend):
             raise ResourceUnavailableError(self.resource, self._dead_detail)
         limit = self.call_timeout_s if timeout_s is None else timeout_s
         description = f"{op} on {self.resource} [{uuid.uuid4().hex[:8]}] {detail}"
+        if self.paused:
+            # Held before the request is sent, so a paused resource costs the
+            # wait and nothing else -- no bound consumed, no response to lose.
+            try:
+                await self._await_resume(description)
+            except BaseException:
+                self._discard(call)
+                raise
         logger.info("remote call %s started (bound %.0fs)", description, limit)
         watchdog = asyncio.ensure_future(
             _warn_while_pending(description, self.stall_warn_interval_s)
@@ -849,6 +1015,9 @@ class ExecutionContext:
                     call_timeout_s=execution.call_timeout_s,
                     dead_after_timeouts=execution.dead_after_timeouts,
                     on_dead=record_dead,
+                    heartbeat_interval_s=execution.heartbeat_interval_s,
+                    heartbeat_misses=execution.heartbeat_misses,
+                    pause_max_s=execution.pause_max_s,
                 )
         context = cls(
             backends=backends,
@@ -861,6 +1030,8 @@ class ExecutionContext:
         )
         context._manager = manager
         try:
+            for backend in backends.values():
+                await backend.start_keepalive()
             await context.runner.start()
             if context.enable_memory:
                 from .hermes_config import enable_memory_provider  # noqa: PLC0415
@@ -1029,6 +1200,10 @@ class ExecutionContext:
             restore_memory_provider(self._memory_previous, home=self.hermes_home)
             self._memory_active = False
             self._memory_previous = None
+        # Before the manager goes, so a probe cannot outlive the exchange it
+        # talks through and log a spurious miss during teardown.
+        for backend in self.backends.values():
+            await backend.stop_keepalive()
         await self.runner.stop()
         manager = self._manager
         self._manager = None
