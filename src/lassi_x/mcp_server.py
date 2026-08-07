@@ -24,6 +24,9 @@ from typing import TYPE_CHECKING, Any
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP  # noqa: TC002
 
+# Imported at module level for the isinstance check in _logged_tool. Safe:
+# execution.py only imports this module from inside a function body.
+from .execution import RemoteCallTimeoutError
 from .protocol import ExecRequest, FileGet, FilePut, ListDir
 
 if TYPE_CHECKING:
@@ -68,7 +71,10 @@ def _summarize_call(kwargs: Mapping[str, Any]) -> str:
     return " ".join(fields)
 
 
-def _logged_tool(name: str) -> Callable[..., Any]:
+def _logged_tool(
+    name: str,
+    on_timeout: Callable[[Any, RemoteCallTimeoutError], None] | None = None,
+) -> Callable[..., Any]:
     """Wrap a tool coroutine so every model call announces itself.
 
     The execution layer already logged the remote calls tools make, which meant
@@ -78,6 +84,11 @@ def _logged_tool(name: str) -> Callable[..., Any]:
 
     Args:
         name: Tool name as the model sees it.
+        on_timeout: Called with ``(ctx, error)`` when a call is abandoned,
+            so the harness can attribute the timeout to the calling agent.
+            The tool boundary is the only place both facts are in scope: the
+            backend knows the resource but not who asked, and the caller knows
+            who asked but sees only a tool error.
 
     Returns:
         Decorator preserving the wrapped signature, which FastMCP introspects
@@ -100,6 +111,8 @@ def _logged_tool(name: str) -> Callable[..., Any]:
                     type(exc).__name__,
                     exc,
                 )
+                if isinstance(exc, RemoteCallTimeoutError) and on_timeout is not None:
+                    on_timeout(kwargs.get("ctx"), exc)
                 raise
             logger.info(
                 "tool call %s ok in %.1fs reply_chars=%d",
@@ -146,8 +159,24 @@ class LassiMCPServer:
         self.backends = dict(backends)
         self.default_resource = default_resource
         self._handshakes: dict[str, HandshakeReport] = {}
+        self.abandoned_calls: dict[str, dict[str, str]] = {}
+        """Workspace -> resource -> description of that workspace's abandoned calls."""
         self.server = FastMCP(name="lassi-x", instructions=_INSTRUCTIONS)
         self._register_tools()
+
+    def _note_abandoned_call(self, ctx: Any, error: RemoteCallTimeoutError) -> None:
+        """Attribute one abandoned remote call to the workspace that made it.
+
+        Args:
+            ctx: Tool call context, or ``None`` for a tool that takes none.
+            error: The timeout raised by the execution backend.
+
+        """
+        try:
+            workspace = self._workspace(ctx) if ctx is not None else self.default_resource
+        except ValueError:  # unpinned connection; nothing to attribute it to
+            return
+        self.abandoned_calls.setdefault(workspace, {})[error.resource] = str(error)
 
     def _backend(self, resource: str | None) -> ExecutionBackend:
         """Resolve one backend by resource name.
@@ -212,7 +241,7 @@ class LassiMCPServer:
         server = self.server
 
         @server.tool(name="list_resources")
-        @_logged_tool("list_resources")
+        @_logged_tool("list_resources", self._note_abandoned_call)
         async def list_resources() -> str:
             """List available machines with their accelerators and toolchains."""
             reports = {}
@@ -225,7 +254,7 @@ class LassiMCPServer:
             )
 
         @server.tool(name="run_command")
-        @_logged_tool("run_command")
+        @_logged_tool("run_command", self._note_abandoned_call)
         async def run_command(
             ctx: Context[Any, Any, Any],
             command: list[str],
@@ -268,7 +297,7 @@ class LassiMCPServer:
             return "\n".join(lines)
 
         @server.tool(name="write_file")
-        @_logged_tool("write_file")
+        @_logged_tool("write_file", self._note_abandoned_call)
         async def write_file(
             ctx: Context[Any, Any, Any],
             path: str,
@@ -296,7 +325,7 @@ class LassiMCPServer:
             return f"wrote {stat.size_bytes} bytes to {stat.path} (sha256 {stat.sha256[:12]})"
 
         @server.tool(name="read_file")
-        @_logged_tool("read_file")
+        @_logged_tool("read_file", self._note_abandoned_call)
         async def read_file(
             ctx: Context[Any, Any, Any],
             path: str,
@@ -321,7 +350,7 @@ class LassiMCPServer:
             return f"{content.path}{note}:\n{content.content}"
 
         @server.tool(name="list_files")
-        @_logged_tool("list_files")
+        @_logged_tool("list_files", self._note_abandoned_call)
         async def list_files(
             ctx: Context[Any, Any, Any],
             path: str = ".",

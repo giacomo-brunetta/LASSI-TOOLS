@@ -6,6 +6,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any, cast
 
+from .execution import ResourceUnavailableError
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Status, Usage
 from .validation import OracleResult, fixture_relative_path, validate_candidate
@@ -475,6 +476,49 @@ Return a short repair summary.
 """
 
 
+def _execution_health(
+    config: RunConfig,
+    execution: ExecutionContext,
+    candidate_id: str,
+) -> str | None:
+    """Check the execution layer between turns and decide whether to go on.
+
+    Two different failures, two different responses. A resource that has been
+    taken out of service ends the whole run: no later turn can produce the
+    measurement it owed, so continuing spends model budget on a result that
+    will have a hole in it. A single abandoned call that has not yet retired
+    its resource ends only this candidate -- it waited out the full call bound
+    for nothing, and whatever it was building on the far side is now of unknown
+    state.
+
+    Resources named in ``execution.timeout_tolerant_resources`` are exempt from
+    the second rule. A Groq compile is legitimately minutes long, so an
+    abandoned call there is likelier to be honest slowness than elsewhere.
+
+    Args:
+        config: Validated run configuration naming the tolerant resources.
+        execution: Running execution context serving workspace tool calls.
+        candidate_id: Workspace whose abandoned calls are being judged.
+
+    Returns:
+        Why this candidate should be discarded, or ``None`` to continue.
+
+    Raises:
+        ResourceUnavailableError: If any resource has been taken out of service.
+
+    """
+    execution.require_live_resources()
+    tolerant = set(config.execution.timeout_tolerant_resources)
+    abandoned = {
+        resource: detail
+        for resource, detail in execution.mcp.abandoned_calls.get(candidate_id, {}).items()
+        if resource not in tolerant
+    }
+    if not abandoned:
+        return None
+    return "; ".join(f"{resource}: {detail}" for resource, detail in sorted(abandoned.items()))
+
+
 async def generate_candidate(
     config: RunConfig,
     oracle: OracleResult,
@@ -547,6 +591,14 @@ async def generate_candidate(
         )
         backend = execution.backend()
         for attempt in range(config.arena.correction_rounds + 1):
+            discard = _execution_health(config, execution, candidate_id)
+            if discard is not None:
+                logger.error(
+                    "candidate %s discarded after abandoned call -- %s", candidate_id, discard
+                )
+                candidate.status = Status.TIMEOUT
+                candidate.diagnostics.append(Diagnostic(gate="execution", message=discard))
+                break
             validation_dir = run_dir / "diagnostics" / candidate_id / f"attempt-{attempt}"
             validation_dir.mkdir(parents=True, exist_ok=True)
             result = await validate_candidate(config, backend, candidate_id, oracle, validation_dir)
@@ -583,6 +635,10 @@ async def generate_candidate(
                     "attempts": turn.attempts,
                 }
             )
+    except ResourceUnavailableError:
+        # Deliberately not recorded on the candidate: this is not a property of
+        # the translation, it is the run losing a machine. Let it end the run.
+        raise
     except Exception as exc:
         logger.exception("candidate %s crashed: %s", candidate_id, exc)
         candidate.status = Status.CRASHED

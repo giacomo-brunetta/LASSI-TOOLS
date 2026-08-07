@@ -318,6 +318,11 @@ class HermesSession:
             "apikeyhelper",
             "unknown worker operation",
             "cannot load",
+            # A turn whose tool calls were waiting on a retired resource is not
+            # transient, and it is the most expensive thing here to retry: the
+            # jacobi-2d cell paid twice for two turns of roughly 1900s each,
+            # both of which were only ever going to time out again.
+            "was taken out of service",
         )
         return not any(marker in message for marker in deterministic)
 

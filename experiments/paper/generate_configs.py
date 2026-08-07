@@ -420,6 +420,13 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
             "default_resource": "harness",
             "resources": resources,
             "mcp_timeout_s": 1200,
+            # A cold GroqFlow compile has been measured as high as 1084 s (see
+            # the latency table above), so an abandoned call on the Groq leg is
+            # the one case here where slow honest work and a lost response are
+            # hard to tell apart. Exempt it from discarding the candidate. The
+            # GPU and harness legs get no such benefit of the doubt: nothing
+            # there has ever legitimately taken more than ~36 s.
+            "timeout_tolerant_resources": ([_groq_resource_name()] if groq else []),
         },
         "measure": {
             "precisions": ["fp64", "fp32", "fp16", "bf16"],

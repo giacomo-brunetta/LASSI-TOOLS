@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+from functools import partial
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 import yaml
 
 import lassi_x.arena as arena
 from lassi_x.config import RunConfig
-from lassi_x.execution import ExecutionContext
+from lassi_x.execution import ExecutionContext, ResourceUnavailableError
 from lassi_x.hermes import HermesTurn
 from lassi_x.types import Candidate, Status, Usage
 from lassi_x.validation import build_oracle
@@ -189,3 +192,89 @@ def test_arena_generates_three_and_repairs_failures(
     )
     staged = run_dir / "workspaces" / "c1" / "reference" / "tiny.c"
     assert staged.read_text() == C_REFERENCE
+
+
+def _health_context(
+    tmp_path: Path,
+    *,
+    abandoned: dict[str, dict[str, str]],
+    dead: dict[str, str],
+) -> tuple[RunConfig, ExecutionContext]:
+    """Build a config and a context stub carrying a chosen execution health."""
+    data = minimal_config(tmp_path)
+    data["execution"] = {
+        "mode": "academy",
+        "resources": {"harness": {}, "a100-node": {}, "groq-login": {}},
+        "default_resource": "harness",
+        "timeout_tolerant_resources": ["groq-login"],
+    }
+    config = RunConfig.model_validate(data)
+    context = cast(
+        "ExecutionContext",
+        SimpleNamespace(
+            dead_resources=dead,
+            mcp=SimpleNamespace(abandoned_calls=abandoned),
+            require_live_resources=ExecutionContext.require_live_resources,
+        ),
+    )
+    # Bind the real method so the stub enforces the real rule.
+    context.require_live_resources = partial(  # type: ignore[method-assign]
+        ExecutionContext.require_live_resources, context
+    )
+    return config, context
+
+
+def test_abandoned_call_on_an_intolerant_resource_discards_the_candidate(
+    tmp_path: Path,
+) -> None:
+    config, context = _health_context(
+        tmp_path,
+        abandoned={"c1": {"a100-node": "get_file got no response within 300s"}},
+        dead={},
+    )
+    discard = arena._execution_health(config, context, "c1")
+    assert discard is not None
+    assert "a100-node" in discard
+
+
+def test_abandoned_groq_compile_does_not_discard_the_candidate(tmp_path: Path) -> None:
+    """A cold GroqFlow compile is legitimately minutes long; give it the benefit."""
+    config, context = _health_context(
+        tmp_path,
+        abandoned={"c1": {"groq-login": "execute got no response within 1500s"}},
+        dead={},
+    )
+    assert arena._execution_health(config, context, "c1") is None
+
+
+def test_another_candidates_abandoned_call_is_not_charged_to_this_one(
+    tmp_path: Path,
+) -> None:
+    config, context = _health_context(
+        tmp_path,
+        abandoned={"c2": {"a100-node": "get_file got no response within 300s"}},
+        dead={},
+    )
+    assert arena._execution_health(config, context, "c1") is None
+
+
+def test_a_retired_resource_ends_the_run_rather_than_one_candidate(tmp_path: Path) -> None:
+    config, context = _health_context(
+        tmp_path,
+        abandoned={},
+        dead={"a100-node": "2 consecutive calls abandoned"},
+    )
+    with pytest.raises(ResourceUnavailableError) as caught:
+        arena._execution_health(config, context, "c1")
+    assert caught.value.resource == "a100-node"
+
+
+def test_a_retired_tolerant_resource_still_ends_the_run(tmp_path: Path) -> None:
+    """Tolerance excuses a slow call, not an agent that has stopped answering."""
+    config, context = _health_context(
+        tmp_path,
+        abandoned={},
+        dead={"groq-login": "2 consecutive calls abandoned"},
+    )
+    with pytest.raises(ResourceUnavailableError):
+        arena._execution_health(config, context, "c1")

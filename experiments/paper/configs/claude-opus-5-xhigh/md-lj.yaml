@@ -125,6 +125,8 @@ execution:
       - lpu
       - direct
   mcp_timeout_s: 1200
+  timeout_tolerant_resources:
+  - groq-compute
 measure:
   precisions:
   - fp64

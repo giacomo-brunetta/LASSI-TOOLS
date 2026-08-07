@@ -162,7 +162,7 @@ def _add_academy_send_retry(
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
+    from collections.abc import Awaitable, Callable
     from concurrent.futures import Executor
     from pathlib import Path
 
@@ -414,6 +414,41 @@ class RemoteCallTimeoutError(TimeoutError):
         self.limit_s = limit_s
 
 
+class ResourceUnavailableError(RuntimeError):
+    """A resource was declared dead and is no longer being called.
+
+    Raised without contacting the resource at all. Once an execution agent has
+    stopped answering, every further call to it costs a full ``call_timeout_s``
+    and returns nothing: the jacobi-2d cell of 2026-08-07 spent forty minutes
+    and two full-price model turns waiting out nineteen such calls, having
+    already established with the first two that nobody was listening. Failing
+    instantly turns an unbounded cost into a bounded one.
+    """
+
+    def __init__(self, resource: str, detail: str) -> None:
+        """Describe the dead resource.
+
+        Args:
+            resource: Resource whose execution agent stopped answering.
+            detail: Why it was declared dead, for the log and the run record.
+
+        """
+        super().__init__(
+            f"resource {resource!r} is not answering and was taken out of service ({detail}). "
+            "Its execution agent is wedged or gone; restart the endpoint's worker."
+        )
+        self.resource = resource
+        self.detail = detail
+
+
+DEAD_AFTER_TIMEOUTS = 2
+"""Consecutive abandoned calls that take a resource out of service.
+
+Two, not one: a single lost response is survivable and has been survived. Two
+in a row has never once been transient in this pipeline -- every occurrence has
+meant the agent was gone until its endpoint was restarted.
+"""
+
 _ARGV_LOG_LIMIT = 160
 """Characters of a command line kept in the call log line."""
 
@@ -456,6 +491,12 @@ class AcademyExecutionBackend(ExecutionBackend):
     the remote worker enforces on the subprocess, so ``execute`` is allowed
     that long plus the transport margin. A response later than that is not a
     slow benchmark, it is a lost message.
+
+    Bounding each call individually is not enough on its own, because the
+    number of calls is not bounded. After ``dead_after_timeouts`` consecutive
+    abandoned calls the backend takes the resource out of service and fails
+    every later call immediately, so a wedged agent costs two timeouts rather
+    than one per remaining call for the rest of the run.
     """
 
     def __init__(
@@ -465,6 +506,8 @@ class AcademyExecutionBackend(ExecutionBackend):
         *,
         call_timeout_s: float = CALL_TIMEOUT_S,
         stall_warn_interval_s: float = STALL_WARN_INTERVAL_S,
+        dead_after_timeouts: int = DEAD_AFTER_TIMEOUTS,
+        on_dead: Callable[[str, str], None] | None = None,
     ) -> None:
         """Configure the backend.
 
@@ -475,12 +518,62 @@ class AcademyExecutionBackend(ExecutionBackend):
                 execute request's own remote timeout.
             stall_warn_interval_s: Seconds between warnings while a call is
                 outstanding.
+            dead_after_timeouts: Consecutive abandoned calls that take the
+                resource out of service; ``0`` never does.
+            on_dead: Called once with ``(resource, detail)`` at the moment the
+                resource is taken out of service, so the run can abort rather
+                than continue against a backend that cannot answer.
 
         """
         self.handle = handle
         self.resource = resource
         self.call_timeout_s = call_timeout_s
         self.stall_warn_interval_s = stall_warn_interval_s
+        self.dead_after_timeouts = dead_after_timeouts
+        self.on_dead = on_dead
+        self._consecutive_timeouts = 0
+        self._dead_detail: str | None = None
+
+    @property
+    def dead_detail(self) -> str | None:
+        """Why this resource was taken out of service, or ``None`` if in service."""
+        return self._dead_detail
+
+    @staticmethod
+    def _discard(call: Awaitable[Any]) -> None:
+        """Close a handle coroutine that will never be awaited.
+
+        Args:
+            call: The unawaited handle coroutine.
+
+        """
+        close = getattr(call, "close", None)
+        if callable(close):
+            close()
+
+    def _record_timeout(self, description: str) -> None:
+        """Count one abandoned call and retire the resource once they repeat.
+
+        Args:
+            description: Preformatted call description, for the retirement log.
+
+        """
+        self._consecutive_timeouts += 1
+        if not self.dead_after_timeouts or self._dead_detail is not None:
+            return
+        if self._consecutive_timeouts < self.dead_after_timeouts:
+            return
+        self._dead_detail = (
+            f"{self._consecutive_timeouts} consecutive calls abandoned, most recently {description}"
+        )
+        logger.error(
+            "resource %s taken out of service after %d consecutive abandoned calls; "
+            "every further call to it fails immediately",
+            self.resource,
+            self._consecutive_timeouts,
+        )
+        if self.on_dead is not None:
+            self.on_dead(self.resource, self._dead_detail)
 
     async def _traced(
         self,
@@ -503,8 +596,12 @@ class AcademyExecutionBackend(ExecutionBackend):
 
         Raises:
             RemoteCallTimeoutError: No response arrived before the ceiling.
+            ResourceUnavailableError: The resource is already out of service.
 
         """
+        if self._dead_detail is not None:
+            self._discard(call)
+            raise ResourceUnavailableError(self.resource, self._dead_detail)
         limit = self.call_timeout_s if timeout_s is None else timeout_s
         description = f"{op} on {self.resource} [{uuid.uuid4().hex[:8]}] {detail}"
         logger.info("remote call %s started (bound %.0fs)", description, limit)
@@ -516,6 +613,7 @@ class AcademyExecutionBackend(ExecutionBackend):
             result = await asyncio.wait_for(call, limit)
         except TimeoutError:
             logger.error("remote call %s abandoned after %.0fs", description, limit)
+            self._record_timeout(description)
             raise RemoteCallTimeoutError(op, self.resource, detail, limit) from None
         except BaseException as exc:
             logger.warning(
@@ -527,6 +625,9 @@ class AcademyExecutionBackend(ExecutionBackend):
             )
             raise
         else:
+            # Only a completed round trip proves the agent is still there, so
+            # this is the one place the timeout streak may be cleared.
+            self._consecutive_timeouts = 0
             logger.info("remote call %s finished in %.1fs", description, time.monotonic() - started)
             return result
         finally:
@@ -615,6 +716,7 @@ class ExecutionContext:
         mcp_timeout_s: float,
         hermes_home: Path | None = None,
         enable_memory: bool = False,
+        dead_resources: dict[str, str] | None = None,
     ) -> None:
         """Wire the context; use :meth:`start` instead of calling this directly.
 
@@ -627,11 +729,14 @@ class ExecutionContext:
             hermes_home: Hermes home override for configuration registration.
             enable_memory: Whether to activate the Mem0 memory provider in the
                 Hermes configuration for the duration of the run.
+            dead_resources: Live mapping of retired resource to the reason it
+                was retired, shared with the backends that populate it.
 
         """
         from .mcp_server import LassiMCPServer, MCPServerRunner  # noqa: PLC0415
 
         self.backends = backends
+        self.dead_resources = {} if dead_resources is None else dead_resources
         self.default_resource = default_resource
         self.mirror_root = mirror_root
         self.mcp_timeout_s = mcp_timeout_s
@@ -681,7 +786,13 @@ class ExecutionContext:
         default_resource = execution.default_resource or next(iter(resources))
         mirror_root = run_dir / "workspaces"
         backends: dict[str, ExecutionBackend] = {}
+        dead_resources: dict[str, str] = {}
         manager: object | None = None
+
+        def record_dead(resource: str, detail: str) -> None:
+            """Keep the first retirement reason for a resource."""
+            dead_resources.setdefault(resource, detail)
+
         if execution.mode == "local":
             backends = {
                 name: LocalExecutionBackend(spec.workspace_root or mirror_root, name)
@@ -733,7 +844,11 @@ class ExecutionContext:
                     launched.agent_id, exchange=manager.exchange_client
                 )
                 backends[name] = AcademyExecutionBackend(
-                    handle, name, call_timeout_s=execution.call_timeout_s
+                    handle,
+                    name,
+                    call_timeout_s=execution.call_timeout_s,
+                    dead_after_timeouts=execution.dead_after_timeouts,
+                    on_dead=record_dead,
                 )
         context = cls(
             backends=backends,
@@ -742,6 +857,7 @@ class ExecutionContext:
             mcp_timeout_s=execution.mcp_timeout_s,
             hermes_home=hermes_home,
             enable_memory=config.memory.enabled,
+            dead_resources=dead_resources,
         )
         context._manager = manager
         try:
@@ -771,6 +887,24 @@ class ExecutionContext:
 
         """
         return self.mirror_root / workspace
+
+    def require_live_resources(self) -> None:
+        """Fail the run if any resource has been taken out of service.
+
+        Called between agent turns rather than inside them. A retired resource
+        cannot produce a measurement, so every turn taken after one dies buys
+        nothing at full price -- and the results it does produce have a hole in
+        them exactly where the retired resource's numbers belong, which is
+        worse than no results at all.
+
+        Raises:
+            ResourceUnavailableError: If at least one resource is retired.
+
+        """
+        if not self.dead_resources:
+            return
+        resource, detail = next(iter(sorted(self.dead_resources.items())))
+        raise ResourceUnavailableError(resource, detail)
 
     def backend(self, resource: str | None = None) -> ExecutionBackend:
         """Resolve one execution backend.

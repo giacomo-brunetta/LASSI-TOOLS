@@ -236,6 +236,25 @@ class ExecutionConfig(StrictModel):
     is what this is here to catch.
     """
 
+    dead_after_timeouts: int = Field(default=2, ge=0)
+    """Consecutive abandoned calls that take a resource out of service.
+
+    Bounding each call is not enough when the number of calls is not bounded:
+    a wedged agent otherwise costs ``call_timeout_s`` per call for the rest of
+    the run. Once retired, further calls fail instantly. ``0`` disables
+    retirement and restores the previous grind-forever behaviour.
+    """
+
+    timeout_tolerant_resources: list[str] = Field(default_factory=list)
+    """Resources whose abandoned calls must not discard the candidate.
+
+    A Groq compile is legitimately minutes long, so a lost response there is
+    less clearly distinguishable from slow honest work than it is elsewhere.
+    Naming the resource here keeps :mod:`lassi_x.arena` from discarding a
+    candidate over it. Retirement still applies -- a resource that has stopped
+    answering entirely is dead whatever it was doing.
+    """
+
     @model_validator(mode="after")
     def consistent_targets(self) -> ExecutionConfig:
         if self.default_resource is not None and self.default_resource not in self.resources:
@@ -247,6 +266,12 @@ class ExecutionConfig(StrictModel):
             raise ValueError(
                 "resources with endpoint_id require execution.exchange_url "
                 f"(offending: {', '.join(sorted(endpoints))})"
+            )
+        unknown_tolerant = sorted(set(self.timeout_tolerant_resources) - set(self.resources))
+        if unknown_tolerant:
+            raise ValueError(
+                "execution.timeout_tolerant_resources must name configured resources "
+                f"(offending: {', '.join(unknown_tolerant)})"
             )
         missing_roots = [
             name

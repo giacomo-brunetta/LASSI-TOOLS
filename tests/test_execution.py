@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
@@ -30,11 +31,13 @@ from lassi_x.execution import (
     ExecutionContext,
     LocalExecutionBackend,
     RemoteCallTimeoutError,
+    ResourceUnavailableError,
     _add_academy_send_retry,
     _disable_academy_stream_deadline,
     fetch_bytes,
     put_bytes,
 )
+from lassi_x.hermes import HermesSession
 from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
 from lassi_x.remote import ExecutionAgent
@@ -194,6 +197,73 @@ def test_unanswered_remote_call_is_abandoned_not_awaited_forever() -> None:
         assert caught.value.op == "execute"
 
     asyncio.run(run())
+
+
+def test_resource_is_retired_after_repeated_abandoned_calls() -> None:
+    """Two abandoned calls must retire the resource and notify the run."""
+
+    async def run() -> None:
+        retired: list[tuple[str, str]] = []
+        backend = _stalling_backend(asyncio.Event())
+        backend.call_timeout_s = 0.05
+        backend.on_dead = lambda resource, detail: retired.append((resource, detail))
+
+        for _ in range(2):
+            with pytest.raises(RemoteCallTimeoutError):
+                await backend.execute(_exec_request(timeout_s=0.01))
+        assert [name for name, _ in retired] == ["wedged-node"]
+
+        # The third call must not wait at all: the point of retirement is that
+        # a wedged resource stops costing call_timeout_s per remaining call.
+        started = time.monotonic()
+        with pytest.raises(ResourceUnavailableError) as caught:
+            await backend.execute(_exec_request(timeout_s=600.0))
+        assert time.monotonic() - started < 0.05
+        assert caught.value.resource == "wedged-node"
+
+    asyncio.run(run())
+
+
+def test_one_abandoned_call_does_not_retire_a_resource_that_recovers() -> None:
+    """A single lost response is survivable, and the streak resets on success."""
+
+    async def run() -> None:
+        release = asyncio.Event()
+        backend = _stalling_backend(release)
+        backend.call_timeout_s = 0.05
+        with pytest.raises(RemoteCallTimeoutError):
+            await backend.execute(_exec_request(timeout_s=0.01))
+        assert backend.dead_detail is None
+
+        release.set()
+        await backend.execute(_exec_request())
+        release.clear()
+
+        with pytest.raises(RemoteCallTimeoutError):
+            await backend.execute(_exec_request(timeout_s=0.01))
+        assert backend.dead_detail is None, "success must clear the timeout streak"
+
+    asyncio.run(run())
+
+
+def test_retirement_can_be_disabled() -> None:
+    async def run() -> None:
+        backend = _stalling_backend(asyncio.Event())
+        backend.call_timeout_s = 0.05
+        backend.dead_after_timeouts = 0
+        for _ in range(3):
+            with pytest.raises(RemoteCallTimeoutError):
+                await backend.execute(_exec_request(timeout_s=0.01))
+        assert backend.dead_detail is None
+
+    asyncio.run(run())
+
+
+def test_dead_resource_turn_failure_is_not_retried() -> None:
+    """The most expensive thing to retry is a turn that cannot succeed."""
+    error = ResourceUnavailableError("a100-node", "2 consecutive calls abandoned")
+    assert not HermesSession._retryable(RuntimeError(str(error)))
+    assert HermesSession._retryable(RuntimeError("Connection error."))
 
 
 def test_execute_bound_allows_the_command_its_own_timeout() -> None:
