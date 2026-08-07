@@ -29,7 +29,10 @@ def _model(**overrides: object) -> ModelConfig:
     defaults: dict[str, object] = {
         "model": "claudeopus5",
         "provider": "custom",
-        "base_url": "http://127.0.0.1:52226",
+        # The '/v1' is load-bearing, not decoration -- see the two base_url tests
+        # below. A bare address here would make the default fixture the one shape
+        # that 404s in production.
+        "base_url": "http://127.0.0.1:52226/v1",
         "api_mode": "chat_completions",
     }
     return ModelConfig(**{**defaults, **overrides})  # type: ignore[arg-type]
@@ -51,7 +54,12 @@ def _responder(status: int, body: str):
     ("status", "body", "reason"),
     [
         (400, TOOL_CALL_REPLAY_BODY, "tool_call_replay_unsupported"),
-        (404, json.dumps({"error": {"message": "no such model"}}), "unknown_model"),
+        (
+            404,
+            json.dumps({"error": {"message": "no such model", "param": "model"}}),
+            "unknown_model",
+        ),
+        (404, "404: Not Found", "endpoint_path_not_found"),
         (
             400,
             json.dumps({"error": {"message": "bad model", "code": "model_not_found"}}),
@@ -120,19 +128,28 @@ def test_missing_base_url_fails_before_any_request() -> None:
     assert report.reason == "endpoint_unreachable"
 
 
-def test_probe_targets_the_chat_completions_path() -> None:
+def test_probe_uses_base_url_verbatim_like_the_agent_client() -> None:
+    """Repairing a missing '/v1' would pass a config whose every turn 404s."""
     seen: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(str(request.url))
         return httpx.Response(200, text=SUCCESS_BODY)
 
-    _probe(handler)
+    _probe(handler, base_url="http://127.0.0.1:52226/v1")
     assert seen == ["http://127.0.0.1:52226/v1/chat/completions"]
 
     seen.clear()
-    _probe(handler, base_url="http://127.0.0.1:52226/v1")
-    assert seen == ["http://127.0.0.1:52226/v1/chat/completions"]
+    _probe(handler, base_url="http://127.0.0.1:52226")
+    assert seen == ["http://127.0.0.1:52226/chat/completions"]
+
+
+def test_base_url_missing_its_version_prefix_is_reported_as_a_path_error() -> None:
+    """The literal body the shim returned on 2026-08-07 for the bare address."""
+    report = _probe(_responder(404, "404: Not Found"), base_url="http://127.0.0.1:52226")
+    assert report.ok is False
+    assert report.reason == "endpoint_path_not_found"
+    assert "/v1" in report.hint
 
 
 def _served(model: str) -> str:

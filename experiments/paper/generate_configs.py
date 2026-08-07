@@ -102,7 +102,10 @@ GROQ_TIMEOUT_S = 1800
 # Override rather than editing, and check it before launching with
 # `lassi_x.cli models doctor`.
 LLM_BASE_URL_ENV_VAR = "LASSI_PAPER_LLM_BASE_URL"
-DEFAULT_LLM_BASE_URL = "http://127.0.0.1:52226"
+# The version prefix is part of the address, not decoration: Hermes hands
+# base_url to the OpenAI SDK, which appends "/chat/completions" verbatim. Drop
+# the "/v1" and every agent turn 404s.
+DEFAULT_LLM_BASE_URL = "http://127.0.0.1:52226/v1"
 
 
 def _groq_enabled() -> bool:

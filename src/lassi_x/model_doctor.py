@@ -41,6 +41,7 @@ Reason = Literal[
     "auth_failed",
     "unknown_model",
     "tool_call_replay_unsupported",
+    "endpoint_path_not_found",
     "model_substituted",
     "rate_limited",
     "bad_request",
@@ -111,21 +112,22 @@ class ProbeReport(StrictModel):
 
 
 def _endpoint(base_url: str) -> str:
-    """Build the chat-completions URL for a base endpoint.
+    """Build the chat-completions URL exactly as the agent's client will.
+
+    Hermes passes ``base_url`` to the OpenAI SDK, which appends the suffix
+    verbatim, so this does the same. An earlier version inserted a missing
+    ``/v1`` for the caller and thereby reported a healthy endpoint for a
+    configuration under which every agent turn 404s -- the precise false
+    confidence this preflight exists to prevent. A probe that repairs its own
+    input is not testing the configuration.
 
     Args:
         base_url: Configured provider base URL.
 
     Returns:
-        Absolute chat-completions URL, tolerating a base that already carries
-        the OpenAI-style version prefix.
+        Absolute chat-completions URL.
     """
-    trimmed = base_url.rstrip("/")
-    if trimmed.endswith("/chat/completions"):
-        return trimmed
-    if trimmed.endswith("/v1"):
-        return f"{trimmed}/chat/completions"
-    return f"{trimmed}/v1/chat/completions"
+    return f"{base_url.rstrip('/')}/chat/completions"
 
 
 def _error_fields(body: str) -> tuple[str, str, str]:
@@ -247,7 +249,19 @@ def _classify(model: str, status: int, body: str) -> tuple[Reason, str, str]:
     # capability problem, not a malformed request, and has a specific fix.
     if "tool_calls" in param or "tool_calls" in message:
         return "tool_call_replay_unsupported", message, _internal_id_hint(model)
-    if status == 404 or code == "model_not_found" or "model" in param:
+    names_a_model = code == "model_not_found" or "model" in param
+    # A 404 that says nothing about a model is the address being wrong, not the
+    # identifier. The usual cause is a base_url missing its version prefix, which
+    # the SDK turns into "<base>/chat/completions" and the shim does not serve.
+    if status == 404 and not names_a_model:
+        return (
+            "endpoint_path_not_found",
+            message,
+            "The endpoint has no chat-completions route at this address. base_url "
+            "is used verbatim with '/chat/completions' appended, so it usually needs "
+            "to end in '/v1' (for example 'http://127.0.0.1:52226/v1').",
+        )
+    if status == 404 or names_a_model:
         return "unknown_model", message, _internal_id_hint(model)
     if status >= 500:
         return (
