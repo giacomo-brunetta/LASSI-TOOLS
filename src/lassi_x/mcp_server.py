@@ -15,7 +15,10 @@ in-process local execution and Academy-remote execution without change.
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
+import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 import uvicorn
@@ -25,12 +28,91 @@ from .protocol import ExecRequest, FileGet, FilePut, ListDir
 
 if TYPE_CHECKING:
     import socket
-    from collections.abc import Mapping
+    from collections.abc import Awaitable, Callable, Mapping
 
     from .execution import ExecutionBackend
     from .protocol import HandshakeReport
 
+logger = logging.getLogger(__name__)
+
 WORKSPACE_HEADER = "x-lassi-workspace"
+
+# Arguments worth putting in a one-line log entry, in the order they read best.
+# Everything else (file content, stdin) is summarised by size instead.
+_LOGGED_ARGS = ("resource", "path", "cwd", "timeout_s")
+
+
+def _summarize_call(kwargs: Mapping[str, Any]) -> str:
+    """Render tool arguments as compact ``key=value`` text for one log line.
+
+    Args:
+        kwargs: Keyword arguments the model supplied for this call.
+
+    Returns:
+        Space-separated fields, omitting anything the model left unset.
+
+    """
+    fields = []
+    command = kwargs.get("command")
+    if isinstance(command, list):
+        argv = " ".join(str(part) for part in command)
+        fields.append(f"argv={argv[:160]!r}" + ("..." if len(argv) > 160 else ""))
+    for key in _LOGGED_ARGS:
+        value = kwargs.get(key)
+        if value is not None:
+            fields.append(f"{key}={value}")
+    for key in ("content", "stdin"):
+        value = kwargs.get(key)
+        if isinstance(value, str):
+            fields.append(f"{key}_chars={len(value)}")
+    return " ".join(fields)
+
+
+def _logged_tool(name: str) -> Callable[..., Any]:
+    """Wrap a tool coroutine so every model call announces itself.
+
+    The execution layer already logged the remote calls tools make, which meant
+    a log showed 118 ``put_file`` calls and no hint of which agent asked for
+    them or why. This closes that gap at the point the model is actually
+    steering.
+
+    Args:
+        name: Tool name as the model sees it.
+
+    Returns:
+        Decorator preserving the wrapped signature, which FastMCP introspects
+        to build the tool schema.
+
+    """
+
+    def decorate(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            started = time.monotonic()
+            logger.info("tool call %s %s", name, _summarize_call(kwargs))
+            try:
+                result = await func(*args, **kwargs)
+            except Exception as exc:
+                logger.warning(
+                    "tool call %s failed in %.1fs %s: %s",
+                    name,
+                    time.monotonic() - started,
+                    type(exc).__name__,
+                    exc,
+                )
+                raise
+            logger.info(
+                "tool call %s ok in %.1fs reply_chars=%d",
+                name,
+                time.monotonic() - started,
+                len(result) if isinstance(result, str) else 0,
+            )
+            return result
+
+        return wrapper
+
+    return decorate
+
 
 _INSTRUCTIONS = """LASSI-X remote execution tools.
 
@@ -130,6 +212,7 @@ class LassiMCPServer:
         server = self.server
 
         @server.tool(name="list_resources")
+        @_logged_tool("list_resources")
         async def list_resources() -> str:
             """List available machines with their accelerators and toolchains."""
             reports = {}
@@ -142,6 +225,7 @@ class LassiMCPServer:
             )
 
         @server.tool(name="run_command")
+        @_logged_tool("run_command")
         async def run_command(
             ctx: Context[Any, Any, Any],
             command: list[str],
@@ -184,6 +268,7 @@ class LassiMCPServer:
             return "\n".join(lines)
 
         @server.tool(name="write_file")
+        @_logged_tool("write_file")
         async def write_file(
             ctx: Context[Any, Any, Any],
             path: str,
@@ -211,6 +296,7 @@ class LassiMCPServer:
             return f"wrote {stat.size_bytes} bytes to {stat.path} (sha256 {stat.sha256[:12]})"
 
         @server.tool(name="read_file")
+        @_logged_tool("read_file")
         async def read_file(
             ctx: Context[Any, Any, Any],
             path: str,
@@ -235,6 +321,7 @@ class LassiMCPServer:
             return f"{content.path}{note}:\n{content.content}"
 
         @server.tool(name="list_files")
+        @_logged_tool("list_files")
         async def list_files(
             ctx: Context[Any, Any, Any],
             path: str = ".",

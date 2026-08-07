@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 from typing import TYPE_CHECKING, Any, cast
 
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Status, Usage
 from .validation import OracleResult, fixture_relative_path, validate_candidate
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -325,6 +328,14 @@ Source context:
             try:
                 raw = _parse_strategies(turn.text, count)
             except ValueError as exc:
+                # A reply the planner cannot parse costs a whole extra turn, so
+                # it belongs in the stream rather than only planner-responses.json.
+                logger.warning(
+                    "planner reply unparsed attempt=%d/%d: %s",
+                    attempt + 1,
+                    config.arena.planner_format_retries + 1,
+                    exc,
+                )
                 outcome["parse_error"] = str(exc)
                 attempts.append(outcome)
                 continue
@@ -515,6 +526,13 @@ async def generate_candidate(
         role=candidate_id,
         memory=config.memory,
     )
+    logger.info(
+        "candidate %s start model=%s effort=%s strategy=%r",
+        candidate_id,
+        model.model,
+        model.reasoning_effort,
+        strategy.splitlines()[0][:80] if strategy else "",
+    )
     try:
         turn = await session.send(
             _generation_prompt(config, candidate_id, strategy, toolset, staged_reference)
@@ -533,11 +551,22 @@ async def generate_candidate(
             validation_dir.mkdir(parents=True, exist_ok=True)
             result = await validate_candidate(config, backend, candidate_id, oracle, validation_dir)
             if result.ok:
+                logger.info("candidate %s validated on attempt %d", candidate_id, attempt + 1)
                 candidate.status = Status.OK
                 await execution.mirror_file(candidate_id, "candidate.py")
                 break
             if result.diagnostic is None:
                 raise RuntimeError("validator failed without a diagnostic")
+            # Which gate rejected a candidate is the single most useful line for
+            # reading a run afterwards, and it was only ever written to disk.
+            logger.info(
+                "candidate %s rejected at gate=%s attempt=%d/%d: %s",
+                candidate_id,
+                result.diagnostic.gate,
+                attempt + 1,
+                config.arena.correction_rounds + 1,
+                result.diagnostic.message.splitlines()[0][:200],
+            )
             candidate.diagnostics.append(result.diagnostic)
             if attempt >= config.arena.correction_rounds:
                 candidate.status = Status.REJECTED
@@ -555,12 +584,22 @@ async def generate_candidate(
                 }
             )
     except Exception as exc:
+        logger.exception("candidate %s crashed: %s", candidate_id, exc)
         candidate.status = Status.CRASHED
         candidate.diagnostics.append(
             Diagnostic(gate="agent", message=f"{type(exc).__name__}: {exc}")
         )
     finally:
         await session.close()
+    logger.info(
+        "candidate %s finish status=%s corrections=%d tokens_in=%d tokens_out=%d cost_usd=%.4f",
+        candidate_id,
+        candidate.status.value if hasattr(candidate.status, "value") else candidate.status,
+        candidate.correction_rounds,
+        candidate.usage.input_tokens,
+        candidate.usage.output_tokens,
+        candidate.usage.estimated_cost_usd,
+    )
     return candidate
 
 

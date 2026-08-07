@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import random
 import signal
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -28,6 +30,8 @@ from .types import Usage
 
 if TYPE_CHECKING:
     from .config import MemoryConfig, ModelConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -176,6 +180,17 @@ class HermesSession:
         response: WorkerTurn | None = None
         last_error: Exception | None = None
         retry_usage = Usage()
+        started = time.monotonic()
+        # The model layer was the one part of a run that logged nothing, so a
+        # turn that took twenty minutes and a turn that hung looked identical
+        # from outside. Announce the turn before it blocks, not after.
+        logger.info(
+            "turn start role=%s model=%s prompt_chars=%d timeout=%.0fs",
+            self.role,
+            self.model.model,
+            len(prompt),
+            self.model.turn_timeout_s,
+        )
         for attempt in range(self.model.turn_retries + 1):
             try:
                 await self.start()
@@ -211,14 +226,46 @@ class HermesSession:
                 ):
                     await self.close()
                 if attempt >= self.model.turn_retries or not self._retryable(exc):
+                    # This is the raise that ended fifteen runs while the log's
+                    # last line was an unrelated stage start. Name the cause here,
+                    # where it happens, rather than leaving it to run.json.
+                    logger.error(
+                        "turn failed role=%s model=%s attempt=%d/%d after %.1fs "
+                        "retryable=%s error=%s: %s",
+                        self.role,
+                        self.model.model,
+                        attempt + 1,
+                        self.model.turn_retries + 1,
+                        time.monotonic() - started,
+                        self._retryable(exc),
+                        type(exc).__name__,
+                        exc,
+                    )
                     raise
                 delay = min(
                     self.model.retry_initial_s * (2**attempt),
                     self.model.retry_max_s,
                 )
                 delay += random.uniform(0.0, self.model.retry_jitter_s)
+                logger.warning(
+                    "turn retry role=%s model=%s attempt=%d/%d in %.1fs error=%s: %s",
+                    self.role,
+                    self.model.model,
+                    attempt + 1,
+                    self.model.turn_retries + 1,
+                    delay,
+                    type(exc).__name__,
+                    exc,
+                )
                 await asyncio.sleep(delay)
         if response is None:
+            logger.error(
+                "turn failed role=%s model=%s after %.1fs with no response: %s",
+                self.role,
+                self.model.model,
+                time.monotonic() - started,
+                last_error,
+            )
             raise RuntimeError("Hermes turn failed without a response") from last_error
         usage = Usage(
             input_tokens=response.usage.input_tokens,
@@ -226,6 +273,22 @@ class HermesSession:
             estimated_cost_usd=response.usage.estimated_cost_usd,
         )
         usage.add(retry_usage)
+        # Cost and token counts were computed here and shown to nobody until the
+        # run finished, so a runaway turn could not be spotted while it ran.
+        logger.info(
+            "turn finish role=%s model=%s in %.1fs attempts=%d tokens_in=%d "
+            "tokens_out=%d cost_usd=%.4f completed=%s exit_reason=%s reply_chars=%d",
+            self.role,
+            self.model.model,
+            time.monotonic() - started,
+            attempt + 1,
+            usage.input_tokens,
+            usage.output_tokens,
+            usage.estimated_cost_usd,
+            response.completed,
+            response.exit_reason,
+            len(response.text),
+        )
         return HermesTurn(
             text=response.text,
             usage=usage,

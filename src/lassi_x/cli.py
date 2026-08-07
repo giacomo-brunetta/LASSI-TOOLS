@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import importlib.metadata
 import json
 import logging
@@ -563,12 +564,18 @@ def command_groq(args: argparse.Namespace) -> int:
 
 
 def configure_logging(level_name: str) -> None:
-    """Route this package's log records to stderr with timestamps.
+    """Route this package's log records to stdout with timestamps.
 
     Nothing configured logging before, so every ``lassi_x`` record was
     discarded by the root logger and a run that stalled left no trace of which
     call was outstanding. Only the ``lassi_x`` logger is touched, so the MCP
     server's own Rich handler keeps formatting its records as it always has.
+
+    Records go to **stdout**, not stderr: progress is the ordinary output of a
+    run, and on stderr it interleaved unpredictably with the stdout envelope
+    under the suite's ``stderr=STDOUT`` redirect. ``run_suite._envelope`` scans
+    the whole log for JSON objects rather than assuming stdout holds nothing
+    else, so sharing the stream is safe.
 
     Args:
         level_name: Level name such as ``INFO`` or ``DEBUG``; an unrecognised
@@ -576,7 +583,12 @@ def configure_logging(level_name: str) -> None:
 
     """
     level = logging.getLevelNamesMapping().get(level_name.upper(), logging.INFO)
-    handler = logging.StreamHandler()
+    # Redirected stdout is block-buffered, so progress written to it would sit
+    # in a 8 KiB buffer and reach the log file in bursts minutes apart -- which
+    # reads exactly like a hang. Line buffering makes `tail -f` truthful.
+    with contextlib.suppress(AttributeError, ValueError):
+        sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
+    handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(
         logging.Formatter(
             "%(asctime)s %(levelname)-7s %(name)s %(message)s",
