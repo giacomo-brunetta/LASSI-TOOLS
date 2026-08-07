@@ -11,6 +11,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -370,7 +371,9 @@ def main() -> int:
                         "started_at": started,
                     },
                 )
+                elapsed_from = time.monotonic()
                 code, timed_out = _run(command, log_path, args.run_timeout_s)
+                elapsed = time.monotonic() - elapsed_from
                 envelope = _envelope(log_path)
                 # A run that emitted a successful envelope and then stalled did
                 # its work; only teardown hung. Keep the result, flag the hang.
@@ -391,6 +394,7 @@ def main() -> int:
                         "teardown_hang": teardown_hang,
                         "error": error,
                         "error_signature": signature,
+                        "duration_s": round(elapsed, 1),
                         "finished_at": dt.datetime.now(dt.UTC).isoformat(),
                         "log": str(log_path),
                         "run_dir": _run_dir(envelope),
@@ -407,6 +411,14 @@ def main() -> int:
                         file=sys.stderr,
                     )
                 if not code:
+                    # A success used to print nothing at all, so a passing cell was
+                    # indistinguishable from a stalled one until the next RUN line
+                    # appeared, and its cost was never shown.
+                    print(
+                        f"OK   {model} {kernel} in {elapsed:.0f}s"
+                        + (" (teardown hung)" if teardown_hang else ""),
+                        flush=True,
+                    )
                     consecutive = 0
                     last_signature = ""
                     continue
