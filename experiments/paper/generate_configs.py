@@ -96,6 +96,14 @@ GROQ_TIMEOUT_ENV_VAR = "LASSI_PAPER_GROQ_TIMEOUT_S"
 CUDA_TIMEOUT_S = 180
 GROQ_TIMEOUT_S = 1800
 
+# The Argo-compatible shim every agent turn goes through. Its port is assigned
+# when the shim starts, so it changes across restarts; a stale value here made
+# every run in a session die with "RuntimeError: Connection error." after ~110 s.
+# Override rather than editing, and check it before launching with
+# `lassi_x.cli models doctor`.
+LLM_BASE_URL_ENV_VAR = "LASSI_PAPER_LLM_BASE_URL"
+DEFAULT_LLM_BASE_URL = "http://127.0.0.1:52226"
+
 
 def _groq_enabled() -> bool:
     """Report whether generated configs should include the Groq backend.
@@ -104,6 +112,17 @@ def _groq_enabled() -> bool:
         ``False`` only when the environment explicitly disables the leg.
     """
     return os.environ.get(GROQ_ENV_VAR, "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _llm_base_url() -> str:
+    """Resolve the Argo-compatible endpoint every agent turn is sent to.
+
+    Returns:
+        The configured override, or the local shim's default address. ``0.0.0.0``
+        is a bind address rather than a connect address, so the default names the
+        loopback interface explicitly.
+    """
+    return os.environ.get(LLM_BASE_URL_ENV_VAR, "").strip() or DEFAULT_LLM_BASE_URL
 
 
 def _measurement_timeout_s(variable: str, default: int) -> int:
@@ -210,7 +229,7 @@ def _model(endpoint_model: str, reasoning_effort: str) -> dict[str, Any]:
     return {
         "provider": "custom",
         "model": endpoint_model,
-        "base_url": "https://apps.inside.anl.gov/argoapi/v1",
+        "base_url": _llm_base_url(),
         "api_mode": "chat_completions",
         "reasoning_effort": reasoning_effort,
         "claude_settings": "/home/gbrun/.claude/settings.json",

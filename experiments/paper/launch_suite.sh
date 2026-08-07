@@ -13,7 +13,12 @@
 #   2. On this harness, activate the LASSI environment and install the Globus extra:
 #        conda activate LASSI
 #        pip install -e '.[globus]'
-#   3. Nothing to select. Direct mode and the compute endpoint above are the
+#   3. Start the Argo-compatible LLM shim every agent turn goes through. Its
+#      port is assigned at startup and the generated default is
+#      http://127.0.0.1:52226, so export LASSI_PAPER_LLM_BASE_URL when it lands
+#      somewhere else. A stale value here is the single most expensive failure
+#      mode: it kills every run about 110 s in with "Connection error."
+#   4. Nothing else to select. Direct mode and the compute endpoint above are the
 #      defaults, as is the A100 endpoint for CUDA. Override only when an
 #      endpoint is re-registered (LASSI_PAPER_GROQ_ENDPOINT,
 #      LASSI_PAPER_GPU_ENDPOINT) or to opt back into the login-node batch
@@ -33,11 +38,12 @@ usage() {
     cat <<'EOF'
 Usage: bash experiments/paper/launch_suite.sh [--doctor-only] [run-suite options...]
 
-Regenerates the paper configs, verifies Academy/Globus connectivity, then runs
-all kernels with GPT-5.6 Sol xhigh followed by Claude Opus 5 xhigh.
+Regenerates the paper configs, probes every model's LLM endpoint, verifies
+Academy/Globus connectivity, then runs all kernels with GPT-5.6 Sol xhigh
+followed by Claude Opus 5 xhigh.
 
 Options:
-  --doctor-only  Regenerate configs and run the endpoint preflight only.
+  --doctor-only  Regenerate configs and run both preflights only.
   -h, --help     Show this help text.
 
 All other options are passed through to run_suite.py, for example:
@@ -45,6 +51,7 @@ All other options are passed through to run_suite.py, for example:
   --kernel 3mm
   --model gpt-5.6-sol-xhigh
   --resume runs/paper-suite/session-YYYYMMDDTHHMMSSZ.jsonl
+  --max-consecutive-failures 3   (0 disables the circuit breaker)
 
 The script does not start Globus Compute endpoints. Start the Groq login-node
 endpoint first, then run this command from the local CUDA harness.
@@ -73,7 +80,27 @@ cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
 
 python experiments/paper/generate_configs.py
+
+# Probe the LLM endpoints first: it takes about a second, needs no remote
+# resource, and catches the failures that historically cost whole sessions -- a
+# dead proxy, a wrong model identifier, an endpoint that rejects tool-call
+# replay. One --config per model, because each carries its own identifier.
+model_configs=()
+for config in "${REPO_ROOT}"/experiments/paper/configs/*/gemm.yaml; do
+    model_configs+=(--config "${config}")
+done
+# Reported here but not fatal under set -e: run_suite.py re-probes and skips only
+# the models that failed, so one dead model does not cost the healthy one's runs.
+# Under --doctor-only there is no later run to make that call, so it is fatal.
+models_code=0
+python -m lassi_x.cli models doctor "${model_configs[@]}" || models_code=$?
+
 python -m lassi_x.cli execution doctor --config "${FIRST_CONFIG}"
+
+if [[ "${models_code}" -ne 0 && "${doctor_only}" == true ]]; then
+    printf '%s\n' 'Model preflight failed; see the probe hints above.' >&2
+    exit "${models_code}"
+fi
 
 if [[ "${doctor_only}" == true ]]; then
     printf '%s\n' 'Endpoint preflight passed; no benchmark was launched.'

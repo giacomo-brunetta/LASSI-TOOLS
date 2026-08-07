@@ -4,6 +4,7 @@ import asyncio
 import datetime as dt
 import hashlib
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,6 +36,8 @@ from .skills import AUTOMATION_SKILLS, install_root, require_automation_skills
 from .types import Candidate, Diagnostic, Measurement, Status
 from .validation import OracleResult, build_oracle
 from .visualization import write_pareto_visualizations
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -584,6 +587,10 @@ async def run_pipeline(config_path: Path) -> tuple[int, Path]:
         async with await ExecutionContext.start(config, run_dir) as execution:
             return await _run_stages(config, config_path, run_dir, execution, started_at, started)
     except Exception as exc:
+        # Say why in the stream before writing artifacts. Without this the log ends on
+        # the last "stage start" line and the cause is only recoverable by opening
+        # run.json, which is how a dead endpoint once cost fifteen silent runs.
+        logger.exception("pipeline failed: kernel=%s error=%s", config.kernel.name, exc)
         # Preserve a terminal failure artifact once a run directory exists; callers can
         # distinguish execution failure from configuration or initialization failure.
         record = {

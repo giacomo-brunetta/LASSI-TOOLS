@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import datetime as dt
 import json
 import os
@@ -29,6 +30,11 @@ DEFAULT_RUN_TIMEOUT_S = 3600.0
 # Grace period between SIGTERM and SIGKILL when reaping a timed-out run.
 TERM_GRACE_S = 30.0
 
+# A matrix cell that fails for the same reason as the two before it is not going
+# to start working on the fourth try. A dead LLM endpoint once produced fifteen
+# consecutive identical failures at ~2 minutes each; three bounds that at ~6.
+DEFAULT_MAX_CONSECUTIVE_FAILURES = 3
+
 
 def _arguments() -> argparse.Namespace:
     """Parse suite controls.
@@ -44,6 +50,16 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-doctor", action="store_true")
     parser.add_argument("--stop-on-failure", action="store_true")
+    parser.add_argument("--skip-model-preflight", action="store_true")
+    parser.add_argument(
+        "--max-consecutive-failures",
+        type=int,
+        default=DEFAULT_MAX_CONSECUTIVE_FAILURES,
+        help=(
+            "Abort the matrix after this many consecutive failures that share one "
+            "error signature. Use 0 to disable."
+        ),
+    )
     parser.add_argument(
         "--run-timeout-s",
         type=float,
@@ -58,6 +74,8 @@ def _arguments() -> argparse.Namespace:
         parser.error("--repetitions must be positive")
     if args.run_timeout_s < 0:
         parser.error("--run-timeout-s must not be negative")
+    if args.max_consecutive_failures < 0:
+        parser.error("--max-consecutive-failures must not be negative")
     return args
 
 
@@ -173,6 +191,79 @@ def _envelope(log_path: Path) -> dict[str, Any] | None:
     return envelopes[-1] if envelopes else None
 
 
+def _error(envelope: dict[str, Any] | None) -> str:
+    """Read the failure cause out of a result envelope.
+
+    Args:
+        envelope: Envelope from :func:`_envelope`, or ``None``.
+
+    Returns:
+        The recorded ``"Type: message"`` error, or an empty string when the run
+        failed before emitting one.
+    """
+    return str((envelope or {}).get("error") or "")
+
+
+def _signature(error: str, timed_out: bool) -> str:
+    """Reduce a failure to a value comparable across matrix cells.
+
+    Kernel names and paths leak into error text, so only the exception type is
+    kept: fifteen runs killed by one dead endpoint must collapse to one
+    signature for the circuit breaker to see them as the same fault.
+
+    Args:
+        error: Full error text from the envelope.
+        timed_out: Whether the run was reaped at its deadline.
+
+    Returns:
+        A short stable signature, empty when the run succeeded.
+    """
+    if timed_out:
+        return "timeout"
+    if not error:
+        return ""
+    head, separator, _ = error.partition(":")
+    return head.strip() if separator else error.strip()[:60]
+
+
+def _preflight_models(
+    model_order: list[str],
+    kernel: str,
+    timeout_s: float,
+) -> dict[str, dict[str, Any]]:
+    """Probe each model's LLM endpoint before committing to its block of cells.
+
+    A model whose endpoint is unreachable, unauthorized, or does not accept
+    tool-call replay will fail every one of its kernels identically. Probing
+    once costs about a second and reports the cause by name.
+
+    Args:
+        model_order: Model identifiers scheduled to run.
+        kernel: Kernel whose config supplies the model block to probe.
+        timeout_s: Ceiling for one probe.
+
+    Returns:
+        Mapping of model identifier to a JSON-serializable probe verdict with an
+        ``ok`` key.
+    """
+    # Imported lazily: the suite must still run --dry-run on a machine without
+    # the full lassi_x dependency set installed.
+    from lassi_x.config import RunConfig  # noqa: PLC0415
+    from lassi_x.model_doctor import distinct_models, probe_model  # noqa: PLC0415
+
+    async def probe(model: str) -> dict[str, Any]:
+        config = RunConfig.load(HERE / "configs" / model / f"{kernel}.yaml")
+        reports = [
+            await probe_model(entry, timeout_s=timeout_s)
+            for entry in distinct_models(config.models)
+        ]
+        failed = next((report for report in reports if not report.ok), None)
+        verdict = failed or reports[0]
+        return {"ok": failed is None, **verdict.model_dump(mode="json")}
+
+    return {model: asyncio.run(probe(model)) for model in model_order}
+
+
 def _run_dir(envelope: dict[str, Any] | None) -> str | None:
     """Read the run artifact path out of a result envelope.
 
@@ -224,7 +315,31 @@ def main() -> int:
         if doctor_code:
             print(f"Execution doctor failed; see {doctor_log}", file=sys.stderr)
             return doctor_code
+
+    # The execution doctor above covers the one shared resource topology, but each
+    # model has its own endpoint and identifier. Probe them all before launching a
+    # block of ten kernels at a model that cannot answer.
+    blocked: dict[str, dict[str, Any]] = {}
+    if not args.skip_model_preflight and not args.dry_run:
+        verdicts = _preflight_models(model_order, kernel_order[0], args.run_timeout_s)
+        for model, verdict in verdicts.items():
+            _append(journal, {"event": "model_preflight", "model": model, **verdict})
+            state = "OK" if verdict["ok"] else "FAIL"
+            print(f"PREFLIGHT {state} {model} ({verdict['model']})", flush=True)
+            if not verdict["ok"]:
+                blocked[model] = verdict
+                print(
+                    f"  {verdict['reason']}: {verdict['detail']}\n  hint: {verdict['hint']}",
+                    file=sys.stderr,
+                )
+        if len(blocked) == len(model_order):
+            print("Every model failed preflight; nothing was launched.", file=sys.stderr)
+            return 4
+        model_order = [model for model in model_order if model not in blocked]
+
     failures = 0
+    consecutive = 0
+    last_signature = ""
     for model in model_order:  # Manifest order is GPT first, then Claude.
         for kernel in kernel_order:
             config = HERE / "configs" / model / f"{kernel}.yaml"
@@ -262,6 +377,8 @@ def main() -> int:
                 teardown_hang = timed_out and bool((envelope or {}).get("ok"))
                 if teardown_hang:
                     code = 0
+                error = "" if teardown_hang else _error(envelope)
+                signature = "" if not code else _signature(error, timed_out)
                 _append(
                     journal,
                     {
@@ -272,11 +389,14 @@ def main() -> int:
                         "exit_code": code,
                         "timed_out": timed_out,
                         "teardown_hang": teardown_hang,
+                        "error": error,
+                        "error_signature": signature,
                         "finished_at": dt.datetime.now(dt.UTC).isoformat(),
                         "log": str(log_path),
                         "run_dir": _run_dir(envelope),
                     },
                 )
+                reason = ""
                 if timed_out:
                     reason = (
                         "teardown hung after a successful run" if teardown_hang else "timed out"
@@ -286,13 +406,51 @@ def main() -> int:
                         f"({reason}); see {log_path}",
                         file=sys.stderr,
                     )
-                if code:
-                    failures += 1
-                    print(f"FAIL {model} {kernel}; see {log_path}", file=sys.stderr)
-                    if args.stop_on_failure:
-                        return code
+                if not code:
+                    consecutive = 0
+                    last_signature = ""
+                    continue
+                failures += 1
+                # Name the cause on the console. Reading it out of each run
+                # directory afterwards is what made these sessions expensive.
+                print(
+                    # A reaped run writes no envelope, so fall back to the reason
+                    # it was reaped for rather than claiming nothing is known.
+                    f"FAIL {model} {kernel}: "
+                    f"{error or reason or 'no error recorded'}; see {log_path}",
+                    file=sys.stderr,
+                )
+                if args.stop_on_failure:
+                    return code
+                consecutive = consecutive + 1 if signature == last_signature else 1
+                last_signature = signature
+                if args.max_consecutive_failures and consecutive >= args.max_consecutive_failures:
+                    _append(
+                        journal,
+                        {
+                            "event": "abort",
+                            "reason": "consecutive_failures",
+                            "error_signature": signature,
+                            "count": consecutive,
+                            "aborted_at": dt.datetime.now(dt.UTC).isoformat(),
+                        },
+                    )
+                    print(
+                        f"ABORT after {consecutive} consecutive failures with signature "
+                        f"{signature!r}. The remaining cells would fail the same way; "
+                        f"fix the cause and resume with --resume {journal}",
+                        file=sys.stderr,
+                    )
+                    return code
+    if blocked:
+        # A skipped model is an incomplete matrix, so it must not exit zero.
+        print(
+            "Skipped by preflight: "
+            + ", ".join(f"{model} ({verdict['reason']})" for model, verdict in blocked.items()),
+            file=sys.stderr,
+        )
     print(f"Journal: {journal}")
-    return 1 if failures else 0
+    return 1 if failures or blocked else 0
 
 
 if __name__ == "__main__":

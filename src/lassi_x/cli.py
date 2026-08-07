@@ -25,6 +25,8 @@ from .compensation import TECHNIQUE_SUMMARY
 from .config import RunConfig
 from .execution import ExecutionContext, LocalExecutionBackend
 from .measurement import build_backends
+from .model_doctor import DEFAULT_TIMEOUT_S as MODEL_PROBE_TIMEOUT_S
+from .model_doctor import distinct_models, probe_model
 from .pareto import frontier_indices
 from .pipeline import run_pipeline
 from .skills import (
@@ -60,6 +62,26 @@ def emit(tool: str, payload: dict[str, Any], *, json_output: bool = True) -> Non
     # buffer. Runs that are killed rather than exiting -- a suite timeout, a
     # blocked interpreter shutdown -- lose it entirely without this.
     sys.stdout.flush()
+
+
+def _failure_reason(run_dir: Path) -> dict[str, str]:
+    """Recover a failed run's cause from its terminal artifact.
+
+    Args:
+        run_dir: Directory a failed pipeline wrote ``run.json`` into.
+
+    Returns:
+        Mapping with ``error`` (``"Type: message"``) and ``message`` keys, using the
+        same names as the uncaught-exception path so callers parse one shape. Empty
+        when the run failed before recording anything.
+    """
+    try:
+        record = json.loads((run_dir / "run.json").read_text())
+        error = str(record["error"])
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        return {}
+    _, _, message = error.partition(": ")
+    return {"error": error, "message": message or error}
 
 
 def _load_any(path: Path) -> np.ndarray:
@@ -210,6 +232,32 @@ async def _validate_command(args: argparse.Namespace) -> int:
         json_output=args.json,
     )
     return 0 if result.ok else 1
+
+
+async def _models_doctor_command(args: argparse.Namespace) -> int:
+    """Probe every distinct model endpoint named by the given configs.
+
+    Args:
+        args: Parsed arguments carrying one or more ``--config`` paths.
+
+    Returns:
+        Zero when every probe passes, otherwise 4 -- distinct from the execution
+        doctor's 3 so a launcher can tell an LLM failure from a resource failure.
+    """
+    reports = []
+    ok = True
+    for path in args.config:
+        config = RunConfig.load(path)
+        for model in distinct_models(config.models):
+            report = await probe_model(model, timeout_s=args.timeout_s)
+            ok = ok and report.ok
+            reports.append({"config": str(path), **report.model_dump(mode="json")})
+    emit(
+        "models.doctor",
+        {"ok": ok, "probes": reports},
+        json_output=args.json,
+    )
+    return 0 if ok else 4
 
 
 async def _execution_doctor_command(args: argparse.Namespace) -> int:
@@ -594,6 +642,15 @@ def build_parser() -> argparse.ArgumentParser:
     execution_doctor.add_argument("--config", type=Path, required=True)
     execution_doctor.add_argument("--json", action="store_true", default=True)
 
+    models_parser = sub.add_parser("models")
+    models_sub = models_parser.add_subparsers(dest="models_command", required=True)
+    models_doctor = models_sub.add_parser("doctor")
+    # Repeatable so one call can clear every model in a benchmark matrix; the
+    # suite probes each model before committing to that model's whole block.
+    models_doctor.add_argument("--config", type=Path, required=True, action="append")
+    models_doctor.add_argument("--timeout-s", type=float, default=MODEL_PROBE_TIMEOUT_S)
+    models_doctor.add_argument("--json", action="store_true", default=True)
+
     benchmark = sub.add_parser("benchmark")
     benchmark_sub = benchmark.add_subparsers(dest="benchmark_command", required=True)
     bench_run = benchmark_sub.add_parser("run")
@@ -703,12 +760,20 @@ def _dispatch() -> int:
                 "run",
                 {
                     "ok": False,
-                    "error": type(exc).__name__,
+                    # Same "Type: message" shape as _failure_reason so the suite
+                    # journal can compare signatures across both failure paths.
+                    "error": f"{type(exc).__name__}: {exc}",
                     "message": str(exc),
                 },
             )
             return 3
-        emit("run", {"ok": code == 0, "run_dir": str(run_dir)})
+        payload: dict[str, Any] = {"ok": code == 0, "run_dir": str(run_dir)}
+        if code:
+            # run_pipeline records the cause in run.json and returns a bare exit code.
+            # Lift it into the envelope so the combined log and the suite journal carry
+            # the reason, not just "ok": false.
+            payload.update(_failure_reason(run_dir))
+        emit("run", payload)
         return code
     if args.command == "skills":
         return command_skills(args)
@@ -718,6 +783,8 @@ def _dispatch() -> int:
         return command_inspect(args)
     if args.command == "validate":
         return asyncio.run(_validate_command(args))
+    if args.command == "models":
+        return asyncio.run(_models_doctor_command(args))
     if args.command == "execution":
         return asyncio.run(_execution_doctor_command(args))
     if args.command == "benchmark":
