@@ -13,7 +13,10 @@ kernel:
     velocity-Verlet kernel and return final pos. build_inputs(device, dtype, fixture=None, dataset='mini')
     must accept dataset='mini' with TSTEPS=20, NP=3, N=27 and dataset='large' with TSTEPS=200, NP=8, N=512.
     The same make_model()/forward implementation must support both profiles. Return live-out pos in the
-    exact PolyBench print order.
+    exact PolyBench print order. Because the paper workflow includes Groq, inventory the expected aten
+    operators and query the compatibility wiki with lassi-x-compat-wiki before finalizing the module.
+    Prefer Torch-MLIR/TOSA-supported formulations without changing reference semantics; wiki support is
+    a preflight signal, not proof of successful Groq compilation.
 oracle:
   build:
   - gcc

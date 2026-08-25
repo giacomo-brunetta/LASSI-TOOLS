@@ -6,6 +6,13 @@ profile on the local harness, measures accelerator accuracy on that same profile
 times the `large` profile on CUDA and Groq. Input construction, Academy transport,
 PBS queueing, and MCP latency are outside the timed region.
 
+Every paper candidate is also screened against the restored compatibility wiki before it is
+finalized. Planner strategies identify expected `aten.*` operators, candidate agents query them
+with `lassi-x-compat-wiki`, and their summaries must report the query evidence. The Groq workflow
+then preserves the separate compiler and runtime outcome. This is a Torch-MLIR/TOSA preflight: a
+supported wiki entry narrows the risk but does not replace an actual GroqFlow compile and LPU
+measurement.
+
 Every generated configuration explicitly sets `memory.enabled: false`. This keeps the
 GPT-5.6 Sol and Claude Opus 5 trials independent: no agent recall is read or persisted
 between kernels, models, candidates, or repetitions. Argo configs use its internal model
@@ -25,6 +32,9 @@ Generate or refresh the checked-in configs:
 
 ```bash
 conda activate LASSI
+pip install -e '.[globus]'
+lassi-x skills sync
+lassi-x-compat-wiki op aten.mm
 python experiments/paper/generate_configs.py
 ```
 

@@ -23,6 +23,9 @@ repair the root cause with the smallest coherent change.
 3. Form one testable hypothesis:
    - Compile/import: module structure, imports, syntax, or required callable.
    - Runtime: device, dtype, argument, operator, or mutation failure.
+   - Groq/TOSA compatibility: identify the failing `aten.*` operator from compiler evidence, query
+     it with `lassi-x-compat-wiki op OPERATOR`, and search for a supported equivalent with
+     `lassi-x-compat-wiki search PATTERN --supported`.
    - Shape: live outputs, dimensions, layout, tuple order, or canonical flattening.
    - Numerical: initialization, integer expressions, loop bounds, indexing, update order,
      boundary behavior, reductions, broadcasting, aliasing, or dtype conversion.
@@ -44,4 +47,6 @@ and scientific gates to pass. A smaller error that still fails tolerance is not 
 - Never change tolerances, validators, fixtures, reference files, or runner behavior.
 - Never read or embed oracle output, return constants, or special-case validation inputs.
 - Never add compensation to hide an FP64 semantic error.
+- Never replace an unsupported operator with a merely similar operation; preserve the reference
+  semantics and rerun the full FP64 gate before another Groq attempt.
 - Never rewrite unrelated files or claim a validation command that was not executed.

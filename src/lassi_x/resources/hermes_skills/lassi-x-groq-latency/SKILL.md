@@ -16,18 +16,26 @@ across disconnected submitter and worker hosts, and classify every terminal stat
 
 ## Workflow
 
-1. Submit the fully specified request with `lassi-x groq submit` or use the configured pipeline.
-2. Record the request ID, module hash, precision roles, backend name, and submission time.
-3. On the connected host, run the configured `lassi-x groq worker` with the intended executor.
-4. Poll with `lassi-x groq status`; do not submit duplicates merely because execution is slow.
-5. Classify the result as measured, compiler estimate, unsupported, no-fit, timeout, or crash.
-6. Include only valid measured latency in performance comparisons unless estimates are clearly
+1. Before submission, inventory the candidate's expected `aten.*` operators. Query uncertain or
+   nontrivial operators with `lassi-x-compat-wiki op OPERATOR` and search supported alternatives
+   with `lassi-x-compat-wiki search PATTERN --supported`. If a TorchScript artifact is available,
+   run `lassi-x-compat validate MODEL_PATH` to check its discovered operator set.
+2. Treat an unsupported or unknown wiki result as a preflight failure requiring candidate repair.
+   Treat a supported result only as Torch-MLIR/TOSA evidence, not proof of GroqFlow compilation.
+3. Submit the fully specified request with `lassi-x groq submit` or use the configured pipeline.
+4. Record the request ID, module hash, queried operators, compatibility results, precision roles,
+   backend name, and submission time.
+5. On the connected host, run the configured `lassi-x groq worker` with the intended executor.
+6. Poll with `lassi-x groq status`; do not submit duplicates merely because execution is slow.
+7. Classify the result as measured, compiler estimate, unsupported, no-fit, timeout, or crash.
+8. Include only valid measured latency in performance comparisons unless estimates are clearly
    labeled and analyzed separately.
 
 ## Evidence standard
 
-Report request ID, source identity, precision capabilities, execution state, latency provenance,
-and compiler/runtime diagnostics. Keep failed requests in the experiment record.
+Report request ID, source identity, queried operators and wiki results, precision capabilities,
+execution state, latency provenance, and compiler/runtime diagnostics. Keep failed requests in the
+experiment record.
 
 ## Guardrails
 
@@ -35,3 +43,4 @@ and compiler/runtime diagnostics. Keep failed requests in the experiment record.
 - Never infer explicit FP32 tensor support from a wider matrix accumulator.
 - Never silently retry with a different graph, precision, or compiler configuration.
 - Never collapse unsupported, no-fit, timeout, and crash into one generic failure.
+- Never present compatibility-wiki support as measured Groq compatibility.

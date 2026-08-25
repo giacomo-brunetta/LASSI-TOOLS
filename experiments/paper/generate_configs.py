@@ -252,13 +252,22 @@ def _task(kernel: dict[str, Any]) -> str:
     Returns:
         Detailed agent task text embedded in the generated YAML.
     """
-    return (
+    task = (
         f"Translate the cited C kernel into a semantically equivalent, export-friendly "
         f"PyTorch module. Reproduce init_array and operation order from the staged source. "
         f"{kernel['task']} build_inputs(device, dtype, fixture=None, dataset='mini') must "
         f"accept dataset='mini' with {kernel['mini']} and dataset='large' with "
         f"{kernel['large']}. The same make_model()/forward implementation must support "
         f"both profiles. Return live-out {kernel['live_out']} in the exact PolyBench print order."
+    )
+    if not _groq_enabled():
+        return task
+    return (
+        task
+        + " Because the paper workflow includes Groq, inventory the expected aten operators and "
+        "query the compatibility wiki with lassi-x-compat-wiki before finalizing the module. "
+        "Prefer Torch-MLIR/TOSA-supported formulations without changing reference semantics; "
+        "wiki support is a preflight signal, not proof of successful Groq compilation."
     )
 
 

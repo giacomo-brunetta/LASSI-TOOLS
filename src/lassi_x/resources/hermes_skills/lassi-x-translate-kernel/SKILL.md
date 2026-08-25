@@ -29,15 +29,22 @@ authority.
 6. Define `make_model() -> torch.nn.Module`. Its `forward(*inputs)` must return a tensor or tuple
    of tensors in canonical reference-output order.
 7. Define `LASSI_PRECISION` with honest `storage`, `operator`, `accumulator`, and `output` fields.
-8. Preserve FP64 behavior first. Avoid accidental broadcasting, reassociation, aliasing, and
+8. If a Groq backend is configured, inventory the expected `aten.*` operators before finalizing
+   the implementation. Query uncertain or nontrivial operators with
+   `lassi-x-compat-wiki op aten.NAME`; use `lassi-x-compat-wiki search PATTERN --supported` to
+   identify compatible alternatives. Prefer supported Torch-MLIR/TOSA formulations when they
+   preserve the reference semantics.
+9. Preserve FP64 behavior first. Avoid accidental broadcasting, reassociation, aliasing, and
    premature low-precision initialization.
-9. Run `python -m py_compile TARGET` and inspect the complete target once more.
+10. Run `python -m py_compile TARGET` and inspect the complete target once more.
 
 ## Evidence standard
 
 Summarize the implemented operator structure, mapping from reference live outputs to returned
-tensors, initialization strategy, precision roles, and checks actually run. The authoritative
-gate is `lassi-x validate candidate --config CONFIG --module TARGET --artifact-dir DIR`.
+tensors, initialization strategy, precision roles, compatibility-wiki queries and results, and
+checks actually run. The authoritative semantic gate is
+`lassi-x validate candidate --config CONFIG --module TARGET --artifact-dir DIR`; only an actual
+Groq measurement establishes end-to-end Groq compatibility.
 
 ## Guardrails
 
@@ -45,3 +52,4 @@ gate is `lassi-x validate candidate --config CONFIG --module TARGET --artifact-d
 - Never embed expected values, read oracle output, return constants, or special-case known input.
 - Never claim semantic equivalence from byte-compilation alone.
 - Never introduce FP16/BF16 compensation before the FP64 candidate passes.
+- Never infer Groq compatibility from CUDA execution or from wiki support alone.

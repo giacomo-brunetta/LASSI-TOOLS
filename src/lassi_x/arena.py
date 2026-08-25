@@ -36,6 +36,10 @@ Planning responsibilities:
   Renaming variables or making cosmetic syntax changes does not create a distinct strategy.
 - Keep every strategy feasible under the supplied module contract and suitable for later
   FP16/BF16 measurement, while making FP64 semantic correctness the first priority.
+- Treat Torch-MLIR/TOSA compatibility as a design constraint whenever a Groq backend is
+  configured. Prefer operator structures covered by the compatibility wiki, and require the
+  implementer to query uncertain operators before committing to a strategy. Wiki support is a
+  necessary preflight signal, not a guarantee that GroqFlow compilation or placement will pass.
 - Identify the important correctness risks and the concrete checks an implementer should
   perform. Do not invent missing facts; state conservative assumptions in the plan.
 
@@ -56,7 +60,9 @@ Vectorization requirement (hard):
   a scalar-loop strategy to reach the requested count.
 
 Tool and scope rules:
-- Consult the lassi-x-machine-info and lassi-x-translate-kernel skills when useful.
+- Consult the lassi-x-machine-info and lassi-x-translate-kernel skills when useful. For a Groq
+  run, use the compatibility-wiki procedure in lassi-x-translate-kernel as a required design
+  review and include expected `aten.*` operators and alternatives in each strategy.
 - You are an architect, not the implementer: do not create, edit, or delete files.
 - Follow the requested JSON schema exactly. Return JSON only, with no Markdown fences,
   commentary, preamble, or trailing explanation."""
@@ -80,6 +86,10 @@ Engineering responsibilities:
   outputs, generated datasets, MLIR, reports, or unrelated helper files.
 - Compile-check the target before reporting completion. Describe what you implemented briefly
   and accurately; do not claim validation that you did not run.
+- When the run includes Groq, inventory the candidate's expected `aten.*` operators and query
+  each uncertain operator with `lassi-x-compat-wiki`. Replace unsupported operators with a
+  semantically faithful supported formulation before finalizing the candidate. Do not infer
+  Groq support merely because an operation runs on CUDA.
 
 Vectorization requirement (hard):
 - The module you write is measured at a performance dataset size far larger than the
@@ -107,8 +117,8 @@ Repair responsibilities:
 - Never weaken tolerances, bypass validation, read or embed oracle output, return constants, or
   add low-precision compensation to conceal an FP64 semantic error.
 
-Use lassi-x-translate-kernel for initial generation. During corrections, use
-lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate.
+Use lassi-x-translate-kernel for initial generation, including its compatibility-wiki workflow.
+During corrections, use lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate.
 
 Workspace access:
 - Your only access to files and commands is the assigned workspace toolset (list_resources,
@@ -419,6 +429,19 @@ def _generation_prompt(
         fixture_relative_path(config) or "none; reproduce the reference initialization exactly"
     )
     reference_lines = "\n".join(f"- {path}" for path in staged_reference)
+    compatibility_requirement = ""
+    if any(backend.type == "groq" for backend in config.measure.backends):
+        compatibility_requirement = """
+Groq compatibility preflight (required):
+- This run measures the candidate on Groq through Torch-MLIR/TOSA lowering.
+- Before finalizing candidate.py, inventory the expected `aten.*` operators and run
+  `lassi-x-compat-wiki op OPERATOR` for each uncertain or nontrivial operator. Use
+  `lassi-x-compat-wiki search PATTERN` to find supported alternatives.
+- Prefer wiki-supported formulations while preserving the C/C++ semantics. Record the queried
+  operators and results in the implementation summary.
+- A wiki-supported operator can still fail GroqFlow compilation or placement; do not claim
+  hardware compatibility until the Groq measurement succeeds.
+"""
     return f"""Implement arena candidate {candidate_id}.
 
 Workspace toolset: {toolset} (all paths below are workspace-relative)
@@ -430,6 +453,7 @@ Kernel task: {config.kernel.task}
 
 Assigned strategy:
 {strategy}
+{compatibility_requirement}
 
 Mandatory contract:
 - Write one complete Python module to candidate.py using write_file.

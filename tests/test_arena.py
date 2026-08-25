@@ -43,8 +43,40 @@ def test_system_prompts_define_concrete_roles_without_project_branding() -> None
     assert "do not create, edit, or delete files" in arena.PLANNER_SYSTEM
     assert "scientific software engineer" in arena.CANDIDATE_SYSTEM
     assert "original C/C++ source is the semantic authority" in arena.CANDIDATE_SYSTEM
+    assert "compatibility wiki" in arena.PLANNER_SYSTEM
+    assert "lassi-x-compat-wiki" in arena.CANDIDATE_SYSTEM
     assert "LASSI-X" not in arena.PLANNER_SYSTEM
     assert "LASSI-X" not in arena.CANDIDATE_SYSTEM
+
+
+def test_groq_generation_prompt_requires_compatibility_preflight(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"].append(
+        {
+            "type": "groq",
+            "name": "groq",
+            "queue_dir": str(tmp_path / "queue"),
+            "precisions": ["fp16"],
+        }
+    )
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+    config = RunConfig.load(config_path)
+
+    prompt = arena._generation_prompt(config, "c1", "vectorized", "workspace", ["tiny.c"])
+
+    assert "Groq compatibility preflight (required)" in prompt
+    assert "lassi-x-compat-wiki op OPERATOR" in prompt
+
+
+def test_non_groq_generation_prompt_omits_compatibility_preflight(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(minimal_config(tmp_path)))
+    config = RunConfig.load(config_path)
+
+    prompt = arena._generation_prompt(config, "c1", "vectorized", "workspace", ["tiny.c"])
+
+    assert "Groq compatibility preflight (required)" not in prompt
 
 
 class FakeHermesSession:

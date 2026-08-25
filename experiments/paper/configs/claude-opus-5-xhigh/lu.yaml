@@ -12,7 +12,10 @@ kernel:
     init_array and operation order from the staged source. Reproduce the in-place no-pivot LU factorization
     and return packed A. build_inputs(device, dtype, fixture=None, dataset='mini') must accept dataset='mini'
     with N=40 and dataset='large' with N=2000. The same make_model()/forward implementation must support
-    both profiles. Return live-out A in the exact PolyBench print order.
+    both profiles. Return live-out A in the exact PolyBench print order. Because the paper workflow includes
+    Groq, inventory the expected aten operators and query the compatibility wiki with lassi-x-compat-wiki
+    before finalizing the module. Prefer Torch-MLIR/TOSA-supported formulations without changing reference
+    semantics; wiki support is a preflight signal, not proof of successful Groq compilation.
 oracle:
   build:
   - gcc

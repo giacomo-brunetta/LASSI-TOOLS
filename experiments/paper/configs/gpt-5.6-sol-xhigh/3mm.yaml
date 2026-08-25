@@ -13,7 +13,10 @@ kernel:
     G. build_inputs(device, dtype, fixture=None, dataset='mini') must accept dataset='mini' with NI=16,
     NJ=18, NK=20, NL=22, NM=24 and dataset='large' with NI=800, NJ=900, NK=1000, NL=1100, NM=1200. The
     same make_model()/forward implementation must support both profiles. Return live-out G in the exact
-    PolyBench print order.
+    PolyBench print order. Because the paper workflow includes Groq, inventory the expected aten operators
+    and query the compatibility wiki with lassi-x-compat-wiki before finalizing the module. Prefer Torch-MLIR/TOSA-supported
+    formulations without changing reference semantics; wiki support is a preflight signal, not proof of
+    successful Groq compilation.
 oracle:
   build:
   - gcc

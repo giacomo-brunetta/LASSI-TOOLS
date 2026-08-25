@@ -10,9 +10,12 @@
 #        git -C /home/gbrun/LASSI-TOOLS pull
 #        conda activate lassi-globus-compute
 #        env -u PYTHONPATH globus-compute-endpoint start lassi-x-compute
-#   2. On this harness, activate the LASSI environment and install the Globus extra:
+#   2. On this harness, activate the LASSI environment, install the checkout so
+#      compat_tool and its console commands are available, and sync the bundled
+#      Hermes skills:
 #        conda activate LASSI
 #        pip install -e '.[globus]'
+#        lassi-x skills sync
 #   3. Start the Argo-compatible LLM shim every agent turn goes through. Its
 #      port is assigned at startup and the generated default is
 #      http://127.0.0.1:52226, so export LASSI_PAPER_LLM_BASE_URL when it lands
@@ -77,9 +80,11 @@ while (($#)); do
 done
 
 cd "${REPO_ROOT}"
-export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONPATH="${REPO_ROOT}/src:${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 
 python experiments/paper/generate_configs.py
+python -m lassi_x.cli skills sync
+python -m compat_tool.query_wiki op aten.mm
 
 # Probe the LLM endpoints first: it takes about a second, needs no remote
 # resource, and catches the failures that historically cost whole sessions -- a
