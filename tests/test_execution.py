@@ -46,8 +46,9 @@ from lassi_x.remote.ops import resolve_member
 from .test_config import minimal_config
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import AsyncIterator, Callable, Coroutine
     from pathlib import Path
+    from typing import Any
 
 
 @asynccontextmanager
@@ -93,7 +94,7 @@ def test_academy_stream_has_no_total_or_read_deadline() -> None:
     assert timeout.sock_read is None
 
 
-def _http_error(status: int) -> object:
+def _http_error(status: int) -> aiohttp.ClientResponseError:
     """Build a realistic aiohttp error; str() on it needs request_info."""
     info = aiohttp.RequestInfo(
         URL("https://exchange.academy-agents.org/message"),
@@ -103,18 +104,24 @@ def _http_error(status: int) -> object:
     return aiohttp.ClientResponseError(info, (), status=status)
 
 
-def _retry_transport(errors: list[BaseException]) -> tuple[object, list[object]]:
+class _RetryTransport:
+    """Small assignable transport matching the retry wrapper's contract."""
+
+    def __init__(self, errors: list[BaseException]) -> None:
+        self.sent: list[object] = []
+        self.pending = list(errors)
+        self.send: Callable[[object], Coroutine[Any, Any, None]] = self._send
+
+    async def _send(self, message: object) -> None:
+        if self.pending:
+            raise self.pending.pop(0)
+        self.sent.append(message)
+
+
+def _retry_transport(errors: list[BaseException]) -> tuple[_RetryTransport, list[object]]:
     """Build a fake transport whose send raises `errors` before succeeding."""
-    sent: list[object] = []
-    pending = list(errors)
-
-    async def send(message: object) -> None:
-        if pending:
-            raise pending.pop(0)
-        sent.append(message)
-
-    transport = type("Transport", (), {"send": staticmethod(send)})()
-    return transport, sent
+    transport = _RetryTransport(errors)
+    return transport, transport.sent
 
 
 def test_academy_send_retries_transient_gateway_failure() -> None:
@@ -250,7 +257,8 @@ def test_missed_heartbeats_pause_work_until_the_resource_answers_again() -> None
             await asyncio.sleep(0.05)
             assert not call.done(), "a paused resource must not be sent new work"
             handle.alive = True
-            assert await call == "done"
+            result: object = await call
+            assert result == "done"
             assert not backend.paused
         finally:
             await backend.stop_keepalive()
@@ -268,7 +276,8 @@ def test_single_missed_heartbeat_does_not_pause_work() -> None:
             handle.alive = True
             await _until(lambda: handle.pings >= 4)
             assert not backend.paused, "one dropped probe is noise, not an outage"
-            assert await backend.execute(_exec_request()) == "done"
+            result: object = await backend.execute(_exec_request())
+            assert result == "done"
         finally:
             await backend.stop_keepalive()
 

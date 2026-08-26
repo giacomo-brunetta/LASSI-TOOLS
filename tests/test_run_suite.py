@@ -3,13 +3,17 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 EXPERIMENTS = Path(__file__).resolve().parents[1] / "experiments" / "paper"
 
 
-def _load_run_suite():
+def _load_run_suite() -> ModuleType:
     """Import run_suite.py, which lives outside the installed package."""
     sys.path.insert(0, str(EXPERIMENTS))
     try:

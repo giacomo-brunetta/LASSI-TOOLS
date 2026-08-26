@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
 
 from lassi_x.config import ModelConfig, ModelsConfig
-from lassi_x.model_doctor import distinct_models, probe_model
+from lassi_x.model_doctor import ProbeReport, distinct_models, probe_model
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # The literal body Argo returned on 2026-08-05, when the configs still carried
 # display names. It cost ten runs before anyone read a run directory.
@@ -25,8 +29,8 @@ TOOL_CALL_REPLAY_BODY = json.dumps(
 SUCCESS_BODY = json.dumps({"choices": [{"message": {"role": "assistant", "content": "ready"}}]})
 
 
-def _model(**overrides: object) -> ModelConfig:
-    defaults: dict[str, object] = {
+def _model(**overrides: Any) -> ModelConfig:
+    defaults: dict[str, Any] = {
         "model": "claudeopus5",
         "provider": "custom",
         # The '/v1' is load-bearing, not decoration -- see the two base_url tests
@@ -35,15 +39,15 @@ def _model(**overrides: object) -> ModelConfig:
         "base_url": "http://127.0.0.1:52226/v1",
         "api_mode": "chat_completions",
     }
-    return ModelConfig(**{**defaults, **overrides})  # type: ignore[arg-type]
+    return ModelConfig(**{**defaults, **overrides})
 
 
-def _probe(handler: object, **overrides: object) -> object:
-    transport = httpx.MockTransport(handler)  # type: ignore[arg-type]
+def _probe(handler: Callable[[httpx.Request], httpx.Response], **overrides: Any) -> ProbeReport:
+    transport = httpx.MockTransport(handler)
     return asyncio.run(probe_model(_model(**overrides), transport=transport, timeout_s=5))
 
 
-def _responder(status: int, body: str):
+def _responder(status: int, body: str) -> Callable[[httpx.Request], httpx.Response]:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, text=body)
 
@@ -96,17 +100,17 @@ def test_successful_probe_reports_ok() -> None:
 
 def test_probe_replays_a_tool_call() -> None:
     """A plain completion passes on endpoints that still reject replay."""
-    seen: dict[str, object] = {}
+    seen: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.update(json.loads(request.content))
         return httpx.Response(200, text=SUCCESS_BODY)
 
     _probe(handler)
-    roles = [message["role"] for message in seen["messages"]]  # type: ignore[index]
+    roles = [message["role"] for message in seen["messages"]]
     assert "assistant" in roles
     assert "tool" in roles
-    assistant = next(m for m in seen["messages"] if m["role"] == "assistant")  # type: ignore[index]
+    assistant = next(m for m in seen["messages"] if m["role"] == "assistant")
     assert assistant["tool_calls"]
     assert seen["tools"]
 
