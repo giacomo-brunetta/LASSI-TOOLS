@@ -1,5 +1,8 @@
 """Compatibility analysis by attempting Torch-MLIR TOSA lowering."""
 
+# torch-mlir is an optional, environment-specific compiler dependency.
+# ruff: noqa: PLC0415
+
 from __future__ import annotations
 
 import json
@@ -13,22 +16,23 @@ import torch
 try:
     from tqdm import tqdm
 except ImportError:  # pragma: no cover - dependency optional at runtime
+
     def tqdm(iterable, **_: Any):
         """Fallback iterator when tqdm is unavailable."""
         return iterable
+
 
 from compat_tool.utils import (
     DATA_DIR,
     DEFAULT_COMPATIBILITY_PATH,
     build_attempt_profiles,
     build_bound_invocation,
-    load_json,
     load_all_ops,
+    load_json,
     normalize_error,
     save_json,
     time_limit,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 LOWERING_ERROR_MARKERS = (
@@ -199,7 +203,10 @@ def test_op(
     if op_name in KNOWN_UNSAFE_OPS:
         return {
             "supported": False,
-            "error": "Skipped automatic probe because this op crashes the current runtime with schema-appropriate test inputs.",
+            "error": (
+                "Skipped automatic probe because this op crashes the current runtime with "
+                "schema-appropriate test inputs."
+            ),
             "attempts": {},
             "supported_profiles": [],
             "range_restriction": None,
@@ -217,7 +224,9 @@ def test_op(
             range_restriction = profile["range_note"]
         try:
             if op_name in risky_ops:
-                attempts[profile["name"]] = _run_attempt_subprocess(op_name, profile, timeout_seconds)
+                attempts[profile["name"]] = _run_attempt_subprocess(
+                    op_name, profile, timeout_seconds
+                )
             else:
                 if compile_context is None:
                     compile_context = _resolve_torch_mlir_api()
@@ -246,7 +255,12 @@ def test_op(
                 LOGGER.debug("Op %s failed for profile %s: %s", op_name, profile["name"], message)
 
     primary_error = None
-    for profile_name in ("float32_default", "float32_domain_(0,inf)", "float32_probability_[0,1]", "int32_default"):
+    for profile_name in (
+        "float32_default",
+        "float32_domain_(0,inf)",
+        "float32_probability_[0,1]",
+        "int32_default",
+    ):
         attempt = attempts.get(profile_name)
         if attempt and attempt.get("error"):
             primary_error = attempt["error"]
@@ -262,7 +276,9 @@ def test_op(
     int_attempt = attempts.get("int32_default")
     if float_attempt and int_attempt:
         if not float_attempt.get("supported") and int_attempt.get("supported"):
-            dtype_notes.append("Supported with int32 retry, but not with the default float32 inputs.")
+            dtype_notes.append(
+                "Supported with int32 retry, but not with the default float32 inputs."
+            )
         elif float_attempt.get("supported") and not int_attempt.get("supported"):
             dtype_notes.append("Supported with float32 inputs, but the int32 retry failed.")
 
@@ -294,7 +310,9 @@ def analyze_all_ops(
             and "dtype_notes" in cached
         ):
             continue
-        results[op_name] = test_op(op_name, op_meta=ops.get(op_name), timeout_seconds=timeout_seconds)
+        results[op_name] = test_op(
+            op_name, op_meta=ops.get(op_name), timeout_seconds=timeout_seconds
+        )
         save_json(output_path, results)
 
     return results

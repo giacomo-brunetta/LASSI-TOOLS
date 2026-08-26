@@ -36,10 +36,11 @@ Planning responsibilities:
   Renaming variables or making cosmetic syntax changes does not create a distinct strategy.
 - Keep every strategy feasible under the supplied module contract and suitable for later
   FP16/BF16 measurement, while making FP64 semantic correctness the first priority.
-- Treat Torch-MLIR/TOSA compatibility as a design constraint whenever a Groq backend is
-  configured. Prefer operator structures covered by the compatibility wiki, and require the
-  implementer to query uncertain operators before committing to a strategy. Wiki support is a
-  necessary preflight signal, not a guarantee that GroqFlow compilation or placement will pass.
+- Treat target-compiler compatibility as a design constraint whenever a Groq backend is
+  configured. List the published compatibility wiki targets, select the closest exact Groq/compiler
+  snapshot, and prefer operator structures covered there. Require the implementer to query
+  uncertain operators before committing to a strategy. Snapshot support is a necessary preflight
+  signal, not a guarantee that another GroqFlow version or placement will pass.
 - Identify the important correctness risks and the concrete checks an implementer should
   perform. Do not invent missing facts; state conservative assumptions in the plan.
 
@@ -86,10 +87,11 @@ Engineering responsibilities:
   outputs, generated datasets, MLIR, reports, or unrelated helper files.
 - Compile-check the target before reporting completion. Describe what you implemented briefly
   and accurately; do not claim validation that you did not run.
-- When the run includes Groq, inventory the candidate's expected `aten.*` operators and query
-  each uncertain operator with `lassi-x-compat-wiki`. Replace unsupported operators with a
-  semantically faithful supported formulation before finalizing the candidate. Do not infer
-  Groq support merely because an operation runs on CUDA.
+- When the run includes Groq, run `lassi-x-compat-wiki targets`, select and report the closest
+  exact Groq/compiler snapshot, inventory the candidate's expected `aten.*` operators, and query
+  each uncertain operator for the intended precision. Replace rejected operators with a
+  semantically faithful compiled formulation before finalizing the candidate. Do not infer Groq
+  support merely because an operation runs on CUDA or in a different target snapshot.
 
 Vectorization requirement (hard):
 - The module you write is measured at a performance dataset size far larger than the
@@ -433,14 +435,19 @@ def _generation_prompt(
     if any(backend.type == "groq" for backend in config.measure.backends):
         compatibility_requirement = """
 Groq compatibility preflight (required):
-- This run measures the candidate on Groq through Torch-MLIR/TOSA lowering.
-- Before finalizing candidate.py, inventory the expected `aten.*` operators and run
-  `lassi-x-compat-wiki op OPERATOR` for each uncertain or nontrivial operator. Use
-  `lassi-x-compat-wiki search PATTERN` to find supported alternatives.
-- Prefer wiki-supported formulations while preserving the C/C++ semantics. Record the queried
-  operators and results in the implementation summary.
-- A wiki-supported operator can still fail GroqFlow compilation or placement; do not claim
-  hardware compatibility until the Groq measurement succeeds.
+- This run measures the candidate through GroqFlow compilation and Groq hardware execution.
+- Before finalizing candidate.py, run `lassi-x-compat-wiki targets` and select the closest exact
+  Groq/compiler snapshot. Do not silently use an A100 or legacy snapshot when an exact Groq target
+  is unavailable.
+- Inventory the expected `aten.*` operators and run
+  `lassi-x-compat-wiki op OPERATOR --target TARGET --precision fp16` for each uncertain or
+  nontrivial operator. Use
+  `lassi-x-compat-wiki search PATTERN --target TARGET --precision fp16 --supported` to find
+  compiled alternatives.
+- Prefer target-snapshot-supported formulations while preserving the C/C++ semantics. Record the
+  selected target, queried operators, canonical cases, and results in the implementation summary.
+- A canonical operator compile can still fail in full-model GroqFlow compilation or placement;
+  do not claim hardware compatibility until the Groq measurement succeeds.
 """
     return f"""Implement arena candidate {candidate_id}.
 

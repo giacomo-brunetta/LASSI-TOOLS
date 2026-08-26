@@ -264,10 +264,11 @@ def _task(kernel: dict[str, Any]) -> str:
         return task
     return (
         task
-        + " Because the paper workflow includes Groq, inventory the expected aten operators and "
-        "query the compatibility wiki with lassi-x-compat-wiki before finalizing the module. "
-        "Prefer Torch-MLIR/TOSA-supported formulations without changing reference semantics; "
-        "wiki support is a preflight signal, not proof of successful Groq compilation."
+        + " Because the paper workflow includes Groq, run lassi-x-compat-wiki targets and select "
+        "the closest exact Groq/compiler snapshot. Inventory the expected aten operators and "
+        "query that target at fp16 before finalizing the module. Do not silently use an A100 or "
+        "legacy snapshot. Prefer compiled formulations without changing reference semantics; a "
+        "canonical compile result is a preflight signal, not proof of successful model compilation."
     )
 
 

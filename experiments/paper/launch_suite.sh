@@ -84,7 +84,10 @@ export PYTHONPATH="${REPO_ROOT}/src:${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 
 python experiments/paper/generate_configs.py
 python -m lassi_x.cli skills sync
-python -m compat_tool.query_wiki op aten.mm
+python -m compat_tool.query_wiki targets
+# Until the first exact Groq snapshot is published, keep the restored corpus
+# available only through an explicit, visibly legacy smoke check.
+python -m compat_tool.query_wiki op aten.mm --target legacy-torch-mlir-tosa
 
 # Probe the LLM endpoints first: it takes about a second, needs no remote
 # resource, and catches the failures that historically cost whole sessions -- a

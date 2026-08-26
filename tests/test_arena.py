@@ -66,7 +66,9 @@ def test_groq_generation_prompt_requires_compatibility_preflight(tmp_path: Path)
     prompt = arena._generation_prompt(config, "c1", "vectorized", "workspace", ["tiny.c"])
 
     assert "Groq compatibility preflight (required)" in prompt
+    assert "lassi-x-compat-wiki targets" in prompt
     assert "lassi-x-compat-wiki op OPERATOR" in prompt
+    assert "--target TARGET --precision fp16" in prompt
 
 
 def test_non_groq_generation_prompt_omits_compatibility_preflight(tmp_path: Path) -> None:

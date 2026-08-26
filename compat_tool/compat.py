@@ -1,13 +1,13 @@
 """Unified compatibility database helpers and query API."""
 
+# ruff: noqa: TC003
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
 from compat_tool.utils import (
-    DEFAULT_ALL_OPS_PATH,
-    DEFAULT_COMPATIBILITY_PATH,
     DEFAULT_DB_PATH,
     load_json,
     save_json,
@@ -54,7 +54,9 @@ def is_supported(op_name: str, db_path: str | Path = DEFAULT_DB_PATH) -> bool:
 
 def get_op_info(op_name: str, db_path: str | Path = DEFAULT_DB_PATH) -> dict[str, Any]:
     """Return the database entry for an op, or an empty unsupported record."""
-    return _load_db(db_path).get(op_name, {"supported": False, "tosa_op": None, "error": "Unknown op"})
+    return _load_db(db_path).get(
+        op_name, {"supported": False, "tosa_op": None, "error": "Unknown op"}
+    )
 
 
 def validate_ops(op_list: list[str], db_path: str | Path = DEFAULT_DB_PATH) -> dict[str, list[str]]:

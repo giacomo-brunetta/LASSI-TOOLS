@@ -8,7 +8,6 @@ from typing import Any
 
 from compat_tool.utils import DEFAULT_ALL_OPS_PATH, save_json
 
-
 OP_BLOCK_RE = re.compile(
     r"def\s+(?P<def_name>\w+)\s*:\s*Torch_Op<\"(?P<op_name>[^\"]+)\".*?>\s*\{(?P<body>.*?)^\}",
     re.DOTALL | re.MULTILINE,
@@ -38,7 +37,10 @@ def _is_private_or_internal(op_name: str) -> bool:
     return suffix.startswith("_")
 
 
-def parse_torch_ops(td_file: str) -> dict[str, dict[str, Any]]:
+def parse_torch_ops(
+    td_file: str,
+    output_path: str | Path | None = DEFAULT_ALL_OPS_PATH,
+) -> dict[str, dict[str, Any]]:
     """
     Parse a Torch MLIR TableGen file into op metadata.
 
@@ -65,5 +67,6 @@ def parse_torch_ops(td_file: str) -> dict[str, dict[str, Any]]:
             "returns": _extract_section(body, "results"),
         }
 
-    save_json(DEFAULT_ALL_OPS_PATH, parsed)
+    if output_path is not None:
+        save_json(output_path, parsed)
     return parsed

@@ -9,7 +9,11 @@ from compat_tool.compat import validate_ops
 
 def extract_ops_from_scripted(scripted_model: Any) -> list[str]:
     """Traverse a TorchScript graph and collect unique `aten::` operations."""
-    graph = scripted_model.inlined_graph if hasattr(scripted_model, "inlined_graph") else scripted_model.graph
+    graph = (
+        scripted_model.inlined_graph
+        if hasattr(scripted_model, "inlined_graph")
+        else scripted_model.graph
+    )
     ops: list[str] = []
     seen: set[str] = set()
 

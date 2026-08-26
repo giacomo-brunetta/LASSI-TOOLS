@@ -10,4 +10,6 @@ dist/
 
 # Generated benchmark artifacts.
 runs/
+compat-runs/
+.groq-compat-cache/
 docker/mem0/.env

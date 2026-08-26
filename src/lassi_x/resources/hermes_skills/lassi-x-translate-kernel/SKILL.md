@@ -29,11 +29,12 @@ authority.
 6. Define `make_model() -> torch.nn.Module`. Its `forward(*inputs)` must return a tensor or tuple
    of tensors in canonical reference-output order.
 7. Define `LASSI_PRECISION` with honest `storage`, `operator`, `accumulator`, and `output` fields.
-8. If a Groq backend is configured, inventory the expected `aten.*` operators before finalizing
-   the implementation. Query uncertain or nontrivial operators with
-   `lassi-x-compat-wiki op aten.NAME`; use `lassi-x-compat-wiki search PATTERN --supported` to
-   identify compatible alternatives. Prefer supported Torch-MLIR/TOSA formulations when they
-   preserve the reference semantics.
+8. If a Groq backend is configured, run `lassi-x-compat-wiki targets`, select the closest exact
+   Groq/compiler snapshot, and report it. Inventory the expected `aten.*` operators before
+   finalizing the implementation. Query uncertain or nontrivial operators with
+   `lassi-x-compat-wiki op aten.NAME --target TARGET --precision fp16`; use
+   `lassi-x-compat-wiki search PATTERN --target TARGET --precision fp16 --supported` to identify
+   compiled alternatives. Do not silently substitute an A100 or legacy target.
 9. Preserve FP64 behavior first. Avoid accidental broadcasting, reassociation, aliasing, and
    premature low-precision initialization.
 10. Run `python -m py_compile TARGET` and inspect the complete target once more.
@@ -41,7 +42,7 @@ authority.
 ## Evidence standard
 
 Summarize the implemented operator structure, mapping from reference live outputs to returned
-tensors, initialization strategy, precision roles, compatibility-wiki queries and results, and
+tensors, initialization strategy, precision roles, selected compatibility target, queries and results, and
 checks actually run. The authoritative semantic gate is
 `lassi-x validate candidate --config CONFIG --module TARGET --artifact-dir DIR`; only an actual
 Groq measurement establishes end-to-end Groq compatibility.

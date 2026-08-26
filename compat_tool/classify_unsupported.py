@@ -11,8 +11,7 @@ from typing import Any
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from compat_tool.utils import DEFAULT_ALL_OPS_PATH, DEFAULT_DB_PATH, DATA_DIR, save_json
-
+from compat_tool.utils import DATA_DIR, DEFAULT_ALL_OPS_PATH, DEFAULT_DB_PATH, save_json
 
 OUTPUT_JSON_PATH = DATA_DIR / "unsupported_analysis.json"
 OUTPUT_MARKDOWN_PATH = DATA_DIR / "unsupported_summary.md"
@@ -62,7 +61,9 @@ def classify_op(
     ):
         category = "backend_lowering_missing"
         if siblings:
-            summary = "The op traced successfully, but this overload or variant does not lower to TOSA."
+            summary = (
+                "The op traced successfully, but this overload or variant does not lower to TOSA."
+            )
         else:
             summary = "The op traced successfully, but torch-mlir/TOSA lowering is missing."
         suggestion = "Treat this as a real lowering gap, not a float32/harness issue."
@@ -76,7 +77,9 @@ def classify_op(
     elif "cannot be traced" in error_lower or "can be output from traced functions" in error_lower:
         category = "harness_tracing_limitation"
         summary = "The test hit a tracing limitation due to non-tensor inputs or outputs."
-        suggestion = "Use scripting, wrapper modules, or structured tensor-only adapters for this op."
+        suggestion = (
+            "Use scripting, wrapper modules, or structured tensor-only adapters for this op."
+        )
     elif (
         "expected a value of type" in error_lower
         or "cannot be converted to scalar" in error_lower
@@ -97,10 +100,16 @@ def classify_op(
     ):
         category = "harness_wrong_inputs_or_dtype"
         if siblings:
-            summary = "The harness chose the wrong input kind, shape, device, or dtype for this overload, and a sibling overload is supported."
+            summary = (
+                "The harness chose the wrong input kind, shape, device, or dtype for this "
+                "overload, and a sibling overload is supported."
+            )
         else:
             summary = "The harness chose the wrong input kind, shape, device, or dtype for this op."
-        suggestion = "Do not treat this as a real TOSA gap until the op is retried with schema-appropriate inputs."
+        suggestion = (
+            "Do not treat this as a real TOSA gap until the op is retried with "
+            "schema-appropriate inputs."
+        )
     elif (
         "backend illegal" in error_lower
         or "unsupported by backend contract" in error_lower
@@ -110,11 +119,30 @@ def classify_op(
         or "non-value tensor type" in error_lower
     ):
         category = "torch_mlir_frontend_or_value_semantics_limit"
-        summary = "The failure happened before TOSA lowering in TorchScript/Torch backend conversion or value-semantics legalization."
-        suggestion = "Treat this as a torch-mlir frontend/backend-contract limitation, not as a confirmed TOSA lowering result."
-    elif op_name.startswith(("aten.__", "aten.Bool", "aten.Int", "aten.Float", "aten.ScalarImplicit", "aten.Delete", "aten.format", "aten.get.")):
+        summary = (
+            "The failure happened before TOSA lowering in TorchScript/Torch backend conversion "
+            "or value-semantics legalization."
+        )
+        suggestion = (
+            "Treat this as a torch-mlir frontend/backend-contract limitation, not as a "
+            "confirmed TOSA lowering result."
+        )
+    elif op_name.startswith(
+        (
+            "aten.__",
+            "aten.Bool",
+            "aten.Int",
+            "aten.Float",
+            "aten.ScalarImplicit",
+            "aten.Delete",
+            "aten.format",
+            "aten.get.",
+        )
+    ):
         category = "language_or_runtime_helper"
-        summary = "This is a language/runtime helper op rather than a natural tensor compute op for TOSA."
+        summary = (
+            "This is a language/runtime helper op rather than a natural tensor compute op for TOSA."
+        )
         suggestion = "Track separately from tensor compute coverage."
     elif returns and not _has_tensor(returns):
         category = "non_tensor_return"
@@ -122,7 +150,10 @@ def classify_op(
         suggestion = "Track separately from tensor-to-TOSA lowering coverage."
     elif args and not _has_tensor(args):
         category = "constructor_or_non_tensor_input"
-        summary = "The op primarily consumes non-tensor arguments, which the current tensor-only harness does not model."
+        summary = (
+            "The op primarily consumes non-tensor arguments, which the current tensor-only "
+            "harness does not model."
+        )
         suggestion = "Use a constructor/scalar-specific harness for this family."
     elif "invalid syntax" in error_lower:
         category = "test_generation_bug"
@@ -166,7 +197,9 @@ def build_analysis() -> dict[str, Any]:
     }
 
 
-def write_markdown_report(analysis: dict[str, Any], output_path: Path = OUTPUT_MARKDOWN_PATH) -> None:
+def write_markdown_report(
+    analysis: dict[str, Any], output_path: Path = OUTPUT_MARKDOWN_PATH
+) -> None:
     """Write a compact markdown summary for human inspection."""
     lines = [
         "# Unsupported Op Analysis",
@@ -191,7 +224,11 @@ def write_markdown_report(analysis: dict[str, Any], output_path: Path = OUTPUT_M
         lines.append(f"### {category}")
         lines.append("")
         for op_name, op_info in grouped[category][:10]:
-            sibling_text = f" | supported siblings: {', '.join(op_info['supported_siblings'])}" if op_info["supported_siblings"] else ""
+            sibling_text = (
+                f" | supported siblings: {', '.join(op_info['supported_siblings'])}"
+                if op_info["supported_siblings"]
+                else ""
+            )
             lines.append(f"- `{op_name}`: {op_info['summary']}{sibling_text}")
         lines.append("")
 

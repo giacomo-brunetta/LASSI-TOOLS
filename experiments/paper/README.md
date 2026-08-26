@@ -6,12 +6,11 @@ profile on the local harness, measures accelerator accuracy on that same profile
 times the `large` profile on CUDA and Groq. Input construction, Academy transport,
 PBS queueing, and MCP latency are outside the timed region.
 
-Every paper candidate is also screened against the restored compatibility wiki before it is
-finalized. Planner strategies identify expected `aten.*` operators, candidate agents query them
-with `lassi-x-compat-wiki`, and their summaries must report the query evidence. The Groq workflow
-then preserves the separate compiler and runtime outcome. This is a Torch-MLIR/TOSA preflight: a
-supported wiki entry narrows the risk but does not replace an actual GroqFlow compile and LPU
-measurement.
+Every paper candidate is also screened against an explicit target compatibility snapshot before
+it is finalized. Agents list published targets, select the closest exact Groq/compiler snapshot,
+query expected `aten.*` operators at FP16, and report both the target and evidence. A canonical
+operator compile narrows the risk but does not replace full-model GroqFlow compilation and LPU
+measurement. The restored Torch-MLIR/TOSA corpus remains available only as a labeled legacy target.
 
 Every generated configuration explicitly sets `memory.enabled: false`. This keeps the
 GPT-5.6 Sol and Claude Opus 5 trials independent: no agent recall is read or persisted
@@ -34,9 +33,47 @@ Generate or refresh the checked-in configs:
 conda activate LASSI
 pip install -e '.[globus]'
 lassi-x skills sync
-lassi-x-compat-wiki op aten.mm
+lassi-x-compat-wiki targets
+lassi-x-compat-wiki op aten.mm --target legacy-torch-mlir-tosa
 python experiments/paper/generate_configs.py
 ```
+
+### Generate a target compatibility wiki
+
+Generation is split so every compiler probe runs directly in its vendor environment. First build
+one canonical manifest from a Torch-MLIR checkout pinned to an exact commit:
+
+```bash
+lassi-x-compat prepare \
+  --torch-mlir-root /path/to/torch-mlir \
+  --revision <exact-git-sha> \
+  --output /tmp/lassi-compat-manifest.json
+```
+
+Copy that manifest to the target machine and run the appropriate checked-in target configuration:
+
+```bash
+lassi-x-compat probe \
+  --manifest /tmp/lassi-compat-manifest.json \
+  --target compat_tool/targets/a100-sami-inductor.yaml \
+  --run-dir compat-runs/a100 \
+  --resume
+```
+
+Use `groq-r01-groqflow.yaml` on the Groq node. Each operator/precision cell is isolated and
+checkpointed, so interrupted compiler sweeps resume safely. Back on the repository host, publish
+the normalized JSON snapshot and independent Markdown wiki:
+
+```bash
+lassi-x-compat publish \
+  --manifest /tmp/lassi-compat-manifest.json \
+  --results compat-runs/a100/results.json \
+  --output-root compat_tool
+```
+
+Publication writes partial diagnostics but exits nonzero until every included cell is either
+`compiled`, `compile_rejected`, or honestly `not_applicable` to a floating-point profile. Raw
+compiler logs and caches remain under ignored run directories.
 
 Preflight without spending model or accelerator time:
 

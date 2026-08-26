@@ -13,9 +13,11 @@ kernel:
     and return final rho. build_inputs(device, dtype, fixture=None, dataset='mini') must accept dataset='mini'
     with TSTEPS=20, N=16 and dataset='large' with TSTEPS=300, N=128. The same make_model()/forward implementation
     must support both profiles. Return live-out rho in the exact PolyBench print order. Because the paper
-    workflow includes Groq, inventory the expected aten operators and query the compatibility wiki with
-    lassi-x-compat-wiki before finalizing the module. Prefer Torch-MLIR/TOSA-supported formulations without
-    changing reference semantics; wiki support is a preflight signal, not proof of successful Groq compilation.
+    workflow includes Groq, run lassi-x-compat-wiki targets and select the closest exact Groq/compiler
+    snapshot. Inventory the expected aten operators and query that target at fp16 before finalizing the
+    module. Do not silently use an A100 or legacy snapshot. Prefer compiled formulations without changing
+    reference semantics; a canonical compile result is a preflight signal, not proof of successful model
+    compilation.
 oracle:
   build:
   - gcc

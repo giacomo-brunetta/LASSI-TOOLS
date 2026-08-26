@@ -9,10 +9,12 @@ import signal
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +69,7 @@ class BoundInvocation:
             def forward(self, *tensor_args: Any) -> Any:
                 tensor_iter = iter(tensor_args)
                 full_args: list[Any] = []
-                for kind, constant in zip(positional_kinds, positional_constants):
+                for kind, constant in zip(positional_kinds, positional_constants, strict=True):
                     if kind == "tensor":
                         full_args.append(next(tensor_iter))
                     elif kind == "tensor_list":
@@ -115,7 +117,9 @@ def _build_arg_list(op_name: str) -> list[str]:
         return ["x"]
     if any(token in op_name for token in ("softmax", "log_softmax", "sum", "mean", "amax", "amin")):
         return ["x", "dim"]
-    if any(token in op_name for token in ("add", "sub", "mul", "div", "maximum", "minimum", "atan2")):
+    if any(
+        token in op_name for token in ("add", "sub", "mul", "div", "maximum", "minimum", "atan2")
+    ):
         return ["x", "y"]
     if any(token in op_name for token in ("matmul", "mm", "bmm")):
         return ["x", "y"]
@@ -134,7 +138,7 @@ def _base_name(op_name: str) -> str:
 
 def load_all_ops(path: str | Path = DEFAULT_ALL_OPS_PATH) -> dict[str, Any]:
     """Load parsed op metadata from disk."""
-    return load_json(path, default={})
+    return cast("dict[str, Any]", load_json(path, default={}))
 
 
 def resolve_torch_operator(op_name: str) -> Any:
@@ -192,7 +196,9 @@ def generate_test_function(op_name: str) -> str:
     return "\n".join(body) + "\n"
 
 
-def _make_tensor(shape: tuple[int, ...], *, dtype: torch.dtype, mode: str = "default") -> torch.Tensor:
+def _make_tensor(
+    shape: tuple[int, ...], *, dtype: torch.dtype, mode: str = "default"
+) -> torch.Tensor:
     """Create a tensor for a specific dtype and value-domain mode."""
     if dtype in (torch.int32, torch.int64, torch.int16, torch.int8, torch.uint8, torch.bool):
         if mode == "probability_[0,1]":
@@ -224,13 +230,18 @@ def _make_tensor(shape: tuple[int, ...], *, dtype: torch.dtype, mode: str = "def
     return torch.randn(shape, dtype=dtype)
 
 
-def _preferred_tensor_dtype(op_name: str, arg_name: str, arg_type: str, requested_dtype: torch.dtype) -> torch.dtype:
+def _preferred_tensor_dtype(
+    op_name: str, arg_name: str, arg_type: str, requested_dtype: torch.dtype
+) -> torch.dtype:
     """Return a more appropriate tensor dtype for families with specific requirements."""
     lowered_name = op_name.lower()
     lowered_arg = arg_name.lower()
     if any(token in lowered_name for token in ("bitwise_", "bincount", "bucketize")):
         return torch.int64
-    if any(token in lowered_name for token in ("index.", "index_put", "index_select", "gather", "narrow.tensor")) and lowered_arg in (
+    if any(
+        token in lowered_name
+        for token in ("index.", "index_put", "index_select", "gather", "narrow.tensor")
+    ) and lowered_arg in (
         "index",
         "indices",
         "start",
@@ -317,7 +328,14 @@ def _shape_for_tensor_arg(op_name: str, arg_name: str, arg_index: int) -> tuple[
     if "batch_norm" in family:
         if lowered_arg == "input":
             return (2, 3, 4, 4)
-        if lowered_arg in ("weight", "bias", "running_mean", "running_var", "save_mean", "save_invstd"):
+        if lowered_arg in (
+            "weight",
+            "bias",
+            "running_mean",
+            "running_var",
+            "save_mean",
+            "save_invstd",
+        ):
             return (3,)
     if "group_norm" in family or "native_group_norm" in family:
         if lowered_arg in ("input", "grad_out"):
@@ -327,11 +345,19 @@ def _shape_for_tensor_arg(op_name: str, arg_name: str, arg_index: int) -> tuple[
     if "instance_norm" in family:
         if lowered_arg == "input":
             return (2, 3, 4, 4)
-        if lowered_arg in ("weight", "bias", "running_mean", "running_var", "save_mean", "save_var"):
+        if lowered_arg in (
+            "weight",
+            "bias",
+            "running_mean",
+            "running_var",
+            "save_mean",
+            "save_var",
+        ):
             return (3,)
-    if "layer_norm" in family or "native_layer_norm" in family or "rms_norm" in family:
-        if lowered_arg in ("weight", "bias"):
-            return (3,)
+    if (
+        "layer_norm" in family or "native_layer_norm" in family or "rms_norm" in family
+    ) and lowered_arg in ("weight", "bias"):
+        return (3,)
     if "channel_shuffle" in family:
         return (1, 4, 4, 4)
     if "pixel_shuffle" in family or "pixel_unshuffle" in family:
@@ -377,7 +403,16 @@ def _shape_for_tensor_arg(op_name: str, arg_name: str, arg_index: int) -> tuple[
             return (2, 3)
     if family == "aten.cross_entropy_loss" and lowered_arg == "weight":
         return (3,)
-    if family in {"aten.fill.Tensor", "aten.fill_.Tensor", "aten.masked_fill.Tensor", "aten.masked_fill_.Tensor"} and lowered_arg == "value":
+    if (
+        family
+        in {
+            "aten.fill.Tensor",
+            "aten.fill_.Tensor",
+            "aten.masked_fill.Tensor",
+            "aten.masked_fill_.Tensor",
+        }
+        and lowered_arg == "value"
+    ):
         return ()
     if family == "aten.diagonal_scatter" and lowered_arg == "src":
         return (2,)
@@ -394,7 +429,10 @@ def _shape_for_tensor_arg(op_name: str, arg_name: str, arg_index: int) -> tuple[
         return (2,)
     if family == "aten.narrow.Tensor" and lowered_arg == "start":
         return ()
-    if family == "aten.fake_quantize_per_tensor_affine.tensor_qparams" and lowered_arg in ("scale", "zero_point"):
+    if family == "aten.fake_quantize_per_tensor_affine.tensor_qparams" and lowered_arg in (
+        "scale",
+        "zero_point",
+    ):
         return ()
     if "bucketize" in family and lowered_arg == "boundaries":
         return (4,)
@@ -462,7 +500,16 @@ def _make_tensor_arg(
         return torch.randint(0, 3, shape, dtype=torch.int64)
     if "cosine_embedding_loss" in family and lowered_arg == "target":
         return torch.randint(0, 2, shape, dtype=torch.int64) * 2 - 1
-    if family in {"aten.fill.Tensor", "aten.fill_.Tensor", "aten.masked_fill.Tensor", "aten.masked_fill_.Tensor"} and lowered_arg == "value":
+    if (
+        family
+        in {
+            "aten.fill.Tensor",
+            "aten.fill_.Tensor",
+            "aten.masked_fill.Tensor",
+            "aten.masked_fill_.Tensor",
+        }
+        and lowered_arg == "value"
+    ):
         return torch.tensor(1.0, dtype=torch.float32)
     if family == "aten.gather" and lowered_arg == "index":
         return torch.tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.int64)
@@ -470,7 +517,11 @@ def _make_tensor_arg(
         return torch.tensor([0, 1], dtype=torch.int64)
     if family == "aten.narrow.Tensor" and lowered_arg == "start":
         return torch.tensor(0, dtype=torch.int64)
-    if family in {"aten.index.Tensor_hacked_twin", "aten.index_put.hacked_twin", "aten.index_put_.hacked_twin"} and lowered_arg.startswith("indices_"):
+    if family in {
+        "aten.index.Tensor_hacked_twin",
+        "aten.index_put.hacked_twin",
+        "aten.index_put_.hacked_twin",
+    } and lowered_arg.startswith("indices_"):
         return torch.tensor([0, 1], dtype=torch.int64)
     if family == "aten.fake_quantize_per_tensor_affine.tensor_qparams":
         if lowered_arg == "scale":
@@ -490,7 +541,9 @@ def _make_tensor_arg(
     return tensor
 
 
-def _constant_from_type(op_name: str, arg_name: str, arg_type: str, requested_dtype: torch.dtype) -> Any:
+def _constant_from_type(
+    op_name: str, arg_name: str, arg_type: str, requested_dtype: torch.dtype
+) -> Any:
     """Generate a constant argument for non-tensor schema entries."""
     lowered_type = arg_type.lower()
     lowered_name = arg_name.lower()
@@ -647,7 +700,11 @@ def _constant_from_type(op_name: str, arg_name: str, arg_type: str, requested_dt
     if lowered_name == "quant_max":
         return 255
 
-    if "list[int]" in lowered_type or "optional[list[int]]" in lowered_type or "int[]" in lowered_type:
+    if (
+        "list[int]" in lowered_type
+        or "optional[list[int]]" in lowered_type
+        or "int[]" in lowered_type
+    ):
         if "1d" in family:
             return [1]
         if "2d" in family:
@@ -734,7 +791,7 @@ def get_example_inputs(
     return (x,)
 
 
-def build_test_callable(op_name: str):
+def build_test_callable(op_name: str) -> Any:
     """Compile and return the generated heuristic test function for an op."""
     source = generate_test_function(op_name)
     namespace: dict[str, Any] = {"__name__": "compat_tool.generated_tests"}
@@ -828,9 +885,16 @@ def build_bound_invocation(
                 left = torch.randn((2, 4), dtype=torch.float32)
                 right = torch.randn((4, 3), dtype=torch.float32)
             else:
-                left = _make_tensor_arg(op_name, f"{arg_name}_0", arg_type, index, tensor_dtype, tensor_mode)
-                right = _make_tensor_arg(op_name, f"{arg_name}_1", arg_type, index + 1, tensor_dtype, tensor_mode)
-            tensor_specs.append(f"{arg_name}: list[{tuple(left.shape)}, {tuple(right.shape)}]/{str(left.dtype).replace('torch.', '')}")
+                left = _make_tensor_arg(
+                    op_name, f"{arg_name}_0", arg_type, index, tensor_dtype, tensor_mode
+                )
+                right = _make_tensor_arg(
+                    op_name, f"{arg_name}_1", arg_type, index + 1, tensor_dtype, tensor_mode
+                )
+            left_dtype = str(left.dtype).replace("torch.", "")
+            tensor_specs.append(
+                f"{arg_name}: list[{tuple(left.shape)}, {tuple(right.shape)}]/{left_dtype}"
+            )
             if kwarg_only:
                 keyword_tensor_constants[arg_name] = [left, right]
             else:
@@ -851,7 +915,9 @@ def build_bound_invocation(
             if "optional" in lowered_type and (
                 (_base_name(op_name) == "aten.cross_entropy_loss" and arg_name == "weight")
                 or (_base_name(op_name) == "aten.bincount" and arg_name == "weights")
-                or (_base_name(op_name) == "aten.embedding_bag" and arg_name == "per_sample_weights")
+                or (
+                    _base_name(op_name) == "aten.embedding_bag" and arg_name == "per_sample_weights"
+                )
             ):
                 tensor_specs.append(f"{arg_name}: None")
                 if kwarg_only:
@@ -862,7 +928,10 @@ def build_bound_invocation(
                 continue
 
             tensor = _make_tensor_arg(op_name, arg_name, arg_type, index, tensor_dtype, tensor_mode)
-            tensor_specs.append(f"{arg_name}: shape={tuple(tensor.shape)} dtype={str(tensor.dtype).replace('torch.', '')}")
+            tensor_dtype_name = str(tensor.dtype).replace("torch.", "")
+            tensor_specs.append(
+                f"{arg_name}: shape={tuple(tensor.shape)} dtype={tensor_dtype_name}"
+            )
             if kwarg_only:
                 keyword_tensor_constants[arg_name] = tensor
             else:

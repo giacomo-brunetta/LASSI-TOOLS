@@ -59,7 +59,7 @@ include-package-data = false
 
 [tool.setuptools.package-data]
 lassi_x = ["resources/**/*"]
-compat_tool = ["data/*", "wiki/*"]
+compat_tool = ["README.md", "data/*", "pruning.yaml", "targets/*.yaml", "snapshots/**/*", "wiki/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

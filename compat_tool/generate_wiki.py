@@ -41,7 +41,10 @@ def generate_markdown(db: dict[str, dict[str, Any]], output_dir: str) -> None:
             for profile_name, attempt in sorted(attempts.items()):
                 attempt_status = "supported" if attempt.get("supported") else "unsupported"
                 attempt_error = attempt.get("error") or "None"
-                lines.append(f"- `{profile_name}`: {attempt_status}; dtype={attempt.get('dtype')}; error={attempt_error}")
+                dtype = attempt.get("dtype")
+                lines.append(
+                    f"- `{profile_name}`: {attempt_status}; dtype={dtype}; error={attempt_error}"
+                )
                 if attempt.get("input_spec"):
                     lines.append(f"  spec={attempt['input_spec']}")
                 if attempt.get("range_note"):

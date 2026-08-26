@@ -16,12 +16,16 @@ across disconnected submitter and worker hosts, and classify every terminal stat
 
 ## Workflow
 
-1. Before submission, inventory the candidate's expected `aten.*` operators. Query uncertain or
-   nontrivial operators with `lassi-x-compat-wiki op OPERATOR` and search supported alternatives
-   with `lassi-x-compat-wiki search PATTERN --supported`. If a TorchScript artifact is available,
-   run `lassi-x-compat validate MODEL_PATH` to check its discovered operator set.
-2. Treat an unsupported or unknown wiki result as a preflight failure requiring candidate repair.
-   Treat a supported result only as Torch-MLIR/TOSA evidence, not proof of GroqFlow compilation.
+1. Before submission, run `lassi-x-compat-wiki targets` and select the closest exact
+   Groq/compiler snapshot; never silently substitute A100 or legacy results. Inventory the
+   candidate's expected `aten.*` operators. Query uncertain or nontrivial operators with
+   `lassi-x-compat-wiki op OPERATOR --target TARGET --precision fp16` and search alternatives with
+   `lassi-x-compat-wiki search PATTERN --target TARGET --precision fp16 --supported`. If a
+   TorchScript artifact is available, run `lassi-x-compat validate MODEL_PATH` to check its
+   discovered operator set.
+2. Treat a rejected or unknown exact-target result as a preflight failure requiring candidate
+   repair. Treat a compiled canonical case only as operator-level evidence, not proof that the
+   complete model will compile, place, or execute.
 3. Submit the fully specified request with `lassi-x groq submit` or use the configured pipeline.
 4. Record the request ID, module hash, queried operators, compatibility results, precision roles,
    backend name, and submission time.
