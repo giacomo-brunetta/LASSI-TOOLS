@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +98,9 @@ def build_snapshot(manifest: dict[str, Any], probe: dict[str, Any]) -> dict[str,
         "source": manifest["source"],
         "manifest_hash": manifest["manifest_hash"],
         "target_hash": probe["target_hash"],
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": datetime.now(
+            timezone.utc  # noqa: UP017 -- supports Python 3.10 vendor stacks.
+        ).isoformat(),
         "provenance": probe.get("environment") or {},
         "operators": operators,
         "complete": missing_results == 0 and incomplete_results == 0,

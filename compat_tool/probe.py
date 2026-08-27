@@ -8,7 +8,7 @@ import json
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,9 +31,17 @@ def _worker_payload(command: list[str], timeout_s: float) -> tuple[dict[str, Any
     try:
         payload = json.loads(completed.stdout.strip().splitlines()[-1])
     except (IndexError, json.JSONDecodeError):
+        diagnostic = completed.stderr or completed.stdout
+        if completed.returncode == 0:
+            return {
+                "status": "compile_rejected",
+                "error": diagnostic[-4000:]
+                if diagnostic
+                else ("compiler frontend exited without returning a compiled model"),
+            }, completed.returncode
         return {
             "status": "compiler_crash",
-            "error": (completed.stderr or completed.stdout or "worker produced no JSON")[-4000:],
+            "error": (diagnostic or "worker produced no JSON")[-4000:],
         }, completed.returncode
     if not payload.get("ok"):
         return {
@@ -89,7 +97,7 @@ def run_probe(
         "target": {key: value for key, value in target.items() if key != "config_path"},
         "target_hash": target_hash,
         "manifest_hash": manifest["manifest_hash"],
-        "started_at": previous.get("started_at") or datetime.now(UTC).isoformat(),
+        "started_at": previous.get("started_at") or datetime.now(timezone.utc).isoformat(),  # noqa: UP017 -- supports Python 3.10.
         "environment": _metadata(target_path, float(target["timeout_s"])),
         "results": results,
     }
@@ -107,7 +115,9 @@ def run_probe(
         cells = cells[:limit]
 
     def persist() -> None:
-        header["updated_at"] = datetime.now(UTC).isoformat()
+        header["updated_at"] = datetime.now(
+            timezone.utc  # noqa: UP017 -- supports Python 3.10 vendor stacks.
+        ).isoformat()
         atomic_json(result_path, header)
 
     pending: list[tuple[str, str, str, list[str]]] = []

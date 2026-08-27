@@ -238,6 +238,36 @@
       }
     ]
   },
+  "aten.absolute": {
+    "args": [
+      {
+        "name": "self",
+        "type": "AnyTorchTensorType"
+      }
+    ],
+    "mlir_name": "torch.aten.absolute",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalTensorType"
+      }
+    ]
+  },
+  "aten.absolute_": {
+    "args": [
+      {
+        "name": "self",
+        "type": "Torch_NonValueTensorType"
+      }
+    ],
+    "mlir_name": "torch.aten.absolute_",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalNonValueTensorType"
+      }
+    ]
+  },
   "aten.acos": {
     "args": [
       {
@@ -627,6 +657,37 @@
       {
         "name": "result",
         "type": "AnyTorchOptionalNonValueTensorType"
+      }
+    ]
+  },
+  "aten.addbmm": {
+    "args": [
+      {
+        "name": "self",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "batch1",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "batch2",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "beta",
+        "type": "AnyTorchScalarType"
+      },
+      {
+        "name": "alpha",
+        "type": "AnyTorchScalarType"
+      }
+    ],
+    "mlir_name": "torch.aten.addbmm",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalTensorType"
       }
     ]
   },
@@ -1906,6 +1967,33 @@
       }
     ],
     "mlir_name": "torch.aten.bernoulli_.float",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalTensorType"
+      }
+    ]
+  },
+  "aten.bilinear": {
+    "args": [
+      {
+        "name": "input1",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "input2",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "weight",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "bias",
+        "type": "AnyTorchOptionalTensorType"
+      }
+    ],
+    "mlir_name": "torch.aten.bilinear",
     "returns": [
       {
         "name": "result",
@@ -3877,6 +3965,25 @@
       {
         "name": "result",
         "type": "Torch_DeviceType"
+      }
+    ]
+  },
+  "aten.diag": {
+    "args": [
+      {
+        "name": "self",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "diagonal",
+        "type": "Torch_IntType"
+      }
+    ],
+    "mlir_name": "torch.aten.diag",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalTensorType"
       }
     ]
   },
@@ -11628,6 +11735,25 @@
       }
     ]
   },
+  "aten.repeat_interleave.Tensor": {
+    "args": [
+      {
+        "name": "repeats",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "output_size",
+        "type": "AnyTorchOptionalIntType"
+      }
+    ],
+    "mlir_name": "torch.aten.repeat_interleave.Tensor",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalTensorType"
+      }
+    ]
+  },
   "aten.repeat_interleave.self_int": {
     "args": [
       {
@@ -13051,6 +13177,33 @@
       }
     ],
     "mlir_name": "torch.aten.softplus",
+    "returns": [
+      {
+        "name": "result",
+        "type": "AnyTorchOptionalTensorType"
+      }
+    ]
+  },
+  "aten.softplus_backward": {
+    "args": [
+      {
+        "name": "grad_output",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "self",
+        "type": "AnyTorchTensorType"
+      },
+      {
+        "name": "beta",
+        "type": "AnyTorchScalarType"
+      },
+      {
+        "name": "threshold",
+        "type": "AnyTorchScalarType"
+      }
+    ],
+    "mlir_name": "torch.aten.softplus_backward",
     "returns": [
       {
         "name": "result",

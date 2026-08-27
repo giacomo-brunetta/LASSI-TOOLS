@@ -10,16 +10,19 @@ import torch
 
 from compat_tool.checker_groq import GroqFlowChecker
 from compat_tool.checker_inductor import InductorChecker
+from compat_tool.fixtures import validate_recipe
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 from compat_tool.inventory import build_manifest, eligibility, prepare_from_checkout
 from compat_tool.io import atomic_json, load_json
-from compat_tool.probe import run_probe
+from compat_tool.probe import _worker_payload, run_probe
+from compat_tool.probe_worker import _probe
 from compat_tool.publish import build_snapshot, publish_snapshot
 from compat_tool.query_wiki import LEGACY_TARGET, list_targets, load_snapshot, search_target_ops
 from compat_tool.target import load_target
+from compat_tool.utils import resolve_torch_schema
 
 MM_META = {
     "mlir_name": "torch.aten.mm",
@@ -72,6 +75,38 @@ def test_manifest_distinguishes_invalid_fixture_from_compiler_support(
     assert case["validation"]["status"] == "needs_fixture"
     assert manifest["summary"]["needs_fixture"] == 1
     assert manifest["summary"]["not_applicable"] == 0
+
+
+def test_low_precision_cpu_gap_uses_fp32_only_for_contract_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class HalfUnsupported(torch.nn.Module):
+        def forward(self, value: torch.Tensor) -> torch.Tensor:
+            del value
+            raise RuntimeError("\"example_cpu\" not implemented for 'Half'")
+
+    class FloatSupported(torch.nn.Module):
+        def forward(self, value: torch.Tensor) -> torch.Tensor:
+            return value + 1
+
+    def fake_build_case(
+        op_name: str, op_meta: dict[str, Any], recipe: dict[str, Any]
+    ) -> tuple[torch.nn.Module, tuple[torch.Tensor, ...], str]:
+        del op_name, op_meta
+        dtype = getattr(torch, str(recipe["tensor_dtype"]))
+        module = HalfUnsupported() if dtype == torch.float16 else FloatSupported()
+        return module, (torch.ones(2, dtype=dtype),), f"value: dtype={dtype}"
+
+    monkeypatch.setattr("compat_tool.fixtures.build_case", fake_build_case)
+    validation = validate_recipe(
+        "aten.example",
+        {"args": [], "returns": []},
+        {"tensor_dtype": "float16", "seed": 0, "tensor_mode": "default"},
+    )
+
+    assert validation["status"] == "valid"
+    assert validation["effective_input_dtypes"] == ["float16"]
+    assert validation["validation_fallback_dtype"] == "float32"
 
 
 def test_intrinsically_integral_operator_is_not_mislabeled_as_fp32() -> None:
@@ -145,6 +180,52 @@ def test_probe_publish_and_query_target_snapshot(tmp_path: Path) -> None:
         supported=True,
         snapshot_dir=tmp_path / "published" / "snapshots",
     ) == ["aten.mm"]
+
+
+def test_vendor_frontend_system_exit_is_a_compile_rejection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = build_manifest(
+        {"aten.mm": MM_META},
+        source={"revision": "test"},
+        pruning=PRUNING,
+        precisions=["fp32"],
+    )
+
+    class ExitingChecker:
+        def __init__(self, target: dict[str, Any]) -> None:
+            del target
+
+        def compile(self, *args: object, **kwargs: object) -> dict[str, Any]:
+            del args, kwargs
+            raise SystemExit(0)
+
+    monkeypatch.setattr("compat_tool.probe_worker.checker_class", lambda target: ExitingChecker)
+    result = _probe(
+        {"target_id": "vendor-test"},
+        manifest,
+        "aten.mm",
+        "fp32",
+        "canonical",
+        tmp_path,
+    )
+
+    assert result["status"] == "compile_rejected"
+    assert result["error"] == "compiler frontend exited with status 0"
+
+
+def test_clean_vendor_exit_without_worker_json_is_a_compile_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed = subprocess.CompletedProcess(
+        args=["vendor-compiler"], returncode=0, stdout="", stderr="unsupported graph"
+    )
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: completed)
+
+    result, returncode = _worker_payload(["vendor-compiler"], 30)
+
+    assert returncode == 0
+    assert result == {"status": "compile_rejected", "error": "unsupported graph"}
 
 
 def test_snapshot_marks_missing_results_incomplete() -> None:
@@ -258,6 +339,18 @@ def test_inductor_checker_forces_one_compile_trigger(
     assert result["status"] == "compiled"
     assert result["compile_trigger"] == "one untimed invocation"
     assert calls == [{"backend": "inductor", "fullgraph": True, "dynamic": False}]
+
+
+def test_schema_resolution_supports_pytorch_21_default_overload() -> None:
+    schema = object()
+
+    class DefaultOverload:
+        _schema = schema
+
+    class LegacyOverloadPacket:
+        default = DefaultOverload()
+
+    assert resolve_torch_schema("aten.mm", LegacyOverloadPacket()) is schema
 
 
 def test_groq_checker_stops_after_groqit_returns(

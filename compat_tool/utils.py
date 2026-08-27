@@ -161,6 +161,13 @@ def resolve_torch_schema(op_name: str, operator: Any | None = None) -> Any:
         if "" in schemas:
             return schemas[""]
         return next(iter(schemas.values()))
+    # PyTorch 2.1 does not expose ``_schemas`` on an OpOverloadPacket. Its
+    # unqualified/default schema is available only on the ``default``
+    # OpOverload, while newer releases expose packet-level schema metadata.
+    default_overload = getattr(operator, "default", None)
+    default_schema = getattr(default_overload, "_schema", None)
+    if default_schema is not None:
+        return default_schema
     raise ValueError(f"Could not resolve schema for {op_name}")
 
 

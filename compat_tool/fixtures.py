@@ -90,17 +90,51 @@ def validate_recipe(
                 f"fixture does not exercise requested dtype {requested_dtype}; "
                 f"effective floating dtypes are {sorted(floating_dtypes)}"
             )
-        with torch.no_grad():
-            output = module(*inputs)
+        validation_fallback_dtype: str | None = None
+        try:
+            with torch.no_grad():
+                output = module(*inputs)
+        except RuntimeError as error:
+            # Older CPU-only PyTorch builds used by vendor compiler stacks may
+            # be unable to execute otherwise valid fp16/bf16 operators eagerly.
+            # Validate the argument contract in fp32 in that narrow case; the
+            # target worker still reconstructs and compiles the requested recipe.
+            low_precision_markers = (
+                "not implemented for 'Half'",
+                'not implemented for "Half"',
+                "not implemented for 'BFloat16'",
+                'not implemented for "BFloat16"',
+            )
+            if requested_dtype not in {"float16", "bfloat16"} or not any(
+                marker in str(error) for marker in low_precision_markers
+            ):
+                raise
+            fallback_recipe = dict(recipe)
+            fallback_recipe["tensor_dtype"] = "float32"
+            fallback_module, fallback_inputs, _ = build_case(op_name, op_meta, fallback_recipe)
+            with torch.no_grad():
+                output = fallback_module(*fallback_inputs)
+            validation_fallback_dtype = "float32"
         leaves = output if isinstance(output, (tuple, list)) else (output,)
         if not leaves or not any(isinstance(value, torch.Tensor) for value in leaves):
             raise TypeError("canonical invocation did not return a tensor")
-        return {
+        result = {
             "status": "valid",
             "input_spec": input_spec,
             "error": None,
             "effective_input_dtypes": sorted(floating_dtypes),
         }
+        if validation_fallback_dtype is not None:
+            result.update(
+                {
+                    "validation_fallback_dtype": validation_fallback_dtype,
+                    "validation_note": (
+                        "Requested low-precision eager execution is unavailable in this "
+                        "CPU PyTorch build; fp32 was used only to validate the input contract."
+                    ),
+                }
+            )
+        return result
     except Exception as error:
         return {
             "status": "needs_fixture",

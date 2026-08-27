@@ -84,6 +84,18 @@ def _probe(
             "duration_s": time.monotonic() - started,
             "cache_key": case_hash,
         }
+    except SystemExit as error:
+        # Some vendor compiler frontends report an unsupported graph by
+        # terminating the Python process, occasionally even with exit code 0.
+        # The checker did not return a compiled model, so preserve that as a
+        # normal, terminal compile rejection instead of losing the worker JSON.
+        return {
+            "status": "compile_rejected",
+            "error": f"compiler frontend exited with status {error.code!r}",
+            "input_spec": input_spec,
+            "duration_s": time.monotonic() - started,
+            "cache_key": case_hash,
+        }
     except Exception as error:
         return {
             "status": "compile_rejected",
