@@ -1,0 +1,15 @@
+# aten.full_like
+
+- Target: `graphcore-pod64-poptorch`
+- Family: `ipu`
+- Compiler: `poptorch`
+- Inventory revision: `874f3a4e3cf90f54a92fe2bc1e6b8e4a5b5a1d58`
+
+## Canonical compile cases
+
+| Precision | Status | Input | Diagnostic |
+|---|---|---|---|
+| `fp16` / `canonical` | `compiled` | self: shape=(2, 3) dtype=float16; fill_value: 1.0; dtype: torch.float32; layout: None; device: 'cpu'; pin_memory: False; memory_format: 0 | — |
+| `fp32` / `canonical` | `compiled` | self: shape=(2, 3) dtype=float32; fill_value: 1.0; dtype: torch.float32; layout: None; device: 'cpu'; pin_memory: False; memory_format: 0 | — |
+
+> `compiled` applies only to the named case, precision, target, and compiler snapshot. It is not a runtime-correctness or performance result.

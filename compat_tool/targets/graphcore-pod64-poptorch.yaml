@@ -1,0 +1,10 @@
+schema_version: 1
+target_id: graphcore-pod64-poptorch
+family: ipu
+description: Graphcore Bow IPU compiled by PopTorch 3.3
+checker: compat_tool.checker_poptorch:PopTorchChecker
+precisions: [fp16, fp32]
+timeout_s: 900
+max_workers: 1
+options:
+  cache_dir: /home/gbrun/.cache/lassi-x/poptorch-compat
