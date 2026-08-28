@@ -4,6 +4,22 @@ Compatibility is recorded per exact compiler target and declared floating-point 
 `compiled` result means only that the target checker compiled the named canonical operator case;
 it is not a correctness, performance, or arbitrary-shape guarantee.
 
+## Published Groq result
+
+The `groq-r01-groqflow` sweep measured GroqFlow 4.3.1 and PyTorch 2.1.0 against
+Torch-MLIR inventory revision `874f3a4e3cf90f54a92fe2bc1e6b8e4a5b5a1d58`:
+
+- 200 of 356 runnable canonical cases compiled (56.18%).
+- 156 runnable cases were rejected by the compiler.
+- 70 cases need a valid shared fixture and 11 are not applicable.
+- All 437 included operators have a recorded result; there were no timeouts, compiler crashes,
+  missing results, or environment errors.
+
+The target declares the manifest precision as `fp16`, but its checker converts floating inputs to
+`float32` before GroqFlow tracing. Treat this snapshot as float32 trace evidence, not native FP16
+compiler evidence. See the [machine-readable snapshot](snapshots/groq-r01-groqflow/snapshot.json)
+and [per-operator wiki](wiki/groq-r01-groqflow/).
+
 ## Workflow
 
 Prepare a canonical manifest from an exact Torch-MLIR checkout:
