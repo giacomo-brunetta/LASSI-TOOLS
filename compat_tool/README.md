@@ -4,6 +4,26 @@ Compatibility is recorded per exact compiler target and declared floating-point 
 `compiled` result means only that the target checker compiled the named canonical operator case;
 it is not a correctness, performance, or arbitrary-shape guarantee.
 
+## Published Cerebras CS-3 result
+
+The `alcf-cs3-cerebras-pytorch` sweep measured Cerebras PyTorch 2.10.0 and PyTorch
+2.4.0+cpu against Torch-MLIR inventory revision
+`874f3a4e3cf90f54a92fe2bc1e6b8e4a5b5a1d58`:
+
+- 234 of 356 runnable FP16 canonical cases compiled (65.73%).
+- 122 runnable cases were rejected by the compiler.
+- 70 cases need a valid shared fixture and 11 are not applicable.
+- All 437 included operators have a recorded result; there were no timeouts, compiler crashes,
+  missing results, or environment errors.
+- All 27 cases whose first rejection reported gRPC `UNAVAILABLE` were retried; every rejection
+  reproduced and no case was promoted to compiled.
+
+The checker used CSX `compile_only=True`, precision optimization level 1, one CSX, and one traced
+data step. No wafer execution or runtime-correctness measurement was requested. The snapshot is
+partial only because `needs_fixture` is not a terminal compatibility result. See the
+[machine-readable snapshot](snapshots/alcf-cs3-cerebras-pytorch/snapshot.json) and
+[per-operator wiki](wiki/alcf-cs3-cerebras-pytorch/).
+
 ## Published Groq result
 
 The `groq-r01-groqflow` sweep measured GroqFlow 4.3.1 and PyTorch 2.1.0 against
@@ -46,7 +66,8 @@ lassi-x-compat probe \
   --resume
 ```
 
-Use `groq-r01-groqflow.yaml` inside the GroqFlow environment. `--op aten.mm` and `--limit N`
+Use `groq-r01-groqflow.yaml` inside the GroqFlow environment or
+`alcf-cs3-cerebras-pytorch.yaml` on an ALCF Cerebras user node. `--op aten.mm` and `--limit N`
 provide bounded smoke runs. Every compiler call runs in a subprocess and is checkpointed in
 `results.json`; `--resume` reuses only terminal cells whose manifest, fixture, target, and checker
 identity still match.
