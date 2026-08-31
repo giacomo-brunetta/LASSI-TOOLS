@@ -23,10 +23,9 @@ repair the root cause with the smallest coherent change.
 3. Form one testable hypothesis:
    - Compile/import: module structure, imports, syntax, or required callable.
    - Runtime: device, dtype, argument, operator, or mutation failure.
-   - Groq compatibility: identify the failing `aten.*` operator from compiler evidence, run
-     `lassi-x-compat-wiki targets`, select the exact Groq/compiler snapshot, query it with
-     `lassi-x-compat-wiki op OPERATOR --target TARGET --precision fp16`, and search with
-     `lassi-x-compat-wiki search PATTERN --target TARGET --precision fp16 --supported`.
+   - Accelerator compatibility: load `lassi-x-accelerator-compatibility`, identify the failing
+     `aten.*` operator from compiler evidence, select the exact Graphcore, CS-3, or Groq target,
+     query its wiki, and search for a compiled formulation with the same semantics.
    - Shape: live outputs, dimensions, layout, tuple order, or canonical flattening.
    - Numerical: initialization, integer expressions, loop bounds, indexing, update order,
      boundary behavior, reductions, broadcasting, aliasing, or dtype conversion.
@@ -49,5 +48,5 @@ and scientific gates to pass. A smaller error that still fails tolerance is not 
 - Never read or embed oracle output, return constants, or special-case validation inputs.
 - Never add compensation to hide an FP64 semantic error.
 - Never replace an unsupported operator with a merely similar operation; preserve the reference
-  semantics and rerun the full FP64 gate before another Groq attempt.
+  semantics and rerun the full FP64 gate before another target-compiler attempt.
 - Never rewrite unrelated files or claim a validation command that was not executed.

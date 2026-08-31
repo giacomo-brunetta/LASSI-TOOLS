@@ -45,6 +45,8 @@ def test_system_prompts_define_concrete_roles_without_project_branding() -> None
     assert "original C/C++ source is the semantic authority" in arena.CANDIDATE_SYSTEM
     assert "compatibility wiki" in arena.PLANNER_SYSTEM
     assert "lassi-x-compat-wiki" in arena.CANDIDATE_SYSTEM
+    assert "lassi-x-accelerator-compatibility" in arena.PLANNER_SYSTEM
+    assert "lassi-x-accelerator-compatibility" in arena.CANDIDATE_SYSTEM
     assert "LASSI-X" not in arena.PLANNER_SYSTEM
     assert "LASSI-X" not in arena.CANDIDATE_SYSTEM
 
@@ -69,6 +71,7 @@ def test_groq_generation_prompt_requires_compatibility_preflight(tmp_path: Path)
     assert "lassi-x-compat-wiki targets" in prompt
     assert "lassi-x-compat-wiki op OPERATOR" in prompt
     assert "--target TARGET --precision fp16" in prompt
+    assert "lassi-x-accelerator-compatibility" in prompt
 
 
 def test_non_groq_generation_prompt_omits_compatibility_preflight(tmp_path: Path) -> None:
@@ -195,6 +198,40 @@ def test_planner_may_return_fewer_strategies_than_requested(
     assert len(strategies) == 1
     assert len(record["attempts"]) == 1
     assert "parse_error" not in record["attempts"][0]
+
+
+class GroqAwarePlannerSession(FakeHermesSession):
+    async def send(self, prompt: str) -> HermesTurn:
+        self.turn += 1
+        assert "lassi-x-accelerator-compatibility" in prompt
+        assert "groq-r01-groqflow" in prompt
+        assert "coder to query" in prompt
+        return HermesTurn('[{"name":"portable","plan":"use the shared compiled core"}]', Usage())
+
+
+def test_groq_planner_receives_family_evidence_routing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = minimal_config(tmp_path)
+    data["arena"] = {"candidates": 1}
+    data["models"]["candidates"] = data["models"]["candidates"][:1]
+    data["measure"]["backends"].append(
+        {
+            "type": "groq",
+            "name": "groq",
+            "queue_dir": str(tmp_path / "queue"),
+            "precisions": ["fp16"],
+        }
+    )
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+    config = RunConfig.load(config_path)
+    monkeypatch.setattr(arena, "HermesSession", GroqAwarePlannerSession)
+
+    strategies, _ = asyncio.run(arena.plan_strategies(config, tmp_path))
+
+    assert strategies == ["portable\nuse the shared compiled core"]
 
 
 def test_arena_generates_three_and_repairs_failures(

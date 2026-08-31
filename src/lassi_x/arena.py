@@ -36,11 +36,11 @@ Planning responsibilities:
   Renaming variables or making cosmetic syntax changes does not create a distinct strategy.
 - Keep every strategy feasible under the supplied module contract and suitable for later
   FP16/BF16 measurement, while making FP64 semantic correctness the first priority.
-- Treat target-compiler compatibility as a design constraint whenever a Groq backend is
-  configured. List the published compatibility wiki targets, select the closest exact Groq/compiler
-  snapshot, and prefer operator structures covered there. Require the implementer to query
-  uncertain operators before committing to a strategy. Snapshot support is a necessary preflight
-  signal, not a guarantee that another GroqFlow version or placement will pass.
+- Treat target-compiler compatibility as a design constraint whenever Graphcore PopTorch,
+  Cerebras CS-3, or GroqFlow is an intended target. Use published family and overlap evidence to
+  compare operator structures, and require the implementer to query exact uncertain operators.
+  Snapshot support is a preflight signal, not a guarantee that a different compiler version,
+  complete graph, placement, or execution will pass.
 - Identify the important correctness risks and the concrete checks an implementer should
   perform. Do not invent missing facts; state conservative assumptions in the plan.
 
@@ -61,9 +61,10 @@ Vectorization requirement (hard):
   a scalar-loop strategy to reach the requested count.
 
 Tool and scope rules:
-- Consult the lassi-x-machine-info and lassi-x-translate-kernel skills when useful. For a Groq
-  run, use the compatibility-wiki procedure in lassi-x-translate-kernel as a required design
-  review and include expected `aten.*` operators and alternatives in each strategy.
+- Consult lassi-x-machine-info and lassi-x-translate-kernel when useful. For an accelerator
+  target, load lassi-x-accelerator-compatibility as a required compatibility wiki design review.
+  Use its family-level evidence in the plan and leave exact function claims as explicit coder
+  wiki-query obligations.
 - You are an architect, not the implementer: do not create, edit, or delete files.
 - Follow the requested JSON schema exactly. Return JSON only, with no Markdown fences,
   commentary, preamble, or trailing explanation."""
@@ -87,11 +88,11 @@ Engineering responsibilities:
   outputs, generated datasets, MLIR, reports, or unrelated helper files.
 - Compile-check the target before reporting completion. Describe what you implemented briefly
   and accurately; do not claim validation that you did not run.
-- When the run includes Groq, run `lassi-x-compat-wiki targets`, select and report the closest
-  exact Groq/compiler snapshot, inventory the candidate's expected `aten.*` operators, and query
-  each uncertain operator for the intended precision. Replace rejected operators with a
-  semantically faithful compiled formulation before finalizing the candidate. Do not infer Groq
-  support merely because an operation runs on CUDA or in a different target snapshot.
+- When Graphcore PopTorch, Cerebras CS-3, or GroqFlow is a target, load
+  lassi-x-accelerator-compatibility, select and report the exact compiler snapshot, inventory the
+  candidate's expected `aten.*` operators, and query each uncertain operator for the intended
+  precision with lassi-x-compat-wiki. Replace rejected operators only with a semantically faithful
+  compiled formulation. Do not infer support from another backend or target snapshot.
 
 Vectorization requirement (hard):
 - The module you write is measured at a performance dataset size far larger than the
@@ -119,7 +120,8 @@ Repair responsibilities:
 - Never weaken tolerances, bypass validation, read or embed oracle output, return constants, or
   add low-precision compensation to conceal an FP64 semantic error.
 
-Use lassi-x-translate-kernel for initial generation, including its compatibility-wiki workflow.
+Use lassi-x-translate-kernel for initial generation. When an accelerator is targeted, also use
+lassi-x-accelerator-compatibility and its exact-wiki workflow.
 During corrections, use lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate.
 
 Workspace access:
@@ -285,6 +287,16 @@ async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str]
 
     """
     count = config.arena.candidates
+    compatibility_context = ""
+    if any(backend.type == "groq" for backend in config.measure.backends):
+        compatibility_context = """
+Accelerator compatibility context:
+- This run targets GroqFlow. Load `lassi-x-accelerator-compatibility` before designing strategies.
+- Use its published family and portable-core evidence to compare operator structures. Do not make
+  exact function-support claims because the planner has no terminal query access.
+- In every strategy, list expected nontrivial `aten.*` operators and require the coder to query
+  them against `groq-r01-groqflow` before finalizing the implementation.
+"""
     prompt = f"""Create up to {count} materially distinct PyTorch translation strategies.
 
 Kernel: {config.kernel.name}
@@ -295,6 +307,7 @@ Every strategy must preserve initialization, operation semantics, output orderin
 the build_inputs(device, dtype, dataset) / make_model() module contract. Each strategy
 must support validation dataset `{config.kernel.validation_dataset}` and performance
 dataset `{config.measure.performance_dataset}` in one dimension-flexible module.
+{compatibility_context}
 
 Return {count} strategies if this kernel admits {count} genuinely distinct vectorized
 formulations. If it does not, return fewer -- a shorter array is a valid answer. Do not
@@ -436,6 +449,8 @@ def _generation_prompt(
         compatibility_requirement = """
 Groq compatibility preflight (required):
 - This run measures the candidate through GroqFlow compilation and Groq hardware execution.
+- Load `lassi-x-accelerator-compatibility` and use its family-level evidence to review the assigned
+  operator structure before making exact wiki queries.
 - Before finalizing candidate.py, run `lassi-x-compat-wiki targets` and select the closest exact
   Groq/compiler snapshot. Do not silently use an A100 or legacy snapshot when an exact Groq target
   is unavailable.

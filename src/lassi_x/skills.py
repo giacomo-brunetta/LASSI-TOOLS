@@ -13,6 +13,7 @@ from . import __version__
 from .artifacts import atomic_write
 
 SKILL_NAMES = (
+    "lassi-x-accelerator-compatibility",
     "lassi-x-translate-kernel",
     "lassi-x-repair-candidate",
     "lassi-x-compare-outputs",
@@ -28,6 +29,7 @@ SKILL_NAMES = (
 )
 
 AUTOMATION_SKILLS = (
+    "lassi-x-accelerator-compatibility",
     "lassi-x-translate-kernel",
     "lassi-x-repair-candidate",
     "lassi-x-compare-outputs",

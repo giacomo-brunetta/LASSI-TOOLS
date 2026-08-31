@@ -240,10 +240,15 @@ is not populated by Torch/Academy measurements.
 
 ## Hermes skills
 
-Twelve focused skills ship with the package. They wrap deterministic `lassi-x`
+Thirteen focused skills ship with the package. They wrap deterministic `lassi-x`
 commands and are installed only into the LASSI-X subtree of the selected Hermes home.
 Use `lassi-x skills sync` after upgrades and `lassi-x skills uninstall` to remove only
 manifest-owned files.
+
+`lassi-x-accelerator-compatibility` gives planners family-level Graphcore, Cerebras CS-3,
+and GroqFlow coverage and portable-core evidence. Candidate coders use the same skill to route
+function-level decisions to the exact target compatibility wiki instead of copying the catalog
+into agent instructions.
 
 ## Useful commands
 
@@ -286,3 +291,10 @@ The former LASSI-TOOLS MINI 3mm arena has a dedicated reproduction under
 [`examples/polybench-3mm`](examples/polybench-3mm). It preserves the three
 candidates and two repair turns, uses a high-fidelity serialization of the
 original C FP64 oracle, and measures CPU and CUDA low-precision error.
+
+## Groq mutual-information kernel
+
+[`examples/mutual-information-groq`](examples/mutual-information-groq) contains a
+wiki-guided Shannon mutual-information kernel for a static `256 x 256` joint
+distribution. The complete graph was compiled and executed on Groq hardware;
+the example includes its FP64 numerical checks and SDK latency record.

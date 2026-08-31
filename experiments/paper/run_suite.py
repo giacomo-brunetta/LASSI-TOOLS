@@ -319,7 +319,7 @@ def main() -> int:
 
     # The execution doctor above covers the one shared resource topology, but each
     # model has its own endpoint and identifier. Probe them all before launching a
-    # block of ten kernels at a model that cannot answer.
+    # block of kernels at a model that cannot answer.
     blocked: dict[str, dict[str, Any]] = {}
     if not args.skip_model_preflight and not args.dry_run:
         verdicts = _preflight_models(model_order, kernel_order[0], args.run_timeout_s)

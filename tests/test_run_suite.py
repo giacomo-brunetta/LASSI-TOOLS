@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+import yaml
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -27,6 +28,7 @@ def _load_run_suite() -> ModuleType:
 
 
 run_suite = _load_run_suite()
+generate_configs = sys.modules["generate_configs"]
 
 
 @pytest.mark.parametrize(
@@ -107,3 +109,25 @@ def test_parser_rejects_a_negative_breaker_limit(monkeypatch: pytest.MonkeyPatch
 def test_breaker_defaults_to_three(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["run_suite.py"])
     assert run_suite._arguments().max_consecutive_failures == 3
+
+
+def test_mutual_information_is_a_paper_kernel() -> None:
+    manifest = yaml.safe_load((EXPERIMENTS / "benchmarks.yaml").read_text())
+    kernel = next(item for item in manifest["kernels"] if item["id"] == "mutual-information")
+
+    assert kernel["mini"] == "N=32"
+    assert kernel["large"] == "N=256"
+    assert kernel["live_out"] == "mi"
+    assert (EXPERIMENTS.parents[1] / kernel["reference"]).is_file()
+    assert (EXPERIMENTS.parents[1] / kernel["header"]).is_file()
+
+
+def test_mutual_information_config_uses_versioned_source_and_polybench_utilities() -> None:
+    manifest = yaml.safe_load((EXPERIMENTS / "benchmarks.yaml").read_text())
+    kernel = next(item for item in manifest["kernels"] if item["id"] == "mutual-information")
+    config = generate_configs._config(kernel, manifest["models"][0])
+
+    assert config["project"]["root"] == "../../../.."
+    assert config["kernel"]["reference"] == kernel["reference"]
+    assert "../PolyBenchC-4.2.1/utilities/polybench.c" in config["oracle"]["build"]
+    assert config["measure"]["performance_dataset"] == "large"

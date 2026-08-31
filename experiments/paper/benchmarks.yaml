@@ -13,6 +13,11 @@ sources:
     title: LASSI scientific PolyBench-conformant additions
     repository: https://github.com/giacomo-brunetta/LASSI-TOOLS
     commit: 32f56a571e91572ca94d15017279a3af37d5b68c
+  mutual_information:
+    title: LASSI Shannon mutual-information baseline
+    repository: https://github.com/giacomo-brunetta/LASSI-TOOLS
+    revision: same revision as this manifest
+    path: examples/PolyBenchC-4.2.1/scientific/mutual-information
 models:
   - id: gpt-5.6-sol-xhigh
     # Argo's internal model ID is required for tool-call history replay.
@@ -103,3 +108,13 @@ kernels:
     large: TSTEPS=200, NP=8, N=512
     live_out: pos
     task: Reproduce the fixed-neighbor Lennard-Jones velocity-Verlet kernel and return final pos.
+  - id: mutual-information
+    family: scientific
+    project_root: ../../../..
+    utilities: ../PolyBenchC-4.2.1/utilities
+    reference: examples/PolyBenchC-4.2.1/scientific/mutual-information/mutual-information.c
+    header: examples/PolyBenchC-4.2.1/scientific/mutual-information/mutual-information.h
+    mini: N=32
+    large: N=256
+    live_out: mi
+    task: Compute Shannon mutual information in bits from the initialized joint probability matrix and return the one-element mi live-out.

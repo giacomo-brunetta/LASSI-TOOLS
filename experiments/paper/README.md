@@ -1,7 +1,7 @@
 # Paper benchmark suite
 
-This suite runs the six PolyBench kernels and four scientific kernels identified by the
-earlier LASSI breadth manifest. It validates FP64 semantic equivalence with the `mini`
+This suite runs six upstream PolyBench kernels and five LASSI scientific kernels. It
+validates FP64 semantic equivalence with the `mini`
 profile on the local harness, measures accelerator accuracy on that same profile, and
 times the `large` profile on CUDA and Groq. Input construction, Academy transport,
 PBS queueing, and MCP latency are outside the timed region.
@@ -24,6 +24,10 @@ using the exact public source snapshot
 The `scientific/` kernels are LASSI's PolyBench-conformant additions, not upstream
 PolyBench; their exact cited source is LASSI-TOOLS commit
 [`32f56a57`](https://github.com/giacomo-brunetta/LASSI-TOOLS/tree/32f56a571e91572ca94d15017279a3af37d5b68c/examples/PolyBenchC-4.2.1/scientific).
+The mutual-information baseline is versioned with this manifest under
+[`examples/PolyBenchC-4.2.1/scientific/mutual-information`](../../examples/PolyBenchC-4.2.1/scientific/mutual-information)
+and should be cited at the same LASSI-TOOLS revision as `benchmarks.yaml`. Its `large`
+profile is the `256 x 256` joint-probability problem used by the standalone Groq example.
 The complete paths, dimensions, live-outs, models, and source revisions are frozen in
 [`benchmarks.yaml`](benchmarks.yaml).
 

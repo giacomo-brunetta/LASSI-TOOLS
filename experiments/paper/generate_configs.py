@@ -349,6 +349,8 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
     reference = str(kernel["reference"])
     header = str(kernel["header"])
     include_dir = str(Path(reference).parent)
+    project_root = str(kernel.get("project_root", "../../../../../PolyBenchC-4.2.1"))
+    utilities = str(kernel.get("utilities", "utilities"))
     groq = _groq_enabled()
     # The oracle build/run and every agent tool call stay on the local harness;
     # only GPU timing moves. Keeping the reference compile in one place makes
@@ -377,7 +379,7 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
         backends.append(_groq_backend())
     return {
         "version": 1,
-        "project": {"root": "../../../../../PolyBenchC-4.2.1"},
+        "project": {"root": project_root},
         "kernel": {
             "name": str(kernel["id"]),
             "reference": reference,
@@ -394,8 +396,8 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
                 "-include",
                 "../LASSI-TOOLS/experiments/paper/oracle_precision.h",
                 "{reference}",
-                "utilities/polybench.c",
-                "-Iutilities",
+                f"{utilities}/polybench.c",
+                f"-I{utilities}",
                 f"-I{include_dir}",
                 "-lm",
                 "-o",
