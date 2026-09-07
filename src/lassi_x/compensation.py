@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import asyncio
+import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass, field
@@ -20,22 +22,24 @@ if TYPE_CHECKING:
 
     from .config import BackendConfig, RunConfig
     from .execution import ExecutionContext
+    from .measurement import Backend
 
 COMPENSATION_SYSTEM = """Role: senior numerical analyst specializing in low-precision
 scientific computing and compensated arithmetic.
 
-You own one already-correct PyTorch translation and must make a targeted FP16/BF16
-intervention for the named backend. Diagnose the observed error, choose a technique whose
-assumptions match the kernel and hardware, and implement a substantive change that improves
-low-precision behavior without changing the underlying algorithm.
+You own one already-correct PyTorch translation and must make a portable FP16/BF16
+intervention for all named backends. Diagnose the shared numerical failure, choose a technique
+whose assumptions hold across the declared capability intersection, and implement one substantive
+source change that improves low-precision behavior without changing the underlying algorithm.
 
 Engineering responsibilities:
-- Load and follow the lassi-x-fp16-compensate skill before selecting a technique.
+- Load and follow lassi-x-fp-error-diagnose and lassi-x-fp16-compensate before selecting a
+  technique. If elementary functions are implicated, also use lassi-x-elementary-function-audit.
 - Preserve the original C/C++ program's FP64 semantics and the module contract.
 - Ensure the intervention collapses to base behavior at FP32; compensation must not conceal an
   algorithmic translation error or create a different high-precision algorithm.
-- Respect declared backend capabilities. Never assume FP32 operations exist on a backend that
-  does not expose them.
+- Respect the intersection of declared backend capabilities. Never assume FP32 operations exist
+  merely because one backend exposes them.
 - Edit only the named target copy, byte-compile it, and report the technique honestly.
 
 Never weaken validators, change tolerances, read or embed oracle output, return constants, or
@@ -49,16 +53,29 @@ are workspace-relative. Call list_resources when choosing where to run commands.
 
 TECHNIQUE_SUMMARY = {
     "fp32-accumulate": "Accumulate low-precision reductions in FP32.",
+    "blocked-fp32": "Sum low-precision blocks and combine block totals in FP32.",
     "pairwise": "Tree reduction for backends lacking an optimized reduction.",
     "kahan": "Sequential compensated summation for manual reductions.",
     "neumaier": "Kahan-Neumaier summation for mixed magnitudes and signs.",
-    "double-word": "Two FP16 words for approximately FP32-grade manual sums.",
+    "double-word": "Two target-format words for a more accurate manual sum.",
     "double-word-fp32": "Two FP32 words for approximately FP64-grade manual sums.",
     "zero-center": "Store deviations from a known baseline.",
     "scaling": "Power-of-two scaling to avoid overflow and underflow.",
+    "equilibrate": "Scale matrix rows and columns to use the target range more evenly.",
     "mixed-refine": "Low-precision operator with high-precision residual/state correction.",
-    "stochastic-round": "Unbiased rounding for long-term drift control.",
+    "precision-ramp": "Increase precision as a convergent iteration approaches its solution.",
+    "residual-carry": "Carry discarded state updates forward as an explicit residual.",
+    "ozaki-split": "Split matrix operands into low-precision words and combine products.",
+    "stable-reformulation": "Use an algebraically equivalent, numerically stable formulation.",
+    "stochastic-round": "Mode-1 stochastic casts at explicit long-term drift points.",
 }
+
+
+def _workspace_slug(value: str) -> str:
+    clean = re.sub(r"[^A-Za-z0-9._-]", "-", value)
+    if len(clean) <= 64:
+        return clean
+    return f"{clean[:55]}-{hashlib.sha256(clean.encode()).hexdigest()[:8]}"
 
 
 @dataclass(slots=True)
@@ -68,7 +85,9 @@ class CompensationVariant:
     Attributes:
         candidate_id: Identifier of the base arena candidate.
         variant_id: Unique identifier for this compensated implementation.
-        backend: Measurement backend targeted by the compensation.
+        backend: Scope marker; portable variants use ``"portable"``.
+        target_backends: Backends whose weak measurements motivated the shared change.
+        guard_backends: Already-healthy backends on which the change must not regress.
         precision: Low precision whose error the variant attempts to reduce.
         technique: Selected compensation technique or provisional state.
         module_path: Path to the copied candidate module edited by the agent.
@@ -90,6 +109,9 @@ class CompensationVariant:
     diagnostics: list[Diagnostic] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
     turn_outcomes: list[dict[str, str | bool | int]] = field(default_factory=list)
+    target_measurements: list[Measurement] = field(default_factory=list)
+    target_backends: list[str] = field(default_factory=list)
+    guard_backends: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the variant to a JSON-serializable artifact record.
@@ -101,6 +123,9 @@ class CompensationVariant:
         data = asdict(self)
         data["module_path"] = str(self.module_path)
         data["status"] = self.status.value
+        data["target_measurements"] = [
+            measurement.to_dict() for measurement in self.target_measurements
+        ]
         return data
 
 
@@ -113,9 +138,10 @@ def select_weak_points(
 ) -> list[Measurement]:
     """Select low-precision measurements that merit agent compensation.
 
-    Unsupported, no-fit, and timed-out cells are excluded because source-level
-    numerical compensation cannot make those backends executable. Failed measurements
-    and successful points above the configured error threshold are weak. Domination is
+    Compiler/runtime crashes, unsupported, no-fit, and timed-out cells are excluded because
+    they belong to accelerator qualification rather than numerical compensation. Numerically
+    diverged measurements and successful points above the configured error threshold are weak.
+    Domination is
     scoped to the same candidate by default so a losing candidate is not compensated merely
     because a different candidate is better. Cross-candidate comparison remains available as
     an explicit exploratory policy. At most one point is returned per candidate/backend/cell.
@@ -124,7 +150,7 @@ def select_weak_points(
         measurements: Base-candidate measurements from all configured precision cells.
         error_threshold: Absolute cutoff applied to the measurement's selected error metric.
             ``None`` disables threshold selection while retaining failure and domination rules.
-        error_metric: Measurement attribute compared with ``error_threshold``.
+        error_metric: Measurement attribute used for both threshold and domination selection.
         comparison_scope: ``"same_candidate"`` or explicitly ``"cross_candidate"``.
 
     Returns:
@@ -134,12 +160,20 @@ def select_weak_points(
     low = [point for point in measurements if point.precision in {"fp16", "bf16"}]
     weak: list[Measurement] = []
     for point in low:
-        if point.status in {Status.UNSUPPORTED, Status.NO_FIT, Status.TIMEOUT}:
+        if point.status in {
+            Status.CRASHED,
+            Status.UNSUPPORTED,
+            Status.NO_FIT,
+            Status.TIMEOUT,
+        }:
             continue
         if point.status != Status.OK or point.latency_s is None or point.y_error is None:
             weak.append(point)
             continue
         selected_error = getattr(point, error_metric, None)
+        if selected_error is None:
+            weak.append(point)
+            continue
         if (
             error_threshold is not None
             and selected_error is not None
@@ -147,6 +181,7 @@ def select_weak_points(
         ):
             weak.append(point)
             continue
+        point_error = selected_error
         peers = [
             other
             for other in low
@@ -155,19 +190,19 @@ def select_weak_points(
             and (comparison_scope == "cross_candidate" or other.candidate_id == point.candidate_id)
             and other.status == Status.OK
             and other.latency_s is not None
-            and other.y_error is not None
+            and getattr(other, error_metric, None) is not None
             and other is not point
         ]
         dominated = False
         for other in peers:
             assert point.latency_s is not None
-            assert point.y_error is not None
             assert other.latency_s is not None
-            assert other.y_error is not None
+            other_error = getattr(other, error_metric)
+            assert other_error is not None
             if (
                 other.latency_s <= point.latency_s
-                and other.y_error <= point.y_error
-                and (other.latency_s < point.latency_s or other.y_error < point.y_error)
+                and other_error <= point_error
+                and (other.latency_s < point.latency_s or other_error < point_error)
             ):
                 dominated = True
                 break
@@ -178,6 +213,22 @@ def select_weak_points(
     for point in weak:
         unique.setdefault((point.candidate_id, point.backend, point.precision), point)
     return list(unique.values())
+
+
+def group_portable_weak_points(
+    measurements: list[Measurement],
+) -> list[list[Measurement]]:
+    """Group target observations that should share one numerical source variant.
+
+    Compatibility remains target-specific, but numerical changes are generated once per
+    candidate and low-precision family. Backend measurements in a group are all presented to
+    one persistent agent session and must all improve for the source variant to be promoted.
+    """
+
+    groups: dict[tuple[str, str], list[Measurement]] = {}
+    for point in measurements:
+        groups.setdefault((point.candidate_id, point.precision), []).append(point)
+    return [groups[key] for key in sorted(groups)]
 
 
 def _semantic_fingerprint(path: Path) -> str:
@@ -299,16 +350,19 @@ async def generate_compensation(
     run_dir: Path,
     execution: ExecutionContext,
     base: Candidate,
-    weak: Measurement,
-    backend: BackendConfig,
+    weak_points: list[Measurement],
+    backends: list[BackendConfig],
+    target_backends: dict[str, Backend] | None = None,
+    guard_points: list[Measurement] | None = None,
 ) -> CompensationVariant:
-    """Generate and validate compensation for one weak low-precision point.
+    """Generate one portable numerical variant for a candidate/precision family.
 
     The base module is copied into an isolated variant workspace before an agent chooses
     and implements one permitted technique. Every attempt is gated against both the
     authoritative C/C++ FP64 oracle and the requirement that compensation collapse to
-    base behavior at FP32. Validation failures are returned to the same persistent agent
-    session for bounded correction rounds.
+    base behavior at FP32. When target backends are available, every weak cell in the group
+    must improve. Validation failures are returned to the same persistent agent session for
+    bounded correction rounds.
 
     Args:
         config: Validated run configuration and compensation policy.
@@ -316,8 +370,10 @@ async def generate_compensation(
         run_dir: Root artifact directory for the current pipeline run.
         execution: Running execution context serving workspace tool calls.
         base: Semantically valid arena candidate to copy and compensate.
-        weak: Low-precision measurement motivating this variant.
-        backend: Backend whose numerical capabilities constrain the implementation.
+        weak_points: Same-candidate, same-precision observations motivating this variant.
+        backends: Backend capability declarations for every motivating observation.
+        target_backends: Runtime backends used for deterministic cross-platform feedback.
+        guard_points: Healthy same-family cells that must remain non-regressed.
 
     Returns:
         Compensation record containing the selected technique, status, diagnostics,
@@ -327,8 +383,34 @@ async def generate_compensation(
         OSError: If the variant workspace or initial candidate copy cannot be created.
 
     """
-    raw_slug = f"{base.candidate_id}-{backend.name}-{weak.precision}"
-    slug = re.sub(r"[^A-Za-z0-9._-]", "-", raw_slug)
+    if not weak_points:
+        raise ValueError("portable compensation requires at least one weak measurement")
+    precision = weak_points[0].precision
+    if any(
+        point.candidate_id != base.candidate_id or point.precision != precision
+        for point in weak_points
+    ):
+        raise ValueError("portable compensation groups must share candidate and precision")
+    guards = guard_points or []
+    observations = [*weak_points, *guards]
+    if any(
+        point.candidate_id != base.candidate_id or point.precision != precision for point in guards
+    ):
+        raise ValueError("portable compensation guards must share candidate and precision")
+    backend_by_name = {backend.name: backend for backend in backends}
+    missing_backends = sorted({point.backend for point in observations} - set(backend_by_name))
+    if missing_backends:
+        raise ValueError(
+            "portable compensation is missing backend declarations: " + ", ".join(missing_backends)
+        )
+    if target_backends is not None:
+        missing_runtime = sorted({point.backend for point in observations} - set(target_backends))
+        if missing_runtime:
+            raise ValueError(
+                "portable compensation is missing runtime backends: " + ", ".join(missing_runtime)
+            )
+    raw_slug = f"n-{base.candidate_id}-{precision}"
+    slug = _workspace_slug(raw_slug)
     mirror = execution.workspace_dir(slug)
     mirror.mkdir(parents=True, exist_ok=True)
     toolset = execution.register_workspace(slug)
@@ -345,33 +427,53 @@ async def generate_compensation(
     variant = CompensationVariant(
         candidate_id=base.candidate_id,
         variant_id=slug,
-        backend=backend.name,
-        precision=weak.precision,
+        backend="portable",
+        precision=precision,
         technique="pending",
         module_path=target,
+        target_backends=sorted({point.backend for point in weak_points}),
+        guard_backends=sorted({point.backend for point in guards}),
     )
     technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
-    prompt = f"""Compensate this weak low-precision point.
+    weak_ids = {id(point) for point in weak_points}
+    evidence = "\n".join(
+        (
+            f"- {'weak' if id(point) in weak_ids else 'healthy guard'} "
+            f"{point.backend}/{point.precision}: status={point.status.value}, "
+            f"{config.pareto_error_metric}={getattr(point, config.pareto_error_metric, None)}, "
+            f"max_abs={point.max_abs_error}, max_rel={point.max_rel_error}, "
+            f"relative_l2={point.relative_l2}, invariant={point.invariant_error}, "
+            f"notes={point.notes or 'none'}"
+        )
+        for point in observations
+    )
+    capabilities = "\n".join(
+        f"- {name}: {_backend_capabilities(backend_by_name[name])}"
+        for name in sorted({point.backend for point in observations})
+    )
+    prompt = f"""Create one portable correction for these weak low-precision observations.
 
 Workspace toolset: {toolset} (all paths below are workspace-relative)
 Target copy to edit: candidate.py (already contains the validated base translation)
-Backend: {backend.name}
-Backend capabilities: {_backend_capabilities(backend)}
-Target precision: {weak.precision}
-Observed status: {weak.status.value}
-Observed max relative error: {weak.max_rel_error}
-Observed relative L2 error: {weak.relative_l2}
-Observed notes: {weak.notes}
+Target precision family: {precision}
+Configured error objective: {config.pareto_error_metric}
+
+Observed target evidence:
+{evidence}
+
+Backend capability intersection (the change must respect every entry):
+{capabilities}
 
 Allowed techniques:
 {technique_text}
 
-Choose one primary technique suited to the failure and backend. Edit the target copy.
+Choose one primary technique suited to the shared failure and portable across these backends.
+Edit the target copy. Do not add target-name conditionals or platform-specific operator rewrites.
 Import reusable arithmetic from lassi_x.precision where applicable. Update the module's
 LASSI_PRECISION metadata honestly. High-precision behavior must remain equivalent to the
 original C/C++ reference and the compensation must collapse to the base behavior at FP32.
-Preserve support for both the `{config.kernel.validation_dataset}` accuracy dataset and
-the `{config.measure.performance_dataset}` performance dataset.
+Preserve support for both the `{config.kernel.validation_dataset}` CPU semantic-validation
+dataset and the `{config.evaluation_dataset}` merged accelerator evaluation dataset.
 
 After editing and byte-compiling the target, return JSON only:
 {{"technique":"one allowed name","summary":"what changed"}}
@@ -433,9 +535,68 @@ After editing and byte-compiling the target, return JSON only:
                 )
                 diagnostic = external.diagnostic or (collapse.diagnostic if collapse else None)
             if external is not None and external.ok and collapse is not None and collapse.ok:
-                variant.status = Status.OK
-                await execution.mirror_file(slug, "candidate.py")
-                break
+                if target_backends is None:
+                    variant.status = Status.OK
+                    await execution.mirror_file(slug, "candidate.py")
+                    break
+                measured_points = list(
+                    await asyncio.gather(
+                        *(
+                            target_backends[weak.backend].measure(
+                                config,
+                                oracle,
+                                target,
+                                candidate_id=variant.candidate_id,
+                                variant_id=variant.variant_id,
+                                precision=variant.precision,
+                                compensation=variant.technique,
+                            )
+                            for weak in observations
+                        )
+                    )
+                )
+                variant.target_measurements.extend(measured_points)
+                failures = []
+                for index, (weak, measured) in enumerate(
+                    zip(observations, measured_points, strict=True)
+                ):
+                    base_error = getattr(weak, config.pareto_error_metric, None)
+                    measured_error = getattr(measured, config.pareto_error_metric, None)
+                    acceptable = (
+                        measured.status == Status.OK
+                        and measured_error is not None
+                        and measured.evaluation_semantic_verified
+                        and bool(measured.accuracy_source)
+                        and (
+                            base_error is None
+                            or (
+                                measured_error < base_error
+                                if index < len(weak_points)
+                                else measured_error <= base_error
+                            )
+                        )
+                    )
+                    if not acceptable:
+                        requirement = (
+                            "strict improvement" if index < len(weak_points) else "no regression"
+                        )
+                        failures.append(
+                            f"{weak.backend}/{weak.precision}: base={base_error}, "
+                            f"variant={measured_error}, status={measured.status.value}, "
+                            f"required={requirement}, notes={measured.notes or 'none'}"
+                        )
+                if not failures:
+                    variant.status = Status.OK
+                    await execution.mirror_file(slug, "candidate.py")
+                    break
+                diagnostic = Diagnostic(
+                    gate="compensation-effect",
+                    message=(
+                        f"portable variant did not improve {config.pareto_error_metric} "
+                        "on every weak backend without regressing healthy peers:\n"
+                        + "\n".join(failures)
+                    ),
+                )
             if diagnostic is None:
                 diagnostic = Diagnostic(
                     gate="compensation", message="compensation validation failed"

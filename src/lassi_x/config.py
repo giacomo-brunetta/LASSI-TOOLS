@@ -33,6 +33,7 @@ class OracleConfig(StrictModel):
     format: Literal["numeric", "polybench"] = "numeric"
     input_fixture: Path | None = None
     timeout_s: float = 600.0
+    determinism_runs: int = Field(default=2, ge=1, le=10)
 
     @field_validator("build", "run")
     @classmethod
@@ -101,6 +102,7 @@ class ModelsConfig(StrictModel):
     planner: ModelConfig
     candidates: list[ModelConfig]
     compensation: ModelConfig
+    compatibility: ModelConfig | None = None
 
     @field_validator("candidates")
     @classmethod
@@ -182,6 +184,7 @@ class BackendConfig(StrictModel):
 
 
 Precision = Literal["fp64", "fp32", "fp16", "bf16"]
+ErrorMetric = Literal["max_rel_error", "relative_l2", "max_abs_error", "invariant_error"]
 
 
 def _default_precisions() -> list[Precision]:
@@ -200,7 +203,53 @@ class MeasureConfig(StrictModel):
     stochastic_seeds: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
     strict_precisions: list[Precision] = Field(default_factory=_default_strict_precisions)
     serialize_torch_backends: bool = True
+    evaluation_dataset: str | None = None
+    evaluation_oracle: Path | None = None
+    # Legacy aliases retained for existing run files; they resolve to the same
+    # mandatory merged evaluation and never create a second measurement path.
     performance_dataset: str = "default"
+    performance_oracle: Path | None = None
+    verify_performance_output: bool = True
+
+
+def _default_repair_statuses() -> list[Literal["crashed", "no_fit"]]:
+    return ["crashed", "no_fit"]
+
+
+class CompatibilityConfig(StrictModel):
+    """Policy for repairing whole-candidate accelerator failures."""
+
+    enabled: bool = True
+    correction_rounds: int = Field(default=2, ge=0, le=10)
+    repair_statuses: list[Literal["crashed", "no_fit"]] = Field(
+        default_factory=_default_repair_statuses
+    )
+
+
+class ParetoConfig(StrictModel):
+    """The scientific objective used on every latency/error frontier."""
+
+    error_metric: ErrorMetric | None = None
+
+
+class SuccessConfig(StrictModel):
+    """Run-level accelerator acceptance policy.
+
+    ``None`` requires every configured non-CPU backend. An explicit empty list
+    retains exploratory behavior where any valid frontier point is sufficient.
+    """
+
+    required_backends: list[str] | None = None
+    required_precisions: dict[str, list[Precision]] = Field(default_factory=dict)
+    # Legacy no-op: merged device accuracy/latency verification is always required.
+    require_performance_verification: bool = False
+
+    @field_validator("required_backends")
+    @classmethod
+    def unique_required_backends(cls, value: list[str] | None) -> list[str] | None:
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError("success.required_backends must be unique")
+        return value
 
 
 class ResourceConfig(StrictModel):
@@ -309,14 +358,15 @@ class CompensationConfig(StrictModel):
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
     error_threshold: float | None = Field(default=1e-2, ge=0.0)
-    error_metric: Literal["max_rel_error", "relative_l2", "max_abs_error", "invariant_error"] = (
-        "max_rel_error"
-    )
+    error_metric: ErrorMetric = "max_rel_error"
     comparison_scope: Literal["same_candidate", "cross_candidate"] = "same_candidate"
-    measurement_scope: Literal["target", "all"] = "target"
+    # Kept for configuration compatibility. Portable numerical variants are always
+    # broadcast across all cells; "target" now only describes the motivating evidence.
+    measurement_scope: Literal["target", "all"] = "all"
     techniques: list[str] = Field(
         default_factory=lambda: [
             "fp32-accumulate",
+            "blocked-fp32",
             "pairwise",
             "kahan",
             "neumaier",
@@ -324,7 +374,12 @@ class CompensationConfig(StrictModel):
             "double-word-fp32",
             "zero-center",
             "scaling",
+            "equilibrate",
             "mixed-refine",
+            "precision-ramp",
+            "residual-carry",
+            "ozaki-split",
+            "stable-reformulation",
             "stochastic-round",
         ]
     )
@@ -339,7 +394,10 @@ class RunConfig(StrictModel):
     models: ModelsConfig
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     measure: MeasureConfig
+    compatibility: CompatibilityConfig = Field(default_factory=CompatibilityConfig)
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
+    pareto: ParetoConfig = Field(default_factory=ParetoConfig)
+    success: SuccessConfig = Field(default_factory=SuccessConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     runs_dir: Path = Path("runs")
 
@@ -360,7 +418,99 @@ class RunConfig(StrictModel):
             raise ValueError(
                 "measure.backends name unknown execution resources: " + ", ".join(unknown)
             )
+        backend_names = {spec.name for spec in self.measure.backends}
+        if len(backend_names) != len(self.measure.backends):
+            raise ValueError("measure.backends names must be unique")
+        required = set(self.success.required_backends or [])
+        unknown_required = sorted(required - backend_names)
+        if unknown_required:
+            raise ValueError(
+                "success.required_backends name unknown measurement backends: "
+                + ", ".join(unknown_required)
+            )
+        unknown_precision_backends = sorted(set(self.success.required_precisions) - backend_names)
+        if unknown_precision_backends:
+            raise ValueError(
+                "success.required_precisions name unknown measurement backends: "
+                + ", ".join(unknown_precision_backends)
+            )
+        specs_by_name = {spec.name: spec for spec in self.measure.backends}
+        invalid_required_precisions = sorted(
+            f"{backend}/{precision}"
+            for backend, precisions in self.success.required_precisions.items()
+            for precision in precisions
+            if precision not in self.measure.precisions
+            or precision not in specs_by_name[backend].precisions
+        )
+        if invalid_required_precisions:
+            raise ValueError(
+                "success.required_precisions contains unmeasured cells: "
+                + ", ".join(invalid_required_precisions)
+            )
+        inactive_precision_backends = sorted(
+            set(self.success.required_precisions) - set(self.required_backends)
+        )
+        if inactive_precision_backends:
+            raise ValueError(
+                "success.required_precisions must belong to required accelerator backends: "
+                + ", ".join(inactive_precision_backends)
+            )
+        if not self.measure.verify_performance_output:
+            raise ValueError(
+                "merged accelerator evaluation requires measure.verify_performance_output"
+            )
+        if (
+            self.measure.evaluation_dataset is not None
+            and self.measure.performance_dataset != "default"
+            and self.measure.evaluation_dataset != self.measure.performance_dataset
+        ):
+            raise ValueError("measure.evaluation_dataset conflicts with legacy performance_dataset")
+        if (
+            self.measure.evaluation_oracle is not None
+            and self.measure.performance_oracle is not None
+            and self.measure.evaluation_oracle != self.measure.performance_oracle
+        ):
+            raise ValueError("measure.evaluation_oracle conflicts with legacy performance_oracle")
+        if (
+            self.evaluation_dataset != self.kernel.validation_dataset
+            and self.evaluation_oracle is None
+        ):
+            raise ValueError(
+                "merged accelerator evaluation needs measure.evaluation_oracle when "
+                "evaluation_dataset differs from kernel.validation_dataset"
+            )
         return self
+
+    @property
+    def pareto_error_metric(self) -> ErrorMetric:
+        """Return the one error metric shared by compensation and selection."""
+
+        return self.pareto.error_metric or self.compensation.error_metric
+
+    @property
+    def evaluation_dataset(self) -> str:
+        """Return the one workload used for accelerator accuracy and latency."""
+
+        return self.measure.evaluation_dataset or self.measure.performance_dataset
+
+    @property
+    def evaluation_oracle(self) -> Path | None:
+        """Return the oracle for the merged accelerator evaluation workload."""
+
+        return self.measure.evaluation_oracle or self.measure.performance_oracle
+
+    @property
+    def required_backends(self) -> list[str]:
+        """Resolve implicit accelerator requirements from configured backends."""
+
+        if self.success.required_backends is not None:
+            return self.success.required_backends
+        return [
+            spec.name
+            for spec in self.measure.backends
+            if spec.type == "groq"
+            or (spec.type == "torch" and str(spec.device).partition(":")[0] != "cpu")
+        ]
 
     @classmethod
     def load(cls, path: Path) -> RunConfig:

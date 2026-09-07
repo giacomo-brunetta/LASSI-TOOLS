@@ -7,6 +7,7 @@ import torch
 HALF_DTYPES = (torch.float16, torch.bfloat16)
 REDUCTION_METHODS = (
     "fp32-accumulate",
+    "blocked-fp32",
     "pairwise",
     "kahan",
     "neumaier",
@@ -16,7 +17,7 @@ REDUCTION_METHODS = (
 
 
 def two_sum(a: torch.Tensor, b: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return rounded sum and its residual under strict IEEE evaluation."""
+    """Return a rounded sum and residual under unreassociated round-to-nearest operations."""
     summed = a + b
     virtual_b = summed - a
     error = (a - (summed - virtual_b)) + (b - virtual_b)
@@ -24,7 +25,7 @@ def two_sum(a: torch.Tensor, b: torch.Tensor) -> tuple[torch.Tensor, torch.Tenso
 
 
 def fast_two_sum(a: torch.Tensor, b: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return sum/residual assuming abs(a) >= abs(b)."""
+    """Return sum/residual assuming ``abs(a) >= abs(b)`` and round-to-nearest."""
     summed = a + b
     return summed, b - (summed - a)
 
@@ -48,6 +49,38 @@ def pairwise_sum(x: torch.Tensor, dim: int = 0) -> torch.Tensor:
             reduced = torch.cat((reduced, values[-1:]), dim=0)
         values = reduced.to(x.dtype)
     return values[0]
+
+
+def blocked_fp32_sum(
+    x: torch.Tensor,
+    dim: int = 0,
+    *,
+    block_size: int = 256,
+) -> torch.Tensor:
+    """Sum low-precision blocks locally, then combine their partial sums in FP32.
+
+    This is a vectorized FABsum-style specialization: most additions remain in the
+    input precision while only the much shorter reduction of block totals uses FP32.
+    The block size is an accuracy/performance parameter and must be benchmarked on
+    the target backend.
+    """
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+    values = _front(x, dim)
+    count = values.shape[0]
+    if count == 0:
+        return torch.zeros(values.shape[1:], dtype=torch.float32, device=x.device)
+    remainder = count % block_size
+    if remainder:
+        padding = torch.zeros(
+            (block_size - remainder, *values.shape[1:]),
+            dtype=x.dtype,
+            device=x.device,
+        )
+        values = torch.cat((values, padding), dim=0)
+    blocks = values.reshape(-1, block_size, *values.shape[1:])
+    partials = blocks.sum(dim=1, dtype=x.dtype)
+    return partials.sum(dim=0, dtype=torch.float32)
 
 
 def kahan_sum(x: torch.Tensor, dim: int = 0) -> torch.Tensor:
@@ -84,7 +117,7 @@ def double_word_sum(
     component_dtype: torch.dtype | None = None,
 ) -> torch.Tensor:
     values = _front(x, dim)
-    component_dtype = component_dtype or (torch.float16 if x.dtype in HALF_DTYPES else x.dtype)
+    component_dtype = component_dtype or x.dtype
     values = values.to(component_dtype)
     high = torch.zeros(values.shape[1:], dtype=component_dtype, device=x.device)
     low = torch.zeros_like(high)
@@ -113,6 +146,8 @@ def compensated_sum(
         return x.sum(dim=dim, dtype=x.dtype)
     if method == "fp32-accumulate":
         return x.sum(dim=dim, dtype=torch.float32)
+    if method == "blocked-fp32":
+        return blocked_fp32_sum(x, dim)
     if method == "pairwise":
         return pairwise_sum(x, dim)
     if method == "kahan":
@@ -120,15 +155,18 @@ def compensated_sum(
     if method == "neumaier":
         return neumaier_sum(x, dim)
     if method == "double-word":
-        return double_word_sum(x, dim, component_dtype=torch.float16)
+        return double_word_sum(x, dim, component_dtype=x.dtype)
     return double_word_sum(x, dim, component_dtype=torch.float32)
 
 
 def stochastic_cast(x: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
-    """Unbiased stochastic rounding between adjacent values of ``dtype``.
+    """Apply mode-1 stochastic rounding at one explicit cast site.
 
-    Unlike half-ULP dithering, this chooses the lower/upper representable values
-    with probabilities proportional to their distances from the source value.
+    For finite source values within the target's finite range, this chooses the
+    adjacent lower/upper values with probabilities proportional to distance. It
+    does not change the rounding mode of intervening arithmetic. Non-finite and
+    finite out-of-range values follow the ordinary PyTorch cast, including Inf on
+    overflow, rather than being silently saturated.
     """
     if dtype not in HALF_DTYPES:
         return x.to(dtype)
@@ -156,4 +194,6 @@ def stochastic_cast(x: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
     )
     choose_upper = torch.rand_like(x) < probability_upper
     result = torch.where(choose_upper, upper, lower)
-    return torch.where(torch.isfinite(x), result, rounded)
+    finite_limit = torch.finfo(dtype).max
+    stochastic_range = torch.isfinite(x) & (x.abs() <= finite_limit)
+    return torch.where(stochastic_range, result, rounded)

@@ -137,6 +137,7 @@ def _submit_timeout_measurement(
         compensation,
         Status.TIMEOUT,
         resource=resource,
+        failure_kind="submission_timeout",
         notes=(
             f"Groq submission stalled: {exc}. No PBS job was created. The execution "
             "endpoint is most likely online but has no free worker to claim the task."
@@ -155,6 +156,7 @@ def _base_measurement(
     status: Status,
     **kwargs: Any,
 ) -> Measurement:
+    evaluation_dataset = config.evaluation_dataset
     return Measurement(
         kernel=config.kernel.name,
         candidate_id=candidate_id,
@@ -168,13 +170,46 @@ def _base_measurement(
         operator_precision=precision,
         accumulator_precision=precision,
         output_precision=precision,
-        accuracy_dataset=config.kernel.validation_dataset,
-        performance_dataset=config.measure.performance_dataset,
+        error_metric=config.pareto_error_metric,
+        evaluation_dataset=evaluation_dataset,
         source_hash=(
             hashlib.sha256(module_path.read_bytes()).hexdigest() if module_path.is_file() else ""
         ),
         **kwargs,
     )
+
+
+def _evaluation_oracle_path(config: RunConfig, oracle: OracleResult) -> Path:
+    """Return the oracle matching the workload used for both accuracy and timing."""
+
+    if config.evaluation_dataset == config.kernel.validation_dataset:
+        return oracle.output_path
+    if config.evaluation_oracle is None:
+        raise ValueError("distinct accelerator evaluation dataset requires evaluation_oracle")
+    return config.resolve_project_path(config.evaluation_oracle)
+
+
+def _enforce_accuracy_latency_pair(measurement: Measurement) -> Measurement:
+    """Reject successful latency records lacking device-derived evaluation accuracy."""
+
+    if measurement.status != Status.OK or measurement.latency_s is None:
+        return measurement
+    paired = (
+        measurement.y_error is not None
+        and measurement.evaluation_output_checked
+        and measurement.evaluation_output_finite is True
+        and measurement.evaluation_semantic_verified
+        and bool(measurement.accuracy_source)
+    )
+    if paired:
+        return measurement
+    measurement.status = Status.DIVERGED
+    measurement.failure_kind = "missing_accuracy_latency_pair"
+    measurement.notes = (
+        f"{measurement.notes}; latency was rejected because the timed workload did not "
+        "produce a finite device accuracy measurement against its oracle"
+    ).strip("; ")
+    return measurement
 
 
 class TorchBackend(Backend):
@@ -217,7 +252,7 @@ class TorchBackend(Backend):
     async def _stage_inputs(
         self, config: RunConfig, oracle: OracleResult, workspace: str, module_path: Path
     ) -> str:
-        """Push the module, oracle, and fixture into the measurement workspace.
+        """Push the module, merged-evaluation oracle, and fixture into the workspace.
 
         Static inputs (oracle, fixture) are pushed once per workspace; the
         module is pushed on every call because variants share workspaces
@@ -230,17 +265,18 @@ class TorchBackend(Backend):
             module_path: Harness-local module to measure.
 
         Returns:
-            The workspace-relative oracle path to pass to the worker.
+            Workspace-relative oracle path for the workload that is timed.
 
         """
-        oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
+        evaluation_oracle = _evaluation_oracle_path(config, oracle)
+        oracle_name = f"oracle{evaluation_oracle.suffix or '.dat'}"
         await put_bytes(self.execution, workspace, module_path.name, module_path.read_bytes())
         if workspace not in self._staged_workspaces:
             await put_bytes(
                 self.execution,
                 workspace,
                 oracle_name,
-                oracle.output_path.read_bytes(),
+                evaluation_oracle.read_bytes(),
             )
             fixture = fixture_relative_path(config)
             if fixture is not None and config.oracle.input_fixture is not None:
@@ -290,6 +326,7 @@ class TorchBackend(Backend):
                 compensation,
                 Status.TIMEOUT,
                 resource=self.resource,
+                failure_kind="infrastructure_timeout",
                 notes=f"execution agent unreachable: {exc}",
             )
 
@@ -316,6 +353,7 @@ class TorchBackend(Backend):
                 compensation,
                 Status.UNSUPPORTED,
                 resource=self.resource,
+                failure_kind="precision_unsupported",
             )
         handshake = await self.execution.cached_handshake()
         if not self._device_available({item.kind for item in handshake.accelerators}):
@@ -329,6 +367,7 @@ class TorchBackend(Backend):
                 compensation,
                 Status.UNSUPPORTED,
                 resource=self.resource,
+                failure_kind="resource_unavailable",
                 notes=f"device {self.spec.device} is unavailable on resource {self.resource}",
             )
         workspace = "m-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:60]
@@ -355,10 +394,8 @@ class TorchBackend(Backend):
             str(config.arena.equivalence.atol),
             "--seed",
             str(seed),
-            "--accuracy-dataset",
-            config.kernel.validation_dataset,
-            "--performance-dataset",
-            config.measure.performance_dataset,
+            "--dataset",
+            config.evaluation_dataset,
         ]
         fixture = fixture_relative_path(config)
         if fixture is not None:
@@ -387,6 +424,7 @@ class TorchBackend(Backend):
                 compensation,
                 Status.TIMEOUT,
                 resource=self.resource,
+                failure_kind="execution_timeout",
                 notes="measurement timed out",
             )
         try:
@@ -404,11 +442,29 @@ class TorchBackend(Backend):
                 compensation,
                 Status.CRASHED,
                 resource=self.resource,
+                failure_kind=str(payload.get("phase") or "worker_execution"),
                 notes=str(payload.get("error") or "measurement worker failed"),
+            )
+        expected_source_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
+        reported_source_hash = str(payload.get("source_hash") or "")
+        if reported_source_hash and reported_source_hash != expected_source_hash:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="source_integrity",
+                notes="measurement worker executed a different candidate source hash",
             )
         metrics = payload.get("metrics") or {}
         precision_meta = payload.get("precision") or {}
         timing_meta = payload.get("timing") or {}
+        evaluation_meta = payload.get("evaluation_output") or {}
         measurement = _base_measurement(
             config,
             self.spec,
@@ -435,6 +491,16 @@ class TorchBackend(Backend):
             relative_l2=metrics.get("relative_l2"),
             invariant_error=payload.get("invariant_error"),
             invariant_candidate=payload.get("invariant_candidate") or {},
+            failure_kind=(
+                "" if payload.get("valid", payload.get("equivalent")) else "numerical_divergence"
+            ),
+            evaluation_output_checked=bool(evaluation_meta.get("checked", False)),
+            evaluation_output_finite=evaluation_meta.get("finite"),
+            evaluation_output_numel=evaluation_meta.get("numel"),
+            evaluation_output_sha256=str(evaluation_meta.get("sha256") or ""),
+            evaluation_semantic_verified=bool(evaluation_meta.get("semantic_verified", False)),
+            accuracy_source=str(evaluation_meta.get("accuracy_source") or ""),
+            source_integrity_verified=reported_source_hash == expected_source_hash,
             notes=(
                 ""
                 if payload.get("equivalent")
@@ -446,7 +512,11 @@ class TorchBackend(Backend):
         measurement.operator_precision = str(precision_meta.get("operator", precision))
         measurement.accumulator_precision = str(precision_meta.get("accumulator", precision))
         measurement.output_precision = str(precision_meta.get("output", precision))
-        return measurement
+        measurement.observed_output_precision = str(precision_meta.get("observed_output", ""))
+        measurement.precision_metadata_source = str(
+            precision_meta.get("metadata_source", "candidate_declared")
+        )
+        return _enforce_accuracy_latency_pair(measurement)
 
 
 class GroqBackend(Backend):
@@ -527,7 +597,7 @@ class GroqBackend(Backend):
             except RemoteCallTimeoutError as exc:
                 # A mute agent is a resource fault, not a candidate fault:
                 # record the cell and let the rest of the matrix proceed.
-                return _base_measurement(
+                measurement = _base_measurement(
                     config,
                     self.spec,
                     module_path,
@@ -537,6 +607,7 @@ class GroqBackend(Backend):
                     compensation,
                     Status.TIMEOUT,
                     resource=self.resource,
+                    failure_kind="infrastructure_timeout",
                     notes=f"execution agent unreachable: {exc}",
                 )
         if not self.supports(precision):
@@ -549,6 +620,7 @@ class GroqBackend(Backend):
                 precision,
                 compensation,
                 Status.UNSUPPORTED,
+                failure_kind="precision_unsupported",
             )
         queue = self.spec.queue_dir
         assert queue is not None
@@ -570,6 +642,7 @@ class GroqBackend(Backend):
                 precision,
                 compensation,
                 Status.TIMEOUT,
+                failure_kind="resource_unavailable",
                 notes=(
                     "Groq worker health check failed before submission; "
                     f"heartbeat max age is {self.spec.healthcheck_max_age_s:g}s"
@@ -580,7 +653,8 @@ class GroqBackend(Backend):
             "schema_version": 1,
             "request_id": request_id,
             "module_path": str(module_path.resolve()),
-            "oracle_path": str(oracle.output_path.resolve()),
+            "oracle_path": str(_evaluation_oracle_path(config, oracle).resolve()),
+            "dataset": config.evaluation_dataset,
             "kernel": config.kernel.name,
             "candidate_id": candidate_id,
             "variant_id": variant_id,
@@ -615,7 +689,7 @@ class GroqBackend(Backend):
                     status = Status(status_raw)
                 except ValueError:
                     status = Status.CRASHED
-                return _base_measurement(
+                measurement = _base_measurement(
                     config,
                     self.spec,
                     module_path,
@@ -629,8 +703,17 @@ class GroqBackend(Backend):
                     max_rel_error=payload.get("max_rel_error"),
                     relative_l2=payload.get("relative_l2"),
                     invariant_error=payload.get("invariant_error"),
+                    evaluation_output_checked=bool(payload.get("accuracy_checked", False)),
+                    evaluation_output_finite=payload.get("accuracy_finite"),
+                    evaluation_output_numel=payload.get("accuracy_numel"),
+                    evaluation_output_sha256=str(payload.get("accuracy_sha256") or ""),
+                    evaluation_semantic_verified=bool(
+                        payload.get("accuracy_oracle_compared", False)
+                    ),
+                    accuracy_source=str(payload.get("accuracy_source") or ""),
                     notes=str(payload.get("notes") or ""),
                 )
+                return _enforce_accuracy_latency_pair(measurement)
             await asyncio.sleep(0.5)
         destination.unlink(missing_ok=True)
         return _base_measurement(
@@ -642,6 +725,7 @@ class GroqBackend(Backend):
             precision,
             compensation,
             Status.TIMEOUT,
+            failure_kind="execution_timeout",
             notes="Groq worker did not return before timeout",
         )
 
@@ -689,13 +773,15 @@ class GroqBackend(Backend):
                 compensation,
                 Status.UNSUPPORTED,
                 resource=self.resource,
+                failure_kind="precision_unsupported",
                 notes="GroqFlow hardware execution is configured for FP16",
             )
         runtime = self.spec.runtime
         assert runtime is not None
         assert self.execution is not None
         workspace = "groq-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:54]
-        oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
+        evaluation_oracle = _evaluation_oracle_path(config, oracle)
+        oracle_name = f"oracle{evaluation_oracle.suffix or '.dat'}"
         worker_name = "groq_measure_worker.py"
         request_id = uuid.uuid4().hex
         result_name = f"result-{request_id}.json"
@@ -709,7 +795,7 @@ class GroqBackend(Backend):
             )
             await self._bounded(
                 "stage oracle",
-                put_bytes(self.execution, workspace, oracle_name, oracle.output_path.read_bytes()),
+                put_bytes(self.execution, workspace, oracle_name, evaluation_oracle.read_bytes()),
             )
             await self._bounded(
                 "stage worker",
@@ -740,10 +826,8 @@ class GroqBackend(Backend):
                 str(remote_workspace / "groq-cache" / source_hash[:16]),
                 "--build-name",
                 f"lassi-{variant_id}-{source_hash[:12]}",
-                "--accuracy-dataset",
-                config.kernel.validation_dataset,
-                "--performance-dataset",
-                config.measure.performance_dataset,
+                "--dataset",
+                config.evaluation_dataset,
             ]
             script_lines = _runtime_prelude(runtime)
             script_lines.extend([f"cd {shlex.quote(str(remote_workspace))}", shlex.join(command)])
@@ -787,6 +871,7 @@ class GroqBackend(Backend):
                 compensation,
                 Status.TIMEOUT,
                 resource=self.resource,
+                failure_kind="execution_timeout",
                 notes=f"Groq direct worker exceeded {self.spec.timeout_s:g}s on the compute node",
             )
         try:
@@ -853,13 +938,15 @@ class GroqBackend(Backend):
                 compensation,
                 Status.UNSUPPORTED,
                 resource=self.resource,
+                failure_kind="precision_unsupported",
                 notes="GroqFlow hardware execution is configured for FP16",
             )
         pbs = self.spec.pbs
         assert pbs is not None
         assert self.execution is not None
         workspace = "groq-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:54]
-        oracle_name = f"oracle{oracle.output_path.suffix or '.dat'}"
+        evaluation_oracle = _evaluation_oracle_path(config, oracle)
+        oracle_name = f"oracle{evaluation_oracle.suffix or '.dat'}"
         worker_name = "groq_measure_worker.py"
         try:
             handshake = await self._bounded("handshake", self.execution.cached_handshake())
@@ -869,7 +956,7 @@ class GroqBackend(Backend):
             )
             await self._bounded(
                 "stage oracle",
-                put_bytes(self.execution, workspace, oracle_name, oracle.output_path.read_bytes()),
+                put_bytes(self.execution, workspace, oracle_name, evaluation_oracle.read_bytes()),
             )
             await self._bounded(
                 "stage worker",
@@ -919,10 +1006,8 @@ class GroqBackend(Backend):
             str(cache_dir),
             "--build-name",
             f"lassi-{variant_id}-{source_hash[:12]}",
-            "--accuracy-dataset",
-            config.kernel.validation_dataset,
-            "--performance-dataset",
-            config.measure.performance_dataset,
+            "--dataset",
+            config.evaluation_dataset,
         ]
         script_lines = _runtime_prelude(pbs)
         script_lines.extend(
@@ -996,6 +1081,7 @@ class GroqBackend(Backend):
                     compensation,
                     Status.CRASHED,
                     resource=self.resource,
+                    failure_kind="infrastructure_submission",
                     notes=(submission.stderr or submission.stdout)[-2000:]
                     or "Groq PBS submission failed",
                 )
@@ -1014,6 +1100,7 @@ class GroqBackend(Backend):
                     compensation,
                     Status.CRASHED,
                     resource=self.resource,
+                    failure_kind="infrastructure_submission",
                     notes=f"qsub returned no parseable job id: {submission.stdout[-1000:]}",
                 )
             deadline = time.monotonic() + self.spec.timeout_s
@@ -1071,6 +1158,7 @@ class GroqBackend(Backend):
                         compensation,
                         Status.TIMEOUT,
                         resource=self.resource,
+                        failure_kind="execution_timeout",
                         notes=(
                             f"Groq PBS job {job_id} exceeded the backend timeout and was cancelled"
                         ),
@@ -1139,6 +1227,7 @@ class GroqBackend(Backend):
                 compensation,
                 Status.CRASHED,
                 resource=self.resource,
+                failure_kind="worker_protocol",
                 notes=f"Groq {mode} worker returned a non-object JSON payload",
             )
         if not payload.get("ok"):
@@ -1152,11 +1241,29 @@ class GroqBackend(Backend):
                 compensation,
                 Status.CRASHED,
                 resource=self.resource,
+                failure_kind=str(payload.get("phase") or "worker_execution"),
                 notes=str(payload.get("error") or f"Groq {mode} measurement failed"),
+            )
+        expected_source_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
+        reported_source_hash = str(payload.get("source_hash") or "")
+        if reported_source_hash and reported_source_hash != expected_source_hash:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="source_integrity",
+                notes="Groq worker executed a different candidate source hash",
             )
         metrics = payload.get("metrics") or {}
         timing = payload.get("timing") or {}
         precision_meta = payload.get("precision") or {}
+        evaluation_meta = payload.get("evaluation_output") or {}
         latency = float(payload["median_s"])
         minimum = payload.get("min_s")
         measurement = _base_measurement(
@@ -1169,6 +1276,9 @@ class GroqBackend(Backend):
             compensation,
             Status.OK if payload.get("valid", payload.get("equivalent")) else Status.DIVERGED,
             resource=self.resource,
+            failure_kind=(
+                "" if payload.get("valid", payload.get("equivalent")) else "numerical_divergence"
+            ),
             latency_s=latency,
             min_s=latency if minimum is None else float(minimum),
             latency_scope=str(timing.get("scope", "model_forward")),
@@ -1181,6 +1291,13 @@ class GroqBackend(Backend):
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),
+            evaluation_output_checked=bool(evaluation_meta.get("checked", False)),
+            evaluation_output_finite=evaluation_meta.get("finite"),
+            evaluation_output_numel=evaluation_meta.get("numel"),
+            evaluation_output_sha256=str(evaluation_meta.get("sha256") or ""),
+            evaluation_semantic_verified=bool(evaluation_meta.get("semantic_verified", False)),
+            accuracy_source=str(evaluation_meta.get("accuracy_source") or ""),
+            source_integrity_verified=reported_source_hash == expected_source_hash,
             notes=(
                 ""
                 if payload.get("equivalent")
@@ -1194,7 +1311,11 @@ class GroqBackend(Backend):
             precision_meta.get("accumulator", "groq-backend-defined")
         )
         measurement.output_precision = str(precision_meta.get("output", "fp16"))
-        return measurement
+        measurement.observed_output_precision = str(precision_meta.get("observed_output", "fp16"))
+        measurement.precision_metadata_source = str(
+            precision_meta.get("metadata_source", "backend_contract")
+        )
+        return _enforce_accuracy_latency_pair(measurement)
 
 
 def _reap_stale_groq_requests(queue: Path, stale_after_s: float) -> None:
@@ -1302,7 +1423,12 @@ async def measure_compensation_variants(
     variants: list[tuple[str, str, Path, str, str, str]],
     backends: list[Backend],
 ) -> list[Measurement]:
-    """Measure generated variants, sampling stochastic rounding across configured seeds."""
+    """Broadcast portable numerical variants across every configured backend and precision.
+
+    The target backend/precision fields are retained in the tuple for artifact compatibility,
+    but no longer restrict measurement. Platform-specific compatibility branches are created
+    only after this complete numerical probe.
+    """
     results: list[Measurement] = []
     for (
         candidate_id,
@@ -1312,18 +1438,9 @@ async def measure_compensation_variants(
         target_backend,
         target_precision,
     ) in variants:
-        selected_backends = (
-            backends
-            if config.compensation.measurement_scope == "all"
-            else [backend for backend in backends if backend.spec.name == target_backend]
-        )
-        precisions = (
-            config.measure.precisions
-            if config.compensation.measurement_scope == "all"
-            else [target_precision]
-        )
-        for backend in selected_backends:
-            for precision in precisions:
+        del target_backend, target_precision
+        for backend in backends:
+            for precision in config.measure.precisions:
                 seeds = (
                     config.measure.stochastic_seeds if compensation == "stochastic-round" else [0]
                 )

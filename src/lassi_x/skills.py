@@ -22,7 +22,9 @@ SKILL_NAMES = (
     "lassi-x-gpu-info",
     "lassi-x-toolchain-info",
     "lassi-x-run-benchmark",
+    "lassi-x-fp-error-diagnose",
     "lassi-x-fp16-compensate",
+    "lassi-x-elementary-function-audit",
     "lassi-x-groq-latency",
     "lassi-x-pareto-explore",
     "lassi-x-verification-report",
@@ -34,7 +36,9 @@ AUTOMATION_SKILLS = (
     "lassi-x-repair-candidate",
     "lassi-x-compare-outputs",
     "lassi-x-machine-info",
+    "lassi-x-fp-error-diagnose",
     "lassi-x-fp16-compensate",
+    "lassi-x-elementary-function-audit",
 )
 
 

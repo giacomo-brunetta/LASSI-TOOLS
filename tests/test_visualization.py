@@ -37,6 +37,10 @@ def point(
         resource=f"{backend}-resource",
         latency_s=latency,
         max_rel_error=error,
+        evaluation_output_checked=True,
+        evaluation_output_finite=True,
+        evaluation_semantic_verified=True,
+        accuracy_source="timed_device_workload",
     )
 
 

@@ -42,13 +42,17 @@ def measured(
         output_precision="fp16",
         latency_s=1.0,
         max_rel_error=error,
+        evaluation_output_checked=True,
+        evaluation_output_finite=True,
+        evaluation_semantic_verified=True,
+        accuracy_source="timed_device_workload",
     )
 
 
 def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeypatch: Any) -> None:
     data = minimal_config(tmp_path)
     data["runs_dir"] = str(tmp_path / "runs")
-    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "target"}
+    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "all"}
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(data))
     module = tmp_path / "candidate.py"
@@ -75,16 +79,27 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
         run_dir: Path,
         execution: object,
         base: Candidate,
-        weak: Measurement,
-        backend: object,
+        weak_points: list[Measurement],
+        backends: list[object],
+        *,
+        target_backends: dict[str, object] | None = None,
+        guard_points: list[Measurement] | None = None,
     ) -> CompensationVariant:
-        del config, oracle, execution, backend
+        del config, oracle, execution, backends, target_backends
         assert base is candidate
-        assert weak is base_point
+        assert weak_points == [base_point]
+        assert guard_points == []
         target = run_dir / "variant.py"
         target.write_text(GOOD_MODULE.replace("return x\n", "return x + 0\n"))
         return CompensationVariant(
-            "c1", "c1-cpu-fp16", "cpu", "fp16", "kahan", target, status=Status.OK
+            "c1",
+            "n-c1-fp16",
+            "portable",
+            "fp16",
+            "kahan",
+            target,
+            status=Status.OK,
+            target_backends=["cpu"],
         )
 
     async def fake_measure_compensation(
@@ -117,7 +132,9 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
     record = json.loads((run_dir / "run.json").read_text())
     assert code == 0
     assert len(record["compensation_variants"]) == 1
-    assert captured_specs[0][4:] == ("cpu", "fp16")
+    assert record["numerical_candidates"][0]["candidate_id"] == "n-c1-fp16"
+    assert record["numerical_candidates"][0]["parent_candidate_id"] == "c1"
+    assert captured_specs[0][4:] == ("portable", "fp16")
     assert record["security"]["execution_mode"] == "trusted_local_unsandboxed"
     assert record["visualizations"]["overall"]["frontier_points"] == 1
     assert (run_dir / "visualizations" / "pareto-overall.svg").is_file()
@@ -135,6 +152,7 @@ def test_pipeline_graph_declares_typed_orchestration_phases() -> None:
         "build_oracle",
         "run_arena",
         "measure_base",
+        "qualify_accelerators",
         "route_compensation",
         "generate_compensation",
         "skip_compensation",
@@ -143,8 +161,11 @@ def test_pipeline_graph_declares_typed_orchestration_phases() -> None:
     )
     assert all(phase in diagram for phase in phases)
     assert "route_compensation --> compensation_decision" in diagram
+    assert "measure_base --> route_compensation" in diagram
     assert "generate_compensation --> measure_compensation" in diagram
     assert "skip_compensation --> measure_compensation" in diagram
+    assert "measure_compensation --> qualify_accelerators" in diagram
+    assert "qualify_accelerators --> finalize" in diagram
 
 
 def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
@@ -152,7 +173,7 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
 ) -> None:
     data = minimal_config(tmp_path)
     data["runs_dir"] = str(tmp_path / "runs")
-    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "target"}
+    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "all"}
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(data))
     module = tmp_path / "candidate.py"
@@ -208,12 +229,74 @@ def test_numerically_ineffective_compensation_is_rejected(tmp_path: Path) -> Non
     base = measured(module, variant_id="c1-base", compensation="none", error=0.5)
     generated = measured(module, variant_id="c1-cpu-fp16", compensation="kahan", error=0.5)
     variant = CompensationVariant(
-        "c1", "c1-cpu-fp16", "cpu", "fp16", "kahan", module, status=Status.OK
+        "c1",
+        "c1-cpu-fp16",
+        "portable",
+        "fp16",
+        "kahan",
+        module,
+        status=Status.OK,
+        target_backends=["cpu"],
     )
     pipeline._reject_non_improving_variants(config, [variant], [base], [generated])
     assert variant.status == Status.REJECTED
     assert variant.diagnostics[0].gate == "compensation-effect"
     assert generated.status == Status.REJECTED
+
+
+def test_portable_compensation_rejects_cross_platform_regression(tmp_path: Path) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    module = tmp_path / "candidate.py"
+    module.write_text(GOOD_MODULE)
+    weak = measured(module, variant_id="c1-base", compensation="none", error=0.5)
+    weak.backend = "cuda"
+    healthy = measured(module, variant_id="c1-base", compensation="none", error=0.1)
+    healthy.backend = "groq"
+    improved = measured(module, variant_id="n-c1-fp16", compensation="kahan", error=0.2)
+    improved.backend = "cuda"
+    regressed = measured(module, variant_id="n-c1-fp16", compensation="kahan", error=0.2)
+    regressed.backend = "groq"
+    variant = CompensationVariant(
+        "c1",
+        "n-c1-fp16",
+        "portable",
+        "fp16",
+        "kahan",
+        module,
+        status=Status.OK,
+        target_backends=["cuda"],
+        guard_backends=["groq"],
+    )
+    pipeline._reject_non_improving_variants(
+        config, [variant], [weak, healthy], [improved, regressed]
+    )
+    assert variant.status == Status.REJECTED
+    assert improved.status == Status.REJECTED
+    assert regressed.status == Status.REJECTED
+
+
+def test_acceptance_requires_every_configured_accelerator(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"].append(
+        {
+            "type": "torch",
+            "name": "cuda",
+            "device": "cuda",
+            "precisions": ["fp16"],
+        }
+    )
+    config = RunConfig.model_validate(data)
+    module = tmp_path / "candidate.py"
+    module.write_text(GOOD_MODULE)
+    cpu = measured(module, variant_id="c1-base", compensation="none", error=0.0)
+    acceptance = pipeline._acceptance(config, [cpu])
+    assert acceptance["passed"] is False
+    assert acceptance["backends"]["cuda"]["passed"] is False
+
+    cuda = measured(module, variant_id="c1-base", compensation="none", error=0.1)
+    cuda.backend = "cuda"
+    acceptance = pipeline._acceptance(config, [cpu, cuda])
+    assert acceptance["passed"] is True
 
 
 def test_skill_record_version_comes_from_install_manifest(tmp_path: Path, monkeypatch: Any) -> None:

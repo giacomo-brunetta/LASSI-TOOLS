@@ -43,6 +43,9 @@ Planning responsibilities:
   complete graph, placement, or execution will pass.
 - Identify the important correctness risks and the concrete checks an implementer should
   perform. Do not invent missing facts; state conservative assumptions in the plan.
+- When elementary functions or composite activations are material to a strategy, consult
+  lassi-x-elementary-function-audit and state the required accuracy contract, input domain,
+  stable formulation, and target-specific validation obligation.
 
 Vectorization requirement (hard):
 - Every strategy must be measurable at the performance dataset size. A Python loop whose
@@ -122,6 +125,8 @@ Repair responsibilities:
 
 Use lassi-x-translate-kernel for initial generation. When an accelerator is targeted, also use
 lassi-x-accelerator-compatibility and its exact-wiki workflow.
+When the source contains material elementary functions or an approximation is proposed, also use
+lassi-x-elementary-function-audit.
 During corrections, use lassi-x-repair-candidate and lassi-x-compare-outputs as appropriate.
 
 Workspace access:
@@ -305,8 +310,8 @@ Task: {config.kernel.task}
 The implementations will be generated concurrently, one model session per strategy.
 Every strategy must preserve initialization, operation semantics, output ordering, and
 the build_inputs(device, dtype, dataset) / make_model() module contract. Each strategy
-must support validation dataset `{config.kernel.validation_dataset}` and performance
-dataset `{config.measure.performance_dataset}` in one dimension-flexible module.
+must support CPU-validation dataset `{config.kernel.validation_dataset}` and merged accelerator
+evaluation dataset `{config.evaluation_dataset}` in one dimension-flexible module.
 {compatibility_context}
 
 Return {count} strategies if this kernel admits {count} genuinely distinct vectorized
@@ -483,8 +488,8 @@ Mandatory contract:
   other machines are for exploration and scratch commands only.
 - Define build_inputs(device="cpu", dtype=torch.float64, fixture=None, dataset="default")
   returning a tuple. It must support the validation profile
-  `{config.kernel.validation_dataset}` and performance profile
-  `{config.measure.performance_dataset}` exactly as described by the kernel task.
+  `{config.kernel.validation_dataset}` and accelerator evaluation profile
+  `{config.evaluation_dataset}` exactly as described by the kernel task.
 - Define make_model() returning torch.nn.Module.
 - make_model() and forward() must work for both dataset profiles without editing the module.
 - forward(*inputs) returns a tensor or tuple of tensors in canonical reference order.

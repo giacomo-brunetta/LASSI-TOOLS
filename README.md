@@ -18,8 +18,8 @@ lassi-x skills doctor
 ```
 
 Configure Hermes providers and credentials with `hermes model`. LASSI-X pins
-`hermes-agent==0.19.0` and gives the planner, candidate arena, and compensation
-roles independent model selections.
+`hermes-agent==0.19.0` and gives the planner, candidate arena, optional compatibility repair,
+and compensation roles independent model selections.
 
 ## Development checks
 
@@ -62,7 +62,8 @@ runs/<timestamp>-<kernel>/
 ```
 
 `workspaces/` holds one confined directory per agent role: `c1`–`c3` for the
-arena candidates and one per compensation variant. Agent sessions reach their
+arena candidates, one per portable numerical trunk, and one per target-specific compatibility
+leaf. Agent sessions reach their
 workspace only through a run-local MCP server whose tools execute on the
 configured `execution` resources (in-process by default, Academy execution
 agents in `academy` mode), with each Hermes session pinned to its workspace by
@@ -180,8 +181,9 @@ lassi-x run examples/polybench-3mm/run-sol-groq.yaml
 
 Direct Groq measurements are serialized as complete stage-submit-poll
 transactions because one long-lived Academy agent owns the login endpoint.
-Reported `latency_s` comes only from `GroqModel.benchmark()` on the GroqRack;
-Globus, Academy, PBS queueing, file transfer, and input construction are excluded.
+Reported `latency_s` comes only from `GroqModel.benchmark()` on the GroqRack. The same compiled
+model and static inputs are invoked on the LPU for the paired oracle comparison; Globus, Academy,
+PBS queueing, file transfer, and input construction are excluded.
 The legacy shared-filesystem `queue_dir` mode remains available for standalone
 workers.
 
@@ -206,12 +208,25 @@ The exact color-independent shape mapping is stored in `manifest.json`.
 1. Build and execute the original C/C++ FP64 oracle.
 2. Ask a Hermes planner for `arena.candidates` materially distinct strategies.
 3. Generate those candidates concurrently with separately configured models.
-4. Validate each against the C/C++ FP64 oracle and apply up to two repair turns.
-5. Measure passing candidates across configured backend and precision cells.
-6. Apply hardware-aware compensation to weak FP16/BF16 points.
-7. Gate compensation against the C/C++ FP64 oracle and base PyTorch FP32 behavior.
-8. Measure surviving variants and construct the Pareto frontier.
-9. Render overall and per-backend/device Pareto frontiers as publication-ready SVG.
+4. Validate each against the C/C++ FP64 oracle and apply bounded semantic repair turns.
+5. Measure passing candidates across configured backend and precision cells. Each cell uses one
+   evaluation workload for both latency and accuracy, and no latency is accepted without a
+   finite output produced on that device and compared with the matching oracle.
+6. Classify accelerator failures separately from numerical divergence. Group executable weak
+   FP16/BF16 observations by candidate and precision, even when they came from different targets.
+7. Create one portable numerical source trunk per group. It must pass the C/C++ FP64 oracle,
+   collapse to base behavior at FP32, improve every weak target, and avoid regressing healthy
+   targets. Failed gates are returned to the same agent session within its correction budget.
+8. Broadcast every surviving numerical trunk across the full backend/precision matrix.
+9. Only then fork immutable, target-specific compatibility leaves for compiler, whole-graph,
+   placement, no-fit, or strict-precision failures. Each leaf starts from the base or portable
+   numerical source that actually failed, uses the exact compatibility wiki, re-passes CPU FP64,
+   and is remeasured on the real target. The leaf must preserve its parent's target accuracy when
+   that accuracy exists; a newly executable leaf must meet the configured error threshold.
+10. Construct the Pareto frontier using one configured scientific error metric and render overall
+   and per-backend/device publication-ready SVGs.
+11. Apply the run-level acceptance policy. By default every configured non-CPU backend must have
+    a valid point; otherwise the run is `partial` even when CPU results exist.
 
 Planner shape errors receive a bounded repair turn, and transient provider failures receive
 bounded exponential backoff according to each model's `turn_retries` and `retry_*` settings.
@@ -222,8 +237,84 @@ Compensation defaults to points whose `max_rel_error` exceeds `error_threshold: 
 when only one candidate survives. Set `compensation.error_metric` to `relative_l2`,
 `max_abs_error`, or `invariant_error` when that is the scientifically relevant quantity.
 Peer domination is same-candidate by default; cross-candidate selection must be requested
-explicitly. Variants are measured only in their motivating cell unless `measurement_scope:
-all` is selected, and a variant that does not improve the targeted error is rejected.
+explicitly. One numerical variant is created per candidate/precision family rather than per
+backend. The agent receives evidence and the capability intersection from every motivating
+backend. A shared variant is promoted only if every weak cell improves and every already-healthy
+cell at that precision does not regress; it is then measured across all configured cells.
+`measurement_scope` remains accepted for older configurations, but portable variants are always
+broadcast and new configurations should use `all`. Compiler/runtime crashes, unsupported
+precisions, no-fit results, and infrastructure timeouts never enter numerical diagnosis; they are
+handled later by independent compatibility branches.
+
+The resulting source lineage is a tree rather than a set of unrelated target copies:
+
+```text
+c1  CPU-correct translation
+├── n-c1-fp16  portable numerical trunk
+│   ├── a-n-c1-fp16-groq-fp16  Groq-only compatibility leaf
+│   └── a-n-c1-fp16-cuda-fp16  CUDA-only compatibility leaf
+├── a-c1-groq-fp16  Groq-only compatibility leaf of the unchanged base
+└── c1 remains available for the Pareto frontier
+```
+
+Compatibility changes are never propagated between platform leaves. Numerical changes are shared
+as source first, but still require deterministic certification on every executable target.
+`run.json` records promoted trunks under `numerical_candidates`, isolated leaves under
+`compatibility_candidates`, and their `parent_candidate_id` links so the complete lineage can be
+reconstructed without inferring it from filenames.
+
+### Merged accelerator evaluation and success
+
+The C/C++ oracle is executed twice by default (`oracle.determinism_runs`) and the source and output
+hashes are recorded. Accelerator accuracy and performance are not separate tests: a cell has one
+evaluation dataset, one source hash, one device execution path, one error bundle, and one latency.
+Torch computes error from the final timed iteration's device output. Groq's benchmark API does not
+return an output, so the worker evaluates the exact same compiled model and static input mapping on
+the LPU and compares that result; both values remain part of one measurement transaction.
+
+Every successful latency therefore carries `max_abs_error`, `max_rel_error`, `relative_l2`, and an
+optional invariant from the same workload. Missing, non-finite, nondeterministic, or unverified
+device output changes the cell to `diverged` with `failure_kind: missing_accuracy_latency_pair`.
+If accelerator evaluation uses the CPU-validation dataset, it reuses the main oracle. Otherwise,
+provide the matching evaluation oracle explicitly:
+
+```yaml
+oracle:
+  determinism_runs: 2
+
+measure:
+  evaluation_dataset: large
+  evaluation_oracle: fixtures/large-oracle.csv
+
+compatibility:
+  enabled: true
+  correction_rounds: 2
+
+pareto:
+  # Omit to use compensation.error_metric.
+  error_metric: relative_l2
+
+success:
+  # Omit required_backends to require every configured non-CPU backend.
+  required_backends: [cuda, groq]
+  required_precisions:
+    cuda: [fp16]
+    groq: [fp16]
+```
+
+The older `performance_dataset`, `performance_oracle`, `verify_performance_output`, and
+`success.require_performance_verification` keys remain accepted for configuration compatibility.
+They no longer create or disable a second test: output verification and the device
+accuracy/latency pair are mandatory. New configurations should use `evaluation_dataset` and
+`evaluation_oracle`. An explicit `required_backends: []` retains exploratory behavior where any
+valid frontier point is enough. Compatibility repair uses `models.compatibility` when configured
+and otherwise reuses the failed candidate's model.
+
+Measurement status and `failure_kind` are deliberately separate. Status expresses the outcome;
+the failure kind distinguishes precision/resource unavailability, infrastructure/submission
+timeouts, candidate loading or execution, accelerator compilation, numerical divergence, and
+source-integrity failures. Only candidate-caused accelerator failures are eligible for source
+repair.
 
 `kernel.invariant` is optional and uses `module:function` syntax. The function receives
 the flattened candidate and C-oracle NumPy arrays and returns either a scalar error or
@@ -240,7 +331,7 @@ is not populated by Torch/Academy measurements.
 
 ## Hermes skills
 
-Thirteen focused skills ship with the package. They wrap deterministic `lassi-x`
+Fifteen focused skills ship with the package. They wrap deterministic `lassi-x`
 commands and are installed only into the LASSI-X subtree of the selected Hermes home.
 Use `lassi-x skills sync` after upgrades and `lassi-x skills uninstall` to remove only
 manifest-owned files.
@@ -249,6 +340,13 @@ manifest-owned files.
 and GroqFlow coverage and portable-core evidence. Candidate coders use the same skill to route
 function-level decisions to the exact target compatibility wiki instead of copying the catalog
 into agent instructions.
+
+Low-precision work is split into diagnosis and intervention. `lassi-x-fp-error-diagnose`
+localizes range, significance, cancellation, conditioning, function, and nondeterminism failures;
+`lassi-x-fp16-compensate` selects and validates an intervention. The separate
+`lassi-x-elementary-function-audit` prevents bounded approximations, finite sweeps, and correctly
+rounded implementations from being treated as equivalent claims. The literature review and
+technique backlog are in [docs/fp-error-literature.md](docs/fp-error-literature.md).
 
 ## Useful commands
 
@@ -278,12 +376,19 @@ backend's `stale_request_s` interval.
 
 ## Trust boundary
 
-This is a trusted local research tool, not a sandbox. Hermes agents have file/terminal tools,
-and generated Python is imported and executed in subprocesses. Run only trusted configuration
-and source inputs, do not expose the runner as a network service, and use an external container
-or restricted account when stronger isolation is required. Child processes are isolated into
-process groups and cleaned up on handled timeout/shutdown; no in-process code can guarantee
-cleanup if the orchestrator itself receives `SIGKILL`.
+This is a trusted research tool, not an adversarial-code sandbox. Workspace APIs reject path
+traversal and measurements verify staged source hashes, but Hermes agents have terminal tools and
+generated Python is imported and executed in subprocesses. The candidate currently owns
+`build_inputs`, and no sealed holdout suite is generated automatically. `run.json` records these
+facts under `evaluation` rather than claiming a stronger guarantee.
+
+For an evaluation in which cheating must be impossible, run candidate generation and execution in
+an externally isolated container or restricted account with no network, mount candidate source
+read-only, keep acceptance fixtures and oracle outputs outside that namespace, and use fresh
+holdouts after the repair session closes. A sealed evaluation oracle is compared with output from
+the same device workload used to obtain latency, so every accepted performance point carries its
+own device-derived accuracy result. Child processes are isolated into process groups and cleaned up on handled
+timeout/shutdown; no in-process code can guarantee cleanup if the orchestrator receives `SIGKILL`.
 
 ## PolyBench 3mm reproduction
 

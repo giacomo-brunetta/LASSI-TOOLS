@@ -146,7 +146,7 @@
   <g transform="translate(540 830)">
     <rect width="520" height="78" rx="14" class="node deterministic"/>
     <text x="260" y="28" text-anchor="middle" class="heading">Measure accepted base candidates</text>
-    <text x="260" y="49" text-anchor="middle" class="body">All configured backend × precision cells · oracle-relative errors</text>
+    <text x="260" y="49" text-anchor="middle" class="body">All backend × precision cells · paired device latency + oracle error</text>
     <text x="260" y="66" text-anchor="middle" class="code">measurement.measure_variants()</text>
   </g>
   <path d="M 800 908 L 800 938" class="flow"/>
@@ -165,7 +165,7 @@
 
   <!-- Compensation -->
   <path d="M 800 1064 L 800 1090" class="agent-flow"/>
-  <text x="800" y="1086" text-anchor="middle" class="phase">CONCURRENT PER WEAK CANDIDATE × BACKEND × PRECISION</text>
+  <text x="800" y="1086" text-anchor="middle" class="phase">CONCURRENT PER WEAK CANDIDATE × PRECISION FAMILY</text>
   <g transform="translate(350 1100)">
     <rect width="900" height="128" rx="18" class="node agent"/>
     <text x="450" y="27" text-anchor="middle" class="heading">Low-precision numerical specialist edits a copy</text>
@@ -191,8 +191,8 @@
   <!-- Final measurement and frontier -->
   <g transform="translate(540 1250)">
     <rect width="520" height="72" rx="14" class="node deterministic"/>
-    <text x="260" y="27" text-anchor="middle" class="heading">Measure passing compensation variants</text>
-    <text x="260" y="48" text-anchor="middle" class="body">Target cell by default · reject no numerical improvement</text>
+    <text x="260" y="27" text-anchor="middle" class="heading">Broadcast numerical trunks · fork compatibility leaves</text>
+    <text x="260" y="48" text-anchor="middle" class="body">All cells · shared accuracy fixes · isolated platform patches</text>
     <text x="260" y="64" text-anchor="middle" class="code">measure_compensation_variants()</text>
   </g>
   <path d="M 800 1322 L 800 1345" class="flow"/>

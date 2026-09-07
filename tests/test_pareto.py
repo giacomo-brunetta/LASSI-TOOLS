@@ -20,6 +20,10 @@ def point(latency: float, error: float) -> Measurement:
         output_precision="fp16",
         latency_s=latency,
         max_rel_error=error,
+        evaluation_output_checked=True,
+        evaluation_output_finite=True,
+        evaluation_semantic_verified=True,
+        accuracy_source="timed_device_workload",
     )
 
 
@@ -31,3 +35,19 @@ def test_frontier_excludes_dominated_points() -> None:
 def test_frontier_excludes_nonphysical_axes() -> None:
     points = [point(1, 0.5), point(0, 0.1), point(2, -0.1)]
     assert frontier_indices(points) == [0]
+
+
+def test_frontier_uses_measurement_selected_error_metric() -> None:
+    fast = point(1, 0.001)
+    slow = point(2, 0.1)
+    fast.error_metric = "relative_l2"
+    slow.error_metric = "relative_l2"
+    fast.relative_l2 = 0.5
+    slow.relative_l2 = 0.01
+    assert frontier_indices([fast, slow]) == [0, 1]
+
+
+def test_frontier_excludes_latency_without_device_accuracy_evidence() -> None:
+    incomplete = point(1, 0.1)
+    incomplete.accuracy_source = ""
+    assert frontier_indices([incomplete]) == []

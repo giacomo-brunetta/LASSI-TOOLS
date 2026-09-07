@@ -7,7 +7,7 @@ kernel:
   reference: scientific/lbm-d2q9/lbm-d2q9.c
   context:
   - scientific/lbm-d2q9/lbm-d2q9.h
-  validation_dataset: mini
+  validation_dataset: large
   task: Translate the cited C kernel into a semantically equivalent, export-friendly PyTorch module. Reproduce
     init_array and operation order from the staged source. Reproduce D2Q9 BGK collision and periodic streaming
     and return final rho. build_inputs(device, dtype, fixture=None, dataset='mini') must accept dataset='mini'
@@ -22,7 +22,7 @@ oracle:
   build:
   - gcc
   - -O0
-  - -DMINI_DATASET
+  - -DLARGE_DATASET
   - -DPOLYBENCH_DUMP_ARRAYS
   - -include
   - ../LASSI-TOOLS/experiments/paper/oracle_precision.h
@@ -140,7 +140,7 @@ measure:
   strict_precisions:
   - fp64
   - fp32
-  performance_dataset: large
+  evaluation_dataset: large
   warmup: 5
   iterations: 30
   stochastic_seeds:
@@ -188,5 +188,5 @@ compensation:
   error_threshold: 0.01
   error_metric: max_rel_error
   comparison_scope: same_candidate
-  measurement_scope: target
+  measurement_scope: all
 runs_dir: ../LASSI-TOOLS/runs/paper-suite/claude-opus-5-xhigh/lbm-d2q9

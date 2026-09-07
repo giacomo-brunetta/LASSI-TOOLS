@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import os
 import shlex
+import sys
 import time
 import uuid
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -19,7 +21,7 @@ from lassi_x.execution import LocalExecutionBackend
 from lassi_x.measurement import Backend, GroqBackend, TorchBackend
 from lassi_x.protocol import ExecRequest, ExecResult
 from lassi_x.types import Measurement, Status
-from lassi_x.validation import OracleResult, build_oracle
+from lassi_x.validation import OracleResult, build_oracle, compare_outputs
 
 from .test_config import minimal_config
 from .test_validation import C_REFERENCE, GOOD_MODULE
@@ -37,6 +39,27 @@ def setup_run(tmp_path: Path) -> tuple[RunConfig, Path, OracleResult]:
     oracle_path = tmp_path / "oracle.npy"
     np.save(oracle_path, np.asarray([1.0]))
     return config, module, OracleResult(oracle_path, np.asarray([1.0]))
+
+
+def test_groq_relative_error_uses_the_same_near_zero_scale_as_torch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_groqflow = ModuleType("groqflow")
+    fake_groqflow.groqit = lambda model: model  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "groqflow", fake_groqflow)
+    compare_groq_outputs = importlib.import_module("lassi_x.groq_measure_worker")._compare
+
+    candidate = np.asarray([1e-8])
+    oracle = np.asarray([0.0])
+    groq = compare_groq_outputs(candidate, oracle, rtol=1e-3, atol=1e-6)
+    _, _, torch_metrics = compare_outputs(
+        candidate,
+        oracle,
+        rtol=1e-3,
+        atol=1e-6,
+        max_mismatches=1,
+    )
+    assert groq["metrics"]["max_rel_error"] == pytest.approx(torch_metrics["max_rel_error"])
 
 
 def groq_spec(queue: Path) -> BackendConfig:
@@ -95,6 +118,12 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
                 "status": "ok",
                 "latency_s": 0.001,
                 "max_rel_error": 0.02,
+                "accuracy_checked": True,
+                "accuracy_finite": True,
+                "accuracy_numel": 1,
+                "accuracy_sha256": "abc",
+                "accuracy_oracle_compared": True,
+                "accuracy_source": "timed_device_workload",
             }
         )
     )
@@ -155,6 +184,14 @@ class FakePBSExecutionBackend(LocalExecutionBackend):
                         "accumulator": "groq-backend-defined",
                         "output": "fp16",
                     },
+                    "evaluation_output": {
+                        "checked": True,
+                        "finite": True,
+                        "numel": 1,
+                        "sha256": "abc",
+                        "semantic_verified": True,
+                        "accuracy_source": "same_compiled_model_and_inputs",
+                    },
                 }
             )
         )
@@ -205,8 +242,9 @@ def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
     assert "select=1,place=excl" in request.argv
     job_script = (tmp_path / "remote" / "groq-c1-base" / request.argv[-1]).read_text()
     assert "conda activate groqflow" in job_script
-    assert "--accuracy-dataset default" in job_script
-    assert "--performance-dataset default" in job_script
+    assert "--dataset default" in job_script
+    assert "--accuracy-dataset" not in job_script
+    assert "--performance-dataset" not in job_script
     # GroqRack exports /opt/groq/runtime/site-packages site-wide, which precedes the
     # conda env on sys.path and shadows it; the worker must not inherit that.
     assert job_script.index("unset PYTHONPATH") < job_script.index("conda activate")
@@ -251,7 +289,7 @@ def test_groq_direct_mode_runs_the_worker_without_pbs(tmp_path: Path) -> None:
     assert not any("qsub" in argument for argument in request.argv)
     script = (tmp_path / "remote" / "groq-c1-base" / request.argv[-1]).read_text()
     assert "conda activate groqflow" in script
-    assert "--performance-dataset default" in script
+    assert "--dataset default" in script
     assert script.index("unset PYTHONPATH") < script.index("conda activate")
 
 
@@ -406,7 +444,7 @@ class RecordingBackend(Backend):
         )
 
 
-def test_compensation_measurement_defaults_to_target_cell(tmp_path: Path) -> None:
+def test_portable_compensation_is_broadcast_to_every_cell(tmp_path: Path) -> None:
     config, module, oracle = setup_run(tmp_path)
     cpu = RecordingBackend(config.measure.backends[0])
     other_spec = config.measure.backends[0].model_copy(update={"name": "other"})
@@ -419,9 +457,9 @@ def test_compensation_measurement_defaults_to_target_cell(tmp_path: Path) -> Non
             [cpu, other],
         )
     )
-    assert len(results) == 1
-    assert cpu.calls == ["fp16"]
-    assert other.calls == []
+    assert len(results) == 4
+    assert cpu.calls == ["fp64", "fp32"]
+    assert other.calls == ["fp64", "fp32"]
 
 
 def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> None:
@@ -450,9 +488,51 @@ def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> Non
     assert result.latency_clock == "time.perf_counter"
     assert result.latency_includes_input_construction is False
     assert result.latency_cuda_synchronized is False
+    assert result.evaluation_output_checked is True
+    assert result.evaluation_output_finite is True
+    assert result.evaluation_output_numel == 3
+    assert len(result.evaluation_output_sha256) == 64
+    assert result.source_integrity_verified is True
+    assert result.accuracy_source == "timed_iteration"
+    assert result.evaluation_dataset == "default"
     workspace = execution_root / "m-c1-base"
     assert (workspace / "candidate.py").is_file()
     assert (workspace / "oracle.csv").is_file()
+
+
+def test_distinct_evaluation_dataset_is_checked_against_external_oracle(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    evaluation_oracle = tmp_path / "evaluation.csv"
+    evaluation_oracle.write_text("1\n2\n3\n")
+    data = minimal_config(tmp_path)
+    data["kernel"]["validation_dataset"] = "mini"
+    data["measure"]["evaluation_dataset"] = "large"
+    data["measure"]["evaluation_oracle"] = "evaluation.csv"
+    config = RunConfig.model_validate(data)
+    oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
+    module = tmp_path / "candidate.py"
+    module.write_text(GOOD_MODULE)
+    backend = TorchBackend(
+        config.measure.backends[0],
+        LocalExecutionBackend(tmp_path / "exec", "here"),
+        "here",
+    )
+    result = asyncio.run(
+        backend.measure(
+            config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp64",
+            compensation="none",
+        )
+    )
+    assert result.status == Status.OK
+    assert result.evaluation_semantic_verified is True
+    assert result.evaluation_dataset == "large"
 
 
 def test_torch_backend_reports_unavailable_device_from_handshake(tmp_path: Path) -> None:

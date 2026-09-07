@@ -28,6 +28,8 @@ oracle:
   capture: stderr
   format: polybench
   timeout_s: 600
+  # Run the reference repeatedly and require bitwise-identical numeric output.
+  determinism_runs: 2
 
 arena:
   candidates: 3
@@ -47,6 +49,8 @@ models:
   compensation:
     provider: nous
     model: openai/gpt-5.2
+  # Optional; otherwise compatibility repair reuses the failed candidate's model.
+  # compatibility: {provider: nous, model: openai/gpt-5.2}
 
 # Optional long-term agent memory via a self-hosted Mem0 server
 # (see docker/mem0/README.md). Omit the section to keep memories off.
@@ -60,6 +64,10 @@ measure:
   precisions: [fp64, fp32, fp16, bf16]
   warmup: 3
   iterations: 20
+  # One workload supplies both device accuracy and latency. When this differs
+  # from kernel.validation_dataset, evaluation_oracle is mandatory.
+  evaluation_dataset: default
+  # evaluation_oracle: fixtures/large-oracle.csv
   stochastic_seeds: [0, 1, 2, 3, 4]
   backends:
     - type: torch
@@ -88,13 +96,30 @@ measure:
 compensation:
   enabled: true
   correction_rounds: 2
-  # Trigger compensation even when only one candidate survives. Domination is
-  # intentionally not compared across candidates, and variants are measured only
-  # in the backend/precision cell that motivated them.
+  # Trigger compensation even when only one candidate survives. One portable
+  # source is generated per candidate/precision family, then broadcast to all
+  # backends before target-specific compatibility branches are created.
   error_threshold: 0.01
   error_metric: max_rel_error
   comparison_scope: same_candidate
-  measurement_scope: target
+  measurement_scope: all
+
+compatibility:
+  enabled: true
+  correction_rounds: 2
+
+# The frontier and compensation loops share this objective. Omit the section to
+# use compensation.error_metric.
+pareto:
+  error_metric: max_rel_error
+
+# By default every configured non-CPU backend is required. List targets explicitly
+# to make the acceptance contract auditable, or use [] for exploratory runs.
+success:
+  required_backends: [cuda, groq]
+  required_precisions:
+    cuda: [fp16]
+    groq: [fp16]
 
 # Where agent tool calls and commands execute. The default (local) runs
 # everything in-process. "academy" launches one execution agent per resource:

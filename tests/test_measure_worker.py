@@ -127,7 +127,7 @@ def test_stateful_candidate_is_rejected(tmp_path: Path) -> None:
     assert "stateful or nondeterministic" in payload["error"]
 
 
-def test_accuracy_and_performance_use_distinct_datasets(tmp_path: Path) -> None:
+def test_timed_workload_output_is_the_accuracy_output(tmp_path: Path) -> None:
     module = tmp_path / "datasets.py"
     module.write_text(
         "import torch\n"
@@ -140,7 +140,7 @@ def test_accuracy_and_performance_use_distinct_datasets(tmp_path: Path) -> None:
         "def make_model(): return Model()\n"
     )
     oracle = tmp_path / "oracle.npy"
-    np.save(oracle, np.asarray([1.0]))
+    np.save(oracle, np.ones(64))
     result = subprocess.run(
         [
             sys.executable,
@@ -154,9 +154,7 @@ def test_accuracy_and_performance_use_distinct_datasets(tmp_path: Path) -> None:
             "cpu",
             "--precision",
             "fp64",
-            "--accuracy-dataset",
-            "mini",
-            "--performance-dataset",
+            "--dataset",
             "extralarge",
             "--warmup",
             "0",
@@ -169,4 +167,6 @@ def test_accuracy_and_performance_use_distinct_datasets(tmp_path: Path) -> None:
     )
     payload = json.loads(result.stdout)
     assert payload["equivalent"] is True
-    assert payload["datasets"] == {"accuracy": "mini", "performance": "extralarge"}
+    assert payload["datasets"] == {"evaluation": "extralarge"}
+    assert payload["evaluation_output"]["accuracy_source"] == "timed_iteration"
+    assert payload["evaluation_output"]["numel"] == 64

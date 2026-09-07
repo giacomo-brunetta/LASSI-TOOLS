@@ -24,8 +24,7 @@ def main() -> int:
     parser.add_argument("--device", required=True)
     parser.add_argument("--precision", choices=sorted(PRECISIONS), required=True)
     parser.add_argument("--fixture", type=Path)
-    parser.add_argument("--accuracy-dataset", default="default")
-    parser.add_argument("--performance-dataset", default="default")
+    parser.add_argument("--dataset", default="default")
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--iterations", type=int, default=20)
     parser.add_argument("--rtol", type=float, default=1e-3)
@@ -35,6 +34,7 @@ def main() -> int:
     parser.add_argument("--invariant")
     parser.add_argument("--invariant-threshold", type=float)
     args = parser.parse_args()
+    phase = "load_candidate"
     try:
         torch.manual_seed(args.seed)
         module = load_module(args.module)
@@ -70,33 +70,36 @@ def main() -> int:
             )
             return flat_output, tensors
 
+        phase = "evaluation_setup"
         model = build_model()
         cuda = args.device.startswith("cuda")
         with torch.no_grad():
             torch.manual_seed(args.seed)
-            flat, tensors = flatten(model(*build_inputs(args.accuracy_dataset)))
-            torch.manual_seed(args.seed)
-            repeated, _ = flatten(model(*build_inputs(args.accuracy_dataset)))
-            if not np.array_equal(flat, repeated, equal_nan=True):
-                raise RuntimeError(
-                    "candidate is stateful or nondeterministic across identical fresh inputs"
-                )
-            # The purity probe may itself change model state. Start timing from a fresh model.
-            model = build_model()
+            inputs = build_inputs(args.dataset)
+            phase = "evaluation_warmup"
             for _ in range(args.warmup):
-                model(*build_inputs(args.performance_dataset))
+                model(*inputs)
             if cuda:
                 torch.cuda.synchronize()
+            phase = "evaluation_benchmark"
             samples = []
+            timed_output: object | None = None
             for _ in range(args.iterations):
-                inputs = build_inputs(args.performance_dataset)
                 if cuda:
                     torch.cuda.synchronize()
                 start = time.perf_counter()
-                model(*inputs)
+                timed_output = model(*inputs)
                 if cuda:
                     torch.cuda.synchronize()
                 samples.append(time.perf_counter() - start)
+            assert timed_output is not None
+            flat, tensors = flatten(timed_output)
+            repeated, _ = flatten(model(*inputs))
+            if not np.array_equal(flat, repeated, equal_nan=True):
+                raise RuntimeError(
+                    "candidate is stateful or nondeterministic across identical evaluation inputs"
+                )
+        phase = "evaluation_comparison"
         oracle = load_reference_output(args.oracle)
         ok, diagnostic, metrics = compare_outputs(
             flat,
@@ -150,17 +153,34 @@ def main() -> int:
                 "operator": precision.get("operator", args.precision),
                 "accumulator": precision.get("accumulator", args.precision),
                 "output": precision.get("output", output_dtype),
+                "observed_output": output_dtype,
+                "metadata_source": "candidate_declared" if precision else "inferred",
             },
             "source_hash": hashlib.sha256(args.module.read_bytes()).hexdigest(),
             "datasets": {
-                "accuracy": args.accuracy_dataset,
-                "performance": args.performance_dataset,
+                "evaluation": args.dataset,
+            },
+            "evaluation_output": {
+                "checked": True,
+                "finite": bool(np.isfinite(flat).all()),
+                "numel": int(flat.size),
+                "sha256": hashlib.sha256(np.ascontiguousarray(flat).tobytes()).hexdigest(),
+                "semantic_verified": True,
+                "accuracy_source": "timed_iteration",
             },
         }
         print(json.dumps(payload))
         return 0
     except Exception as exc:
-        print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "phase": phase,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        )
         return 1
 
 

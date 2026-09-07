@@ -113,6 +113,66 @@ def test_execution_defaults_to_local_mode(tmp_path: Path) -> None:
     assert config.execution.resources == {}
 
 
+def test_success_defaults_to_all_configured_accelerators(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"].append(
+        {
+            "type": "torch",
+            "name": "cuda",
+            "device": "cuda",
+            "precisions": ["fp16"],
+        }
+    )
+    config = RunConfig.model_validate(data)
+    assert config.required_backends == ["cuda"]
+    assert config.pareto_error_metric == "max_rel_error"
+    assert config.compensation.measurement_scope == "all"
+
+
+def test_success_rejects_unknown_required_backend(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["success"] = {"required_backends": ["missing"]}
+    with pytest.raises(ValidationError, match="unknown measurement backends"):
+        RunConfig.model_validate(data)
+
+
+def test_success_rejects_duplicate_or_inactive_requirements(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["success"] = {"required_backends": ["cpu", "cpu"]}
+    with pytest.raises(ValidationError, match="must be unique"):
+        RunConfig.model_validate(data)
+
+    data["success"] = {"required_backends": [], "required_precisions": {"cpu": ["fp32"]}}
+    with pytest.raises(ValidationError, match="required accelerator backends"):
+        RunConfig.model_validate(data)
+
+
+def test_merged_evaluation_requires_oracle_for_distinct_dataset(
+    tmp_path: Path,
+) -> None:
+    data = minimal_config(tmp_path)
+    data["kernel"]["validation_dataset"] = "mini"
+    data["measure"]["performance_dataset"] = "large"
+    with pytest.raises(ValidationError, match="measure.evaluation_oracle"):
+        RunConfig.model_validate(data)
+    data["measure"]["performance_oracle"] = "large-oracle.csv"
+    assert RunConfig.model_validate(data).measure.performance_dataset == "large"
+
+
+def test_merged_evaluation_output_verification_cannot_be_disabled(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["verify_performance_output"] = False
+    with pytest.raises(ValidationError, match="merged accelerator evaluation"):
+        RunConfig.model_validate(data)
+
+
+def test_success_rejects_unmeasured_required_precision(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["success"] = {"required_precisions": {"cpu": ["fp16"]}}
+    with pytest.raises(ValidationError, match="unmeasured cells"):
+        RunConfig.model_validate(data)
+
+
 def test_execution_validators_reject_inconsistent_targets(tmp_path: Path) -> None:
     data = minimal_config(tmp_path)
     data["execution"] = {"default_resource": "gpu"}

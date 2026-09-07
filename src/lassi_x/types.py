@@ -76,6 +76,9 @@ class Candidate:
     strategy: str
     module_path: Path
     reasoning_effort: str | None = None
+    parent_candidate_id: str | None = None
+    target_backend: str | None = None
+    target_precision: str | None = None
     status: Status = Status.CRASHED
     correction_rounds: int = 0
     diagnostics: list[Diagnostic] = field(default_factory=list)
@@ -103,8 +106,17 @@ class Measurement:
     operator_precision: str
     accumulator_precision: str
     output_precision: str
-    accuracy_dataset: str = "default"
-    performance_dataset: str = "default"
+    observed_output_precision: str = ""
+    precision_metadata_source: str = ""
+    error_metric: str = "max_rel_error"
+    evaluation_dataset: str = "default"
+    accuracy_source: str = ""
+    evaluation_output_checked: bool = False
+    evaluation_output_finite: bool | None = None
+    evaluation_output_numel: int | None = None
+    evaluation_output_sha256: str = ""
+    evaluation_semantic_verified: bool = False
+    failure_kind: str = ""
     resource: str = ""
     latency_s: float | None = None
     min_s: float | None = None
@@ -123,14 +135,12 @@ class Measurement:
     stochastic_samples: list[dict[str, float | int | str | None]] = field(default_factory=list)
     notes: str = ""
     source_hash: str = ""
+    source_integrity_verified: bool = False
 
     @property
     def y_error(self) -> float | None:
-        if self.max_rel_error is not None:
-            return self.max_rel_error
-        if self.relative_l2 is not None:
-            return self.relative_l2
-        return self.invariant_error
+        value = getattr(self, self.error_metric, None)
+        return float(value) if value is not None else None
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

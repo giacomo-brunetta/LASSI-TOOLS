@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import os
 import signal
@@ -92,6 +93,9 @@ class OracleResult:
     values: np.ndarray
     build_stdout: str = ""
     run_stdout: str = ""
+    source_sha256: str = ""
+    output_sha256: str = ""
+    determinism_runs: int = 1
 
 
 async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
@@ -130,39 +134,59 @@ async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
         )
     run = _format_command(config.oracle.run, values)
     (oracle_dir / "run-command.json").write_text(json.dumps(run, indent=2) + "\n")
-    try:
-        code, run_out, run_err = await _run(
-            run, cwd=config.project.root, timeout_s=config.oracle.timeout_s
-        )
-    except TimeoutError as exc:
+    outputs: list[np.ndarray] = []
+    combined_run_output: list[str] = []
+    for attempt in range(config.oracle.determinism_runs):
+        try:
+            code, run_out, run_err = await _run(
+                run, cwd=config.project.root, timeout_s=config.oracle.timeout_s
+            )
+        except TimeoutError as exc:
+            raise RuntimeError(
+                f"oracle execution timed out after {config.oracle.timeout_s:g} seconds; "
+                f"command saved in {oracle_dir}"
+            ) from exc
+        suffix = "" if attempt == 0 else f"-{attempt + 1}"
+        (oracle_dir / f"run{suffix}.stdout").write_text(run_out)
+        (oracle_dir / f"run{suffix}.stderr").write_text(run_err)
+        if code:
+            raise RuntimeError(
+                f"oracle execution failed ({code}); complete stdout/stderr saved in "
+                f"{oracle_dir}: {run_err[-4000:]}"
+            )
+        captured = None
+        if config.oracle.capture == "stdout":
+            captured = run_out
+        elif config.oracle.capture == "stderr":
+            captured = run_err
+        if captured is not None:
+            if config.oracle.format == "polybench":
+                parsed = scrape_polybench_dump(captured)
+                output.write_text("".join(f"{value:.17g}\n" for value in parsed))
+            else:
+                output.write_text(captured)
+        if not output.is_file():
+            raise RuntimeError(f"oracle did not produce configured output: {output}")
+        result = load_reference_output(output)
+        if not np.isfinite(result).all():
+            raise RuntimeError("C/C++ FP64 oracle contains NaN or Inf")
+        outputs.append(result.copy())
+        combined_run_output.append(run_out + run_err)
+    if any(not np.array_equal(outputs[0], repeated, equal_nan=True) for repeated in outputs[1:]):
         raise RuntimeError(
-            f"oracle execution timed out after {config.oracle.timeout_s:g} seconds; "
-            f"command saved in {oracle_dir}"
-        ) from exc
-    (oracle_dir / "run.stdout").write_text(run_out)
-    (oracle_dir / "run.stderr").write_text(run_err)
-    if code:
-        raise RuntimeError(
-            f"oracle execution failed ({code}); complete stdout/stderr saved in {oracle_dir}: "
-            f"{run_err[-4000:]}"
+            f"C/C++ FP64 oracle was nondeterministic across "
+            f"{config.oracle.determinism_runs} executions"
         )
-    captured = None
-    if config.oracle.capture == "stdout":
-        captured = run_out
-    elif config.oracle.capture == "stderr":
-        captured = run_err
-    if captured is not None:
-        if config.oracle.format == "polybench":
-            parsed = scrape_polybench_dump(captured)
-            output.write_text("".join(f"{value:.17g}\n" for value in parsed))
-        else:
-            output.write_text(captured)
-    if not output.is_file():
-        raise RuntimeError(f"oracle did not produce configured output: {output}")
-    result = load_reference_output(output)
-    if not np.isfinite(result).all():
-        raise RuntimeError("C/C++ FP64 oracle contains NaN or Inf")
-    return OracleResult(output, result, build_out + build_err, run_out + run_err)
+    reference_path = config.resolve_project_path(config.kernel.reference)
+    return OracleResult(
+        output,
+        outputs[0],
+        build_out + build_err,
+        "".join(combined_run_output),
+        hashlib.sha256(reference_path.read_bytes()).hexdigest(),
+        hashlib.sha256(output.read_bytes()).hexdigest(),
+        config.oracle.determinism_runs,
+    )
 
 
 def compare_outputs(

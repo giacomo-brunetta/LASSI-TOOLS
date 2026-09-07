@@ -31,19 +31,22 @@ across disconnected submitter and worker hosts, and classify every terminal stat
    backend name, and submission time.
 5. On the connected host, run the configured `lassi-x groq worker` with the intended executor.
 6. Poll with `lassi-x groq status`; do not submit duplicates merely because execution is slow.
-7. Classify the result as measured, compiler estimate, unsupported, no-fit, timeout, or crash.
-8. Include only valid measured latency in performance comparisons unless estimates are clearly
-   labeled and analyzed separately.
+7. Require each measured latency to carry finite accuracy computed from LPU output for the same
+   compiled model, static inputs, dataset, and oracle. Reject latency-only completion records.
+8. Classify the result as measured, compiler estimate, unsupported, no-fit, timeout, or crash.
+9. Include only valid paired device latency/error points in performance comparisons unless
+   estimates are clearly labeled and analyzed separately.
 
 ## Evidence standard
 
 Report request ID, source identity, queried operators and wiki results, precision capabilities,
-execution state, latency provenance, and compiler/runtime diagnostics. Keep failed requests in the
-experiment record.
+evaluation dataset and oracle, device-output accuracy, latency provenance, execution state, and
+compiler/runtime diagnostics. Keep failed requests in the experiment record.
 
 ## Guardrails
 
 - Never present a compiler estimate as measured hardware latency.
+- Never accept latency without a finite oracle comparison from the paired LPU evaluation.
 - Never infer explicit FP32 tensor support from a wider matrix accumulator.
 - Never silently retry with a different graph, precision, or compiler configuration.
 - Never collapse unsupported, no-fit, timeout, and crash into one generic failure.

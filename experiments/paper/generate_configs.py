@@ -353,8 +353,8 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
     utilities = str(kernel.get("utilities", "utilities"))
     groq = _groq_enabled()
     # The oracle build/run and every agent tool call stay on the local harness;
-    # only GPU timing moves. Keeping the reference compile in one place makes
-    # the oracle identical across every cell in the matrix.
+    # accelerator evaluation moves to each target. Keeping the reference
+    # compile in one place makes the oracle identical across every matrix cell.
     resources: dict[str, Any] = {
         "harness": {
             "workspace_root": "/home/gbrun/lassi-x-local-academy",
@@ -384,14 +384,15 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
             "name": str(kernel["id"]),
             "reference": reference,
             "context": [header],
-            "validation_dataset": "mini",
+            # Accuracy and latency use one LARGE workload on every accelerator.
+            "validation_dataset": "large",
             "task": _task(kernel),
         },
         "oracle": {
             "build": [
                 "gcc",
                 "-O0",
-                "-DMINI_DATASET",
+                "-DLARGE_DATASET",
                 "-DPOLYBENCH_DUMP_ARRAYS",
                 "-include",
                 "../LASSI-TOOLS/experiments/paper/oracle_precision.h",
@@ -450,7 +451,7 @@ def _config(kernel: dict[str, Any], model: dict[str, Any]) -> dict[str, Any]:
             # scheduler and the compile dies in Proxy Buffer Allocation. LARGE fits
             # one chip on every kernel measured, keeping all backends comparable
             # without a multi-chip partition that would also rescale Groq latency.
-            "performance_dataset": "large",
+            "evaluation_dataset": "large",
             "warmup": 5,
             "iterations": 30,
             "stochastic_seeds": [0, 1, 2, 3, 4],

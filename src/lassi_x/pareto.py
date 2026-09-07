@@ -6,10 +6,16 @@ from .types import Measurement, Status
 
 
 def valid_point(point: Measurement) -> bool:
+    """Return whether a point has a complete, device-derived latency/error pair."""
+
     return (
         point.status == Status.OK
         and point.latency_s is not None
         and point.y_error is not None
+        and point.evaluation_output_checked
+        and point.evaluation_output_finite is True
+        and point.evaluation_semantic_verified
+        and bool(point.accuracy_source)
         and math.isfinite(point.latency_s)
         and math.isfinite(point.y_error)
         and point.latency_s > 0

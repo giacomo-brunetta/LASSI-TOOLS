@@ -1,10 +1,10 @@
 # Paper benchmark suite
 
 This suite runs six upstream PolyBench kernels and five LASSI scientific kernels. It
-validates FP64 semantic equivalence with the `mini`
-profile on the local harness, measures accelerator accuracy on that same profile, and
-times the `large` profile on CUDA and Groq. Input construction, Academy transport,
-PBS queueing, and MCP latency are outside the timed region.
+validates FP64 semantic equivalence with the `large` profile on the local harness, then
+uses that same `large` workload for paired device accuracy and latency on CUDA and Groq.
+Input construction, Academy transport, PBS queueing, and MCP latency are outside the
+timed region.
 
 Every paper candidate is also screened against an explicit target compatibility snapshot before
 it is finalized. Agents list published targets, select the closest exact Groq/compiler snapshot,

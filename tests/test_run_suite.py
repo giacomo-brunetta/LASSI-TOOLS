@@ -130,4 +130,6 @@ def test_mutual_information_config_uses_versioned_source_and_polybench_utilities
     assert config["project"]["root"] == "../../../.."
     assert config["kernel"]["reference"] == kernel["reference"]
     assert "../PolyBenchC-4.2.1/utilities/polybench.c" in config["oracle"]["build"]
-    assert config["measure"]["performance_dataset"] == "large"
+    assert config["kernel"]["validation_dataset"] == "large"
+    assert config["measure"]["evaluation_dataset"] == "large"
+    assert "-DLARGE_DATASET" in config["oracle"]["build"]

@@ -136,7 +136,10 @@ def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float
     if not np.isfinite(candidate).all() or not np.isfinite(oracle).all():
         raise ValueError("candidate or oracle contains NaN or Inf")
     difference = np.abs(candidate - oracle)
-    denominator = np.maximum(np.abs(oracle), 1e-30)
+    # Match validation.compare_outputs so max_rel_error is comparable across
+    # Torch and Groq near reference zeros. This is a tolerance-scaled relative
+    # diagnostic, while max_abs_error retains the unscaled error.
+    denominator = np.maximum(np.abs(oracle), max(atol, 1e-30))
     max_abs = float(difference.max()) if difference.size else 0.0
     max_rel = float((difference / denominator).max()) if difference.size else 0.0
     oracle_norm = float(np.linalg.norm(oracle))
@@ -268,34 +271,26 @@ def main() -> int:
     parser.add_argument("--atol", type=float, default=1e-6)
     parser.add_argument("--cache-dir", type=Path, required=True)
     parser.add_argument("--build-name", required=True)
-    parser.add_argument("--accuracy-dataset", default="default")
-    parser.add_argument("--performance-dataset", default="default")
+    parser.add_argument("--dataset", default="default")
     args = parser.parse_args()
 
     payload: dict[str, Any]
     exit_code = 0
+    phase = "load_candidate"
     try:
         module = _load_module(args.module)
         build_name = re.sub(r"[^A-Za-z0-9._-]", "-", args.build_name)[:80]
-        accuracy_model, accuracy_inputs = _compile(
+        phase = "evaluation_compile"
+        evaluation_model, evaluation_inputs = _compile(
             module,
-            _inputs_for_dataset(module, args.accuracy_dataset),
-            build_name=f"{build_name}-accuracy-{args.accuracy_dataset}"[:80],
+            _inputs_for_dataset(module, args.dataset),
+            build_name=f"{build_name}-evaluation-{args.dataset}"[:80],
             cache_dir=args.cache_dir,
         )
-        candidate = _flatten(_invoke(accuracy_model, accuracy_inputs))
-        repeated = _flatten(_invoke(accuracy_model, accuracy_inputs))
-        if not np.array_equal(candidate, repeated, equal_nan=True):
-            raise RuntimeError("Groq output is nondeterministic across identical inputs")
-        performance_model, _ = _compile(
-            module,
-            _inputs_for_dataset(module, args.performance_dataset),
-            build_name=f"{build_name}-performance-{args.performance_dataset}"[:80],
-            cache_dir=args.cache_dir,
-        )
-        benchmark = getattr(performance_model, "benchmark", None)
+        benchmark = getattr(evaluation_model, "benchmark", None)
         if not callable(benchmark):
             raise RuntimeError("GroqModel does not expose benchmark(); transport time is not valid")
+        phase = "evaluation_benchmark"
         try:
             performance = benchmark(repetitions=args.iterations)
         except TypeError:
@@ -304,6 +299,12 @@ def main() -> int:
         if not math.isfinite(latency) or latency <= 0:
             raise RuntimeError("Groq SDK benchmark did not return a finite positive latency")
 
+        phase = "evaluation_execution"
+        candidate = _flatten(_invoke(evaluation_model, evaluation_inputs))
+        repeated = _flatten(_invoke(evaluation_model, evaluation_inputs))
+        if not np.array_equal(candidate, repeated, equal_nan=True):
+            raise RuntimeError("Groq output is nondeterministic across identical evaluation inputs")
+        phase = "evaluation_comparison"
         comparison = _compare(candidate, _load_oracle(args.oracle), args.rtol, args.atol)
         payload = {
             "ok": True,
@@ -323,15 +324,28 @@ def main() -> int:
                 "operator": "fp16",
                 "accumulator": "groq-backend-defined",
                 "output": "fp16",
+                "observed_output": "fp16",
+                "metadata_source": "backend_contract",
             },
             "source_hash": hashlib.sha256(args.module.read_bytes()).hexdigest(),
             "datasets": {
-                "accuracy": args.accuracy_dataset,
-                "performance": args.performance_dataset,
+                "evaluation": args.dataset,
+            },
+            "evaluation_output": {
+                "checked": True,
+                "finite": True,
+                "numel": int(candidate.size),
+                "sha256": hashlib.sha256(np.ascontiguousarray(candidate).tobytes()).hexdigest(),
+                "semantic_verified": True,
+                "accuracy_source": "same_compiled_model_and_inputs",
             },
         }
     except Exception as exc:
-        payload = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        payload = {
+            "ok": False,
+            "phase": phase,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
         exit_code = 1
     _atomic_json(args.output, payload)
     return exit_code

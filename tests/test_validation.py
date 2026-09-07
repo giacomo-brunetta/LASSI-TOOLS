@@ -68,6 +68,10 @@ def test_original_c_reference_is_authoritative(tmp_path: Path) -> None:
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
     assert (tmp_path / "run" / "oracle" / "build.stderr").is_file()
     assert (tmp_path / "run" / "oracle" / "run.stderr").is_file()
+    assert (tmp_path / "run" / "oracle" / "run-2.stderr").is_file()
+    assert oracle.determinism_runs == 2
+    assert len(oracle.source_sha256) == 64
+    assert len(oracle.output_sha256) == 64
     accepted = asyncio.run(
         validate_candidate(config, backend, "good", oracle, tmp_path / "good-artifacts")
     )

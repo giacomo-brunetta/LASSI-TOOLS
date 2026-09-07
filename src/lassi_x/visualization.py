@@ -474,6 +474,7 @@ def render_pareto_svg(
     )
     if zero_floor is not None:
         subtitle += f" · exact zero shown at ≤ {_error_label(zero_floor)}"
+    metric = valid[0].error_metric.replace("_", " ")
     ET.SubElement(
         root,
         f"{{{_SVG}}}text",
@@ -573,7 +574,7 @@ def render_pareto_svg(
             "transform": f"rotate(-90 25 {top + plot_height / 2})",
             "class": "axis-label",
         },
-    ).text = "Relative error (lower is better)"
+    ).text = f"{metric} (lower is better)"
 
     categories = _category_order(
         {point.backend if category_mode == "backend" else point.precision for point in valid},
@@ -719,6 +720,13 @@ def write_pareto_visualizations(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     valid = _valid_measurements(points)
+    error_metrics = sorted({point.error_metric for point in valid})
+    if len(error_metrics) > 1:
+        raise ValueError(
+            "Pareto visualization requires one shared error metric; found "
+            + ", ".join(error_metrics)
+        )
+    error_metric = error_metrics[0] if error_metrics else "max_rel_error"
     variant_shapes = _variant_shape_map(valid)
     backends = sorted({point.backend for point in valid})
     slugs = _backend_slugs(backends)
@@ -769,10 +777,7 @@ def write_pareto_visualizations(
         "schema_version": 1,
         "axes": {
             "x": "median model-forward latency in seconds (log scale; lower is better)",
-            "y": (
-                "measurement.y_error: max_rel_error, falling back to relative_l2 then "
-                "invariant_error (log scale; lower is better)"
-            ),
+            "y": f"{error_metric} (log scale; lower is better)",
             "zero_error": "plotted at one decade below the smallest positive error",
         },
         "overall": {
