@@ -17,6 +17,7 @@ import json
 import math
 import os
 import re
+import statistics
 import sys
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,16 @@ from typing import Any
 import numpy as np
 import torch
 from groqflow import groqit  # type: ignore[import-not-found]
+
+ARCHITECTURAL_TIMING_EXCLUDES = [
+    "allocation",
+    "compilation",
+    "device_attach",
+    "device_to_host",
+    "executable_load",
+    "host_to_device",
+    "queue",
+]
 
 
 def _load_module(path: Path) -> Any:
@@ -266,6 +277,7 @@ def main() -> int:
     parser.add_argument("--module", type=Path, required=True)
     parser.add_argument("--oracle", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--iterations", type=int, default=20)
     parser.add_argument("--rtol", type=float, default=1e-3)
     parser.add_argument("--atol", type=float, default=1e-6)
@@ -290,14 +302,20 @@ def main() -> int:
         benchmark = getattr(evaluation_model, "benchmark", None)
         if not callable(benchmark):
             raise RuntimeError("GroqModel does not expose benchmark(); transport time is not valid")
+        phase = "evaluation_warmup"
+        for _ in range(args.warmup):
+            benchmark(repetitions=1)
         phase = "evaluation_benchmark"
-        try:
-            performance = benchmark(repetitions=args.iterations)
-        except TypeError:
-            performance = benchmark()
-        latency = float(getattr(performance, "latency", math.nan))
-        if not math.isfinite(latency) or latency <= 0:
-            raise RuntimeError("Groq SDK benchmark did not return a finite positive latency")
+        samples: list[float] = []
+        for _ in range(args.iterations):
+            # One SDK call per sample is deliberate. Asking the SDK for N
+            # repetitions and dividing would measure a throughput loop, not the
+            # single graph execution used by the other architectures.
+            performance = benchmark(repetitions=1)
+            latency = float(getattr(performance, "latency", math.nan))
+            if not math.isfinite(latency) or latency <= 0:
+                raise RuntimeError("Groq SDK benchmark did not return a finite positive latency")
+            samples.append(latency)
 
         phase = "evaluation_execution"
         candidate = _flatten(_invoke(evaluation_model, evaluation_inputs))
@@ -310,14 +328,23 @@ def main() -> int:
             "ok": True,
             "valid": True,
             **comparison,
-            "median_s": latency,
-            "min_s": latency,
+            "median_s": statistics.median(samples),
+            "min_s": min(samples),
             "timing": {
-                "scope": "model_forward",
+                "protocol": "architectural-single-call-v1",
+                "scope": "device_resident_graph",
                 "source": "groq_sdk_benchmark",
                 "clock": "groq_runtime",
                 "includes_input_construction": False,
                 "cuda_synchronized": False,
+                "warmup_count": args.warmup,
+                "sample_count": len(samples),
+                "invocations_per_sample": 1,
+                "samples_s": samples,
+                "physical_device_count": 1,
+                "input_residency": "device",
+                "output_residency_at_stop": "device",
+                "excludes": ARCHITECTURAL_TIMING_EXCLUDES,
             },
             "precision": {
                 "storage": "fp16",

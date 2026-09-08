@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -27,6 +28,113 @@ if TYPE_CHECKING:
     from .validation import OracleResult
 
 _DEVICE_ACCELERATORS = {"cuda": "cuda", "xpu": "xpu", "mps": "mps"}
+_ARCHITECTURAL_TIMING_PROTOCOL = "architectural-single-call-v1"
+_ARCHITECTURAL_TIMING_EXCLUDES = {
+    "allocation",
+    "compilation",
+    "device_attach",
+    "device_to_host",
+    "executable_load",
+    "host_to_device",
+    "queue",
+}
+
+
+def _timing_fields(timing: dict[str, Any]) -> dict[str, Any]:
+    """Map worker timing evidence into the stable measurement schema."""
+
+    raw_samples = timing.get("samples_s") or []
+    try:
+        samples = [float(value) for value in raw_samples]
+    except (TypeError, ValueError):
+        samples = []
+    raw_excludes = timing.get("excludes") or []
+    excludes = (
+        [str(value) for value in raw_excludes]
+        if isinstance(raw_excludes, (list, tuple, set))
+        else []
+    )
+
+    def optional_int(name: str) -> int | None:
+        value = timing.get(name)
+        try:
+            return None if value is None else int(value)
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "latency_scope": str(timing.get("scope") or ""),
+        "latency_source": str(timing.get("source") or ""),
+        "latency_clock": str(timing.get("clock") or ""),
+        "timing_protocol": str(timing.get("protocol") or ""),
+        "timing_warmup_count": optional_int("warmup_count"),
+        "timing_sample_count": optional_int("sample_count"),
+        "timing_invocations_per_sample": optional_int("invocations_per_sample"),
+        "timing_samples_s": samples,
+        "timing_physical_device_count": optional_int("physical_device_count"),
+        "timing_input_residency": str(timing.get("input_residency") or ""),
+        "timing_output_residency_at_stop": str(timing.get("output_residency_at_stop") or ""),
+        "timing_excludes": excludes,
+        "latency_includes_input_construction": bool(
+            timing.get("includes_input_construction", False)
+        ),
+        "latency_cuda_synchronized": bool(timing.get("cuda_synchronized", False)),
+    }
+
+
+def _architectural_timing_error(measurement: Measurement) -> str | None:
+    """Return why a purported architectural accelerator latency is incomparable."""
+
+    if measurement.timing_protocol != _ARCHITECTURAL_TIMING_PROTOCOL:
+        return f"timing protocol must be {_ARCHITECTURAL_TIMING_PROTOCOL}"
+    if measurement.latency_scope != "device_resident_graph":
+        return "latency scope must be device_resident_graph"
+    if not measurement.latency_source or not measurement.latency_clock:
+        return "a native device timing source and clock are required"
+    if measurement.latency_clock in {"time.perf_counter", "time.monotonic", "host_clock"}:
+        return "host clocks cannot measure architectural accelerator latency"
+    if measurement.timing_warmup_count is None or measurement.timing_warmup_count < 1:
+        return "at least one untimed warmup invocation is required"
+    if measurement.timing_invocations_per_sample != 1:
+        return "each timing sample must contain exactly one graph invocation"
+    if measurement.timing_physical_device_count != 1:
+        return "each timing cell must use exactly one physical accelerator"
+    if measurement.timing_input_residency != "device":
+        return "inputs must be resident on the accelerator before timing starts"
+    if measurement.timing_output_residency_at_stop != "device":
+        return "timing must stop when the output is ready on the accelerator"
+    missing = sorted(_ARCHITECTURAL_TIMING_EXCLUDES - set(measurement.timing_excludes))
+    if missing:
+        return "timing did not exclude: " + ", ".join(missing)
+    samples = measurement.timing_samples_s
+    if measurement.timing_sample_count != len(samples) or not samples:
+        return "timing sample count is missing or inconsistent"
+    if any(not math.isfinite(value) or value <= 0 for value in samples):
+        return "timing samples must be finite positive seconds"
+    expected_median = statistics.median(samples)
+    if measurement.latency_s is None or not math.isclose(
+        measurement.latency_s, expected_median, rel_tol=1e-12, abs_tol=1e-15
+    ):
+        return "latency_s must be the median of the single-call samples"
+    if measurement.min_s is None or not math.isclose(
+        measurement.min_s, min(samples), rel_tol=1e-12, abs_tol=1e-15
+    ):
+        return "min_s must be the minimum of the single-call samples"
+    return None
+
+
+def _enforce_architectural_timing(measurement: Measurement) -> Measurement:
+    """Reject accelerator latency that does not satisfy the comparison contract."""
+
+    if measurement.status != Status.OK or measurement.latency_s is None:
+        return measurement
+    error = _architectural_timing_error(measurement)
+    if error is None:
+        return measurement
+    measurement.status = Status.CRASHED
+    measurement.failure_kind = "incomparable_timing"
+    measurement.notes = f"{measurement.notes}; latency was rejected: {error}".strip("; ")
+    return measurement
 
 
 class _SubmitTimeoutError(Exception):
@@ -477,15 +585,7 @@ class TorchBackend(Backend):
             resource=self.resource,
             latency_s=float(payload["median_s"]),
             min_s=float(payload["min_s"]),
-            latency_scope=str(timing_meta.get("scope", "model_forward")),
-            latency_source=str(timing_meta.get("source", "remote_measure_worker")),
-            latency_clock=str(timing_meta.get("clock", "time.perf_counter")),
-            latency_includes_input_construction=bool(
-                timing_meta.get("includes_input_construction", False)
-            ),
-            latency_cuda_synchronized=bool(
-                timing_meta.get("cuda_synchronized", str(self.spec.device).startswith("cuda"))
-            ),
+            **_timing_fields(timing_meta),
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),
@@ -516,7 +616,284 @@ class TorchBackend(Backend):
         measurement.precision_metadata_source = str(
             precision_meta.get("metadata_source", "candidate_declared")
         )
-        return _enforce_accuracy_latency_pair(measurement)
+        measurement = _enforce_accuracy_latency_pair(measurement)
+        if str(self.spec.device).startswith("cuda"):
+            measurement = _enforce_architectural_timing(measurement)
+        return measurement
+
+
+class NativeBackend(Backend):
+    """Run a standalone Graphcore or Cerebras measurement worker on its resource.
+
+    The worker owns compilation and deployment because those operations are
+    site/toolchain specific. Only its native device-clock record crosses the
+    measurement boundary; orchestration wall time is never used as latency.
+    """
+
+    def __init__(
+        self,
+        spec: BackendConfig,
+        execution: ExecutionBackend,
+        resource: str,
+        *,
+        semaphore: asyncio.Semaphore | None = None,
+    ) -> None:
+        super().__init__(spec, semaphore=semaphore)
+        self.execution = execution
+        self.resource = resource
+
+    async def measure(
+        self,
+        config: RunConfig,
+        oracle: OracleResult,
+        module_path: Path,
+        *,
+        candidate_id: str,
+        variant_id: str,
+        precision: str,
+        compensation: str,
+        seed: int = 0,
+    ) -> Measurement:
+        if not self.supports(precision):
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.UNSUPPORTED,
+                resource=self.resource,
+                failure_kind="precision_unsupported",
+            )
+        worker = self.spec.worker
+        architecture = self.spec.architecture
+        assert worker is not None and architecture is not None
+        workspace = "native-" + re.sub(r"[^A-Za-z0-9._-]", "-", variant_id)[:52]
+        evaluation_oracle = _evaluation_oracle_path(config, oracle)
+        oracle_name = f"oracle{evaluation_oracle.suffix or '.dat'}"
+        worker_name = "native_measure_worker.py"
+        output_name = f"result-{uuid.uuid4().hex}.json"
+        if worker.script is None:
+            worker_source = Path(__file__).with_name("graphcore_measure_worker.py")
+        else:
+            worker_source = config.resolve_project_path(worker.script)
+        try:
+            await put_bytes(self.execution, workspace, "candidate.py", module_path.read_bytes())
+            await put_bytes(
+                self.execution,
+                workspace,
+                oracle_name,
+                evaluation_oracle.read_bytes(),
+            )
+            await put_bytes(self.execution, workspace, worker_name, worker_source.read_bytes())
+            fixture = fixture_relative_path(config)
+            if fixture is not None and config.oracle.input_fixture is not None:
+                source = config.resolve_project_path(config.oracle.input_fixture)
+                await put_bytes(self.execution, workspace, fixture, source.read_bytes())
+        except (OSError, RemoteCallTimeoutError) as exc:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="worker_staging",
+                notes=f"native worker staging failed: {type(exc).__name__}: {exc}",
+            )
+        command = [
+            str(worker.python),
+            worker_name,
+            "--architecture",
+            architecture,
+            "--module",
+            "candidate.py",
+            "--oracle",
+            oracle_name,
+            "--output",
+            output_name,
+            "--precision",
+            precision,
+            "--dataset",
+            config.evaluation_dataset,
+            "--warmup",
+            str(config.measure.warmup),
+            "--iterations",
+            str(config.measure.iterations),
+            "--rtol",
+            str(config.arena.equivalence.rtol),
+            "--atol",
+            str(config.arena.equivalence.atol),
+            "--seed",
+            str(seed),
+        ]
+        fixture = fixture_relative_path(config)
+        if fixture is not None:
+            command += ["--fixture", fixture]
+        if precision in config.measure.strict_precisions:
+            command.append("--require-equivalence")
+        async with self.semaphore:
+            try:
+                result = await self.execution.execute(
+                    ExecRequest(workspace=workspace, argv=command, timeout_s=self.spec.timeout_s)
+                )
+            except RemoteCallTimeoutError as exc:
+                return _base_measurement(
+                    config,
+                    self.spec,
+                    module_path,
+                    candidate_id,
+                    variant_id,
+                    precision,
+                    compensation,
+                    Status.TIMEOUT,
+                    resource=self.resource,
+                    failure_kind="infrastructure_timeout",
+                    notes=f"execution agent unreachable: {exc}",
+                )
+        if result.timed_out:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.TIMEOUT,
+                resource=self.resource,
+                failure_kind="execution_timeout",
+                notes="native accelerator worker timed out",
+            )
+        try:
+            payload: Any = json.loads(await fetch_bytes(self.execution, workspace, output_name))
+        except (OSError, ValueError, json.JSONDecodeError):
+            payload = {
+                "ok": False,
+                "error": (result.stderr or result.stdout)[-2000:]
+                or "native accelerator worker produced no result file",
+            }
+        return self._finalize(
+            payload,
+            config,
+            module_path,
+            candidate_id=candidate_id,
+            variant_id=variant_id,
+            precision=precision,
+            compensation=compensation,
+        )
+
+    def _finalize(
+        self,
+        payload: Any,
+        config: RunConfig,
+        module_path: Path,
+        *,
+        candidate_id: str,
+        variant_id: str,
+        precision: str,
+        compensation: str,
+    ) -> Measurement:
+        """Validate one native worker record and convert it to a measurement."""
+
+        if not isinstance(payload, dict) or not payload.get("ok"):
+            detail = payload if isinstance(payload, dict) else {}
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind=str(detail.get("phase") or "worker_protocol"),
+                notes=str(detail.get("error") or "native worker returned an invalid record"),
+            )
+        expected_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
+        reported_hash = str(payload.get("source_hash") or "")
+        if reported_hash != expected_hash:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="source_integrity",
+                notes="native worker did not prove the measured candidate source hash",
+            )
+        timing = payload.get("timing") or {}
+        metrics = payload.get("metrics") or {}
+        precision_meta = payload.get("precision") or {}
+        evaluation = payload.get("evaluation_output") or {}
+        try:
+            latency_s = float(payload["median_s"])
+            min_s = float(payload["min_s"])
+        except (KeyError, TypeError, ValueError):
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="worker_protocol",
+                notes="native worker omitted finite median_s/min_s timing values",
+            )
+        valid = bool(payload.get("valid", payload.get("equivalent")))
+        measurement = _base_measurement(
+            config,
+            self.spec,
+            module_path,
+            candidate_id,
+            variant_id,
+            precision,
+            compensation,
+            Status.OK if valid else Status.DIVERGED,
+            resource=self.resource,
+            latency_s=latency_s,
+            min_s=min_s,
+            **_timing_fields(timing),
+            max_abs_error=metrics.get("max_abs_error"),
+            max_rel_error=metrics.get("max_rel_error"),
+            relative_l2=metrics.get("relative_l2"),
+            failure_kind="" if valid else "numerical_divergence",
+            evaluation_output_checked=bool(evaluation.get("checked", False)),
+            evaluation_output_finite=evaluation.get("finite"),
+            evaluation_output_numel=evaluation.get("numel"),
+            evaluation_output_sha256=str(evaluation.get("sha256") or ""),
+            evaluation_semantic_verified=bool(evaluation.get("semantic_verified", False)),
+            accuracy_source=str(evaluation.get("accuracy_source") or ""),
+            source_integrity_verified=True,
+            notes=(
+                ""
+                if payload.get("equivalent")
+                else "measured device error: " + json.dumps(payload.get("diagnostic"), default=str)
+            ),
+        )
+        measurement.storage_precision = str(precision_meta.get("storage", precision))
+        measurement.operator_precision = str(precision_meta.get("operator", precision))
+        measurement.accumulator_precision = str(precision_meta.get("accumulator", precision))
+        measurement.output_precision = str(precision_meta.get("output", precision))
+        measurement.observed_output_precision = str(precision_meta.get("observed_output", ""))
+        measurement.precision_metadata_source = str(
+            precision_meta.get("metadata_source", "candidate_declared")
+        )
+        measurement = _enforce_accuracy_latency_pair(measurement)
+        return _enforce_architectural_timing(measurement)
 
 
 class GroqBackend(Backend):
@@ -661,6 +1038,9 @@ class GroqBackend(Backend):
             "precision": precision,
             "compensation": compensation,
             "seed": seed,
+            "warmup": config.measure.warmup,
+            "iterations": config.measure.iterations,
+            "timing_protocol": _ARCHITECTURAL_TIMING_PROTOCOL,
         }
         temporary = queue / "pending" / f".{request_id}.tmp"
         destination = queue / "pending" / f"{request_id}.json"
@@ -689,6 +1069,7 @@ class GroqBackend(Backend):
                     status = Status(status_raw)
                 except ValueError:
                     status = Status.CRASHED
+                timing = payload.get("timing") or {}
                 measurement = _base_measurement(
                     config,
                     self.spec,
@@ -699,6 +1080,8 @@ class GroqBackend(Backend):
                     compensation,
                     status,
                     latency_s=payload.get("latency_s"),
+                    min_s=payload.get("min_s"),
+                    **_timing_fields(timing),
                     max_abs_error=payload.get("max_abs_error"),
                     max_rel_error=payload.get("max_rel_error"),
                     relative_l2=payload.get("relative_l2"),
@@ -713,7 +1096,8 @@ class GroqBackend(Backend):
                     accuracy_source=str(payload.get("accuracy_source") or ""),
                     notes=str(payload.get("notes") or ""),
                 )
-                return _enforce_accuracy_latency_pair(measurement)
+                measurement = _enforce_accuracy_latency_pair(measurement)
+                return _enforce_architectural_timing(measurement)
             await asyncio.sleep(0.5)
         destination.unlink(missing_ok=True)
         return _base_measurement(
@@ -816,6 +1200,8 @@ class GroqBackend(Backend):
                 oracle_name,
                 "--output",
                 result_name,
+                "--warmup",
+                str(config.measure.warmup),
                 "--iterations",
                 str(config.measure.iterations),
                 "--rtol",
@@ -996,6 +1382,8 @@ class GroqBackend(Backend):
             oracle_name,
             "--output",
             result_name,
+            "--warmup",
+            str(config.measure.warmup),
             "--iterations",
             str(config.measure.iterations),
             "--rtol",
@@ -1281,13 +1669,7 @@ class GroqBackend(Backend):
             ),
             latency_s=latency,
             min_s=latency if minimum is None else float(minimum),
-            latency_scope=str(timing.get("scope", "model_forward")),
-            latency_source=str(timing.get("source", "groq_sdk_benchmark")),
-            latency_clock=str(timing.get("clock", "groq_runtime")),
-            latency_includes_input_construction=bool(
-                timing.get("includes_input_construction", False)
-            ),
-            latency_cuda_synchronized=False,
+            **_timing_fields(timing),
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),
@@ -1315,7 +1697,8 @@ class GroqBackend(Backend):
         measurement.precision_metadata_source = str(
             precision_meta.get("metadata_source", "backend_contract")
         )
-        return _enforce_accuracy_latency_pair(measurement)
+        measurement = _enforce_accuracy_latency_pair(measurement)
+        return _enforce_architectural_timing(measurement)
 
 
 def _reap_stale_groq_requests(queue: Path, stale_after_s: float) -> None:
@@ -1377,7 +1760,7 @@ def build_backends(config: RunConfig, execution: ExecutionContext) -> list[Backe
                     semaphore=torch_lock,
                 )
             )
-        else:
+        elif spec.type == "groq":
             if spec.queue_dir is not None:
                 result.append(GroqBackend(spec))
             else:
@@ -1390,6 +1773,16 @@ def build_backends(config: RunConfig, execution: ExecutionContext) -> list[Backe
                         semaphore=asyncio.Semaphore(1),
                     )
                 )
+        else:
+            resource = spec.resource or execution.default_resource
+            result.append(
+                NativeBackend(
+                    spec,
+                    execution.backend(spec.resource),
+                    resource,
+                    semaphore=asyncio.Semaphore(1),
+                )
+            )
     return result
 
 

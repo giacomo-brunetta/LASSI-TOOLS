@@ -141,10 +141,19 @@ class GroqPBSConfig(GroqRuntimeConfig):
     walltime: str = Field(default="01:00:00", pattern=r"^\d{1,3}:\d{2}:\d{2}$")
 
 
+class NativeWorkerConfig(StrictModel):
+    """Site interpreter and optional standalone worker for a native accelerator."""
+
+    python: Path
+    script: Path | None = None
+
+
 class BackendConfig(StrictModel):
-    type: Literal["torch", "groq"]
+    type: Literal["torch", "groq", "native"]
     name: str
     device: str | None = None
+    architecture: Literal["graphcore_ipu", "cerebras_wse3"] | None = None
+    worker: NativeWorkerConfig | None = None
     resource: str | None = None
     queue_dir: Path | None = None
     pbs: GroqPBSConfig | None = None
@@ -178,8 +187,17 @@ class BackendConfig(StrictModel):
                     "groq direct mode requires runtime settings naming the "
                     "compute-node groqflow interpreter"
                 )
-        elif self.pbs is not None or self.runtime is not None:
+        elif self.type == "native":
+            if self.architecture is None or self.worker is None:
+                raise ValueError("native backend requires architecture and worker settings")
+            if self.architecture == "cerebras_wse3" and self.worker.script is None:
+                raise ValueError("cerebras_wse3 backend requires a site measurement script")
+            if self.device is not None:
+                raise ValueError("native backend selects hardware through its site worker")
+        if self.type != "groq" and (self.pbs is not None or self.runtime is not None):
             raise ValueError("pbs and runtime settings are only valid for a groq backend")
+        if self.type != "native" and (self.architecture is not None or self.worker is not None):
+            raise ValueError("architecture and worker settings are only valid for a native backend")
         return self
 
 
@@ -408,6 +426,15 @@ class RunConfig(StrictModel):
                 "models.candidates length must equal arena.candidates "
                 f"({len(self.models.candidates)} != {self.arena.candidates})"
             )
+        has_accelerator = any(
+            spec.type in {"groq", "native"}
+            or (spec.type == "torch" and str(spec.device).partition(":")[0] != "cpu")
+            for spec in self.measure.backends
+        )
+        if has_accelerator and self.measure.warmup < 1:
+            raise ValueError(
+                "architectural accelerator timing requires at least one warmup invocation"
+            )
         known = set(self.execution.resources) or {"local"}
         unknown = sorted(
             spec.resource
@@ -508,7 +535,7 @@ class RunConfig(StrictModel):
         return [
             spec.name
             for spec in self.measure.backends
-            if spec.type == "groq"
+            if spec.type in {"groq", "native"}
             or (spec.type == "torch" and str(spec.device).partition(":")[0] != "cpu")
         ]
 

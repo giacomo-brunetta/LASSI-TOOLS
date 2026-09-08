@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import importlib
 import json
 import os
@@ -9,7 +10,7 @@ import sys
 import time
 import uuid
 from types import ModuleType, SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -18,7 +19,7 @@ import yaml
 import lassi_x.measurement as measurement
 from lassi_x.config import BackendConfig, RunConfig
 from lassi_x.execution import LocalExecutionBackend
-from lassi_x.measurement import Backend, GroqBackend, TorchBackend
+from lassi_x.measurement import Backend, GroqBackend, NativeBackend, TorchBackend
 from lassi_x.protocol import ExecRequest, ExecResult
 from lassi_x.types import Measurement, Status
 from lassi_x.validation import OracleResult, build_oracle, compare_outputs
@@ -28,6 +29,33 @@ from .test_validation import C_REFERENCE, GOOD_MODULE
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def architectural_timing(samples: list[float] | None = None) -> dict[str, Any]:
+    values = samples or [0.000123]
+    return {
+        "protocol": "architectural-single-call-v1",
+        "scope": "device_resident_graph",
+        "source": "native_device_timer",
+        "clock": "device_clock",
+        "includes_input_construction": False,
+        "warmup_count": 3,
+        "sample_count": len(values),
+        "invocations_per_sample": 1,
+        "samples_s": values,
+        "physical_device_count": 1,
+        "input_residency": "device",
+        "output_residency_at_stop": "device",
+        "excludes": [
+            "allocation",
+            "compilation",
+            "device_attach",
+            "device_to_host",
+            "executable_load",
+            "host_to_device",
+            "queue",
+        ],
+    }
 
 
 def setup_run(tmp_path: Path) -> tuple[RunConfig, Path, OracleResult]:
@@ -117,6 +145,7 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
                 "request_id": request_id,
                 "status": "ok",
                 "latency_s": 0.001,
+                "min_s": 0.001,
                 "max_rel_error": 0.02,
                 "accuracy_checked": True,
                 "accuracy_finite": True,
@@ -124,6 +153,7 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
                 "accuracy_sha256": "abc",
                 "accuracy_oracle_compared": True,
                 "accuracy_source": "timed_device_workload",
+                "timing": architectural_timing([0.001]),
             }
         )
     )
@@ -172,12 +202,7 @@ class FakePBSExecutionBackend(LocalExecutionBackend):
                         "max_rel_error": 0.02,
                         "relative_l2": 0.003,
                     },
-                    "timing": {
-                        "scope": "model_forward",
-                        "source": "groq_sdk_benchmark",
-                        "clock": "groq_runtime",
-                        "includes_input_construction": False,
-                    },
+                    "timing": architectural_timing(),
                     "precision": {
                         "storage": "fp16",
                         "operator": "fp16",
@@ -201,6 +226,145 @@ class FakePBSExecutionBackend(LocalExecutionBackend):
             stdout="12345.groq-r01-control\n",
             duration_s=1.0,
         )
+
+
+class FakeNativeExecutionBackend(LocalExecutionBackend):
+    """Return a conforming native-device record without importing a vendor SDK."""
+
+    async def execute(self, request: ExecRequest) -> ExecResult:
+        workspace = self.workspace_root / request.workspace
+        output_name = request.argv[request.argv.index("--output") + 1]
+        module_name = request.argv[request.argv.index("--module") + 1]
+        candidate = workspace / module_name
+        payload = {
+            "ok": True,
+            "valid": True,
+            "equivalent": True,
+            "median_s": 0.000123,
+            "min_s": 0.000123,
+            "metrics": {"max_abs_error": 0.0, "max_rel_error": 0.0, "relative_l2": 0.0},
+            "timing": architectural_timing(),
+            "precision": {
+                "storage": "fp16",
+                "operator": "fp16",
+                "accumulator": "fp32",
+                "output": "fp16",
+                "observed_output": "float16",
+            },
+            "source_hash": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+            "evaluation_output": {
+                "checked": True,
+                "finite": True,
+                "numel": 1,
+                "sha256": "abc",
+                "semantic_verified": True,
+                "accuracy_source": "timed_device_invocation",
+            },
+        }
+        (workspace / output_name).write_text(json.dumps(payload))
+        return ExecResult(workspace=request.workspace, exit_code=0, stdout="", duration_s=10.0)
+
+
+def test_native_backend_accepts_only_device_clock_single_call_records(tmp_path: Path) -> None:
+    config, module, oracle = setup_run(tmp_path)
+    spec = BackendConfig.model_validate(
+        {
+            "type": "native",
+            "name": "graphcore-ipu",
+            "architecture": "graphcore_ipu",
+            "resource": "graphcore",
+            "precisions": ["fp16"],
+            "worker": {"python": "/opt/poplar/bin/python"},
+        }
+    )
+    execution = FakeNativeExecutionBackend(tmp_path / "remote", "graphcore")
+    result = asyncio.run(
+        NativeBackend(spec, execution, "graphcore").measure(
+            config,
+            oracle,
+            module,
+            candidate_id="c1",
+            variant_id="c1-base",
+            precision="fp16",
+            compensation="none",
+        )
+    )
+    assert result.status == Status.OK
+    assert result.latency_s == 0.000123
+    assert result.worker_wall_s is None
+    assert result.timing_protocol == "architectural-single-call-v1"
+    assert result.timing_invocations_per_sample == 1
+    assert result.timing_physical_device_count == 1
+    assert (tmp_path / "remote" / "native-c1-base" / "native_measure_worker.py").is_file()
+
+
+def test_architectural_timing_rejects_amortized_latency() -> None:
+    point = Measurement(
+        kernel="tiny",
+        candidate_id="c1",
+        variant_id="c1-base",
+        backend="accelerator",
+        precision="fp16",
+        compensation="none",
+        status=Status.OK,
+        module_path="candidate.py",
+        storage_precision="fp16",
+        operator_precision="fp16",
+        accumulator_precision="fp16",
+        output_precision="fp16",
+        latency_s=0.001,
+        min_s=0.001,
+        timing_protocol="architectural-single-call-v1",
+        latency_scope="device_resident_graph",
+        latency_source="native_device_timer",
+        latency_clock="device_clock",
+        timing_warmup_count=3,
+        timing_sample_count=1,
+        timing_invocations_per_sample=20,
+        timing_samples_s=[0.001],
+        timing_physical_device_count=1,
+        timing_input_residency="device",
+        timing_output_residency_at_stop="device",
+        timing_excludes=list(architectural_timing()["excludes"]),
+    )
+    rejected = measurement._enforce_architectural_timing(point)
+    assert rejected.status == Status.CRASHED
+    assert rejected.failure_kind == "incomparable_timing"
+    assert "exactly one graph invocation" in rejected.notes
+
+
+def test_architectural_timing_rejects_host_clock() -> None:
+    point = Measurement(
+        kernel="tiny",
+        candidate_id="c1",
+        variant_id="c1-base",
+        backend="accelerator",
+        precision="fp16",
+        compensation="none",
+        status=Status.OK,
+        module_path="candidate.py",
+        storage_precision="fp16",
+        operator_precision="fp16",
+        accumulator_precision="fp16",
+        output_precision="fp16",
+        latency_s=0.000123,
+        min_s=0.000123,
+        timing_protocol="architectural-single-call-v1",
+        latency_scope="device_resident_graph",
+        latency_source="host_stopwatch",
+        latency_clock="time.perf_counter",
+        timing_warmup_count=3,
+        timing_sample_count=1,
+        timing_invocations_per_sample=1,
+        timing_samples_s=[0.000123],
+        timing_physical_device_count=1,
+        timing_input_residency="device",
+        timing_output_residency_at_stop="device",
+        timing_excludes=list(architectural_timing()["excludes"]),
+    )
+    rejected = measurement._enforce_architectural_timing(point)
+    assert rejected.status == Status.CRASHED
+    assert "host clocks cannot" in rejected.notes
 
 
 def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
@@ -235,7 +399,7 @@ def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
     assert result.status == Status.OK
     assert result.resource == "groq-login"
     assert result.latency_s == 0.000123
-    assert result.latency_source == "groq_sdk_benchmark"
+    assert result.latency_source == "native_device_timer"
     assert result.worker_wall_s is None
     request = execution.requests[0]
     assert request.argv[0] == "/opt/pbs/bin/qsub"
@@ -483,7 +647,7 @@ def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> Non
     assert result.resource == "here"
     assert result.latency_s is not None and result.latency_s > 0
     assert result.worker_wall_s is None
-    assert result.latency_scope == "model_forward"
+    assert result.latency_scope == "host_model_forward"
     assert result.latency_source == "remote_measure_worker"
     assert result.latency_clock == "time.perf_counter"
     assert result.latency_includes_input_construction is False

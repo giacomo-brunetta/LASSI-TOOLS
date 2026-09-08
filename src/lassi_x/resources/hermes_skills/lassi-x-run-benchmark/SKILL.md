@@ -1,6 +1,6 @@
 ---
 name: lassi-x-run-benchmark
-description: Measure a validated PyTorch candidate with warmups, repeated trials, synchronized accelerator timing, and oracle-relative error reporting. Use after semantic validation when comparing candidates, precisions, backends, or compensation variants.
+description: Measure a validated candidate with warmups, native device-clock single-call trials, and paired oracle-relative error reporting. Use after semantic validation when comparing candidates, precisions, backends, or compensation variants.
 license: MIT
 metadata:
   hermes:
@@ -20,7 +20,8 @@ the implementation, overlapping device work, or separating speed from numerical 
 2. Run:
    `lassi-x benchmark run --config CONFIG --module MODULE --backend NAME --precision PRECISION`
 3. Verify the reported backend, device, storage/operator/accumulator/output precision, source
-   identity, warmup count, iteration count, and synchronization behavior.
+   identity, warmup count, raw sample count, one invocation per sample, physical-device count,
+   device residency, excluded costs, native timing clock, and synchronization behavior.
 4. Check validity, finite outputs, oracle-relative errors, and scientific invariant alongside
    timing. A fast invalid point is not a performance result.
 5. Compare median latency using equivalent protocols. Use minimum latency as supporting evidence,
@@ -35,5 +36,7 @@ error metrics, equivalence, invariant status, and terminal status.
 
 - Never benchmark before semantic validation.
 - Never overlap measurements on the same physical device.
-- Never compare unsynchronized accelerator time with synchronized time.
+- Accept only `architectural-single-call-v1` accelerator timing. Compilation, queueing, process
+  startup, allocation, attachment, executable loading, and host/device transfers stay outside it.
+- Never compare a host/job timer or amortized device loop with native single-call device timing.
 - Never omit precision roles or report invalid output as a speedup.

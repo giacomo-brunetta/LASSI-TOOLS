@@ -51,3 +51,12 @@ def test_frontier_excludes_latency_without_device_accuracy_evidence() -> None:
     incomplete = point(1, 0.1)
     incomplete.accuracy_source = ""
     assert frontier_indices([incomplete]) == []
+
+
+def test_host_latency_cannot_dominate_architectural_accelerator_frontier() -> None:
+    host = point(0.1, 0.0)
+    host.timing_protocol = "host-single-call-v1"
+    accelerator = point(1.0, 0.1)
+    accelerator.backend = "a100"
+    accelerator.timing_protocol = "architectural-single-call-v1"
+    assert frontier_indices([host, accelerator]) == [1]

@@ -16,6 +16,43 @@ import torch
 from .runner import PRECISIONS, load_module
 from .validation import compare_outputs, load_reference_output
 
+ARCHITECTURAL_TIMING_PROTOCOL = "architectural-single-call-v1"
+ARCHITECTURAL_TIMING_EXCLUDES = [
+    "allocation",
+    "compilation",
+    "device_attach",
+    "device_to_host",
+    "executable_load",
+    "host_to_device",
+    "queue",
+]
+
+
+def _time_single_call(
+    model: torch.nn.Module,
+    inputs: tuple[torch.Tensor, ...],
+    *,
+    cuda: bool,
+) -> tuple[object, float]:
+    """Time exactly one forward call with the narrowest available clock.
+
+    CUDA events measure elapsed device-stream time and therefore exclude Python
+    dispatch and synchronization overhead. The fallback is intentionally only
+    used for host execution; other accelerators need a native worker/clock.
+    """
+
+    if cuda:
+        start = torch.cuda.Event(enable_timing=True)  # type: ignore[no-untyped-call]
+        end = torch.cuda.Event(enable_timing=True)  # type: ignore[no-untyped-call]
+        start.record()
+        output = model(*inputs)
+        end.record()
+        end.synchronize()
+        return output, float(start.elapsed_time(end)) / 1000.0
+    start_s = time.perf_counter()
+    output = model(*inputs)
+    return output, time.perf_counter() - start_s
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -81,17 +118,22 @@ def main() -> int:
                 model(*inputs)
             if cuda:
                 torch.cuda.synchronize()
+                phase = "evaluation_graph_capture"
+                # Capture/instantiation is setup, never latency. Replaying one
+                # CUDA Graph makes the timed unit match the single compiled
+                # graph call used on dataflow accelerators and removes Python
+                # and per-operation launch dispatch from the event interval.
+                model = cast(
+                    "torch.nn.Module",
+                    torch.cuda.make_graphed_callables(model, inputs),
+                )
+                torch.cuda.synchronize()
             phase = "evaluation_benchmark"
-            samples = []
+            samples: list[float] = []
             timed_output: object | None = None
             for _ in range(args.iterations):
-                if cuda:
-                    torch.cuda.synchronize()
-                start = time.perf_counter()
-                timed_output = model(*inputs)
-                if cuda:
-                    torch.cuda.synchronize()
-                samples.append(time.perf_counter() - start)
+                timed_output, elapsed_s = _time_single_call(model, inputs, cuda=cuda)
+                samples.append(elapsed_s)
             assert timed_output is not None
             flat, tensors = flatten(timed_output)
             repeated, _ = flatten(model(*inputs))
@@ -139,11 +181,20 @@ def main() -> int:
             "median_s": statistics.median(samples),
             "min_s": min(samples),
             "timing": {
-                "scope": "model_forward",
-                "source": "remote_measure_worker",
-                "clock": "time.perf_counter",
+                "protocol": (ARCHITECTURAL_TIMING_PROTOCOL if cuda else "host-single-call-v1"),
+                "scope": ("device_resident_graph" if cuda else "host_model_forward"),
+                "source": "torch_cuda_graph_event" if cuda else "remote_measure_worker",
+                "clock": "cuda_event" if cuda else "time.perf_counter",
                 "includes_input_construction": False,
                 "cuda_synchronized": cuda,
+                "warmup_count": args.warmup,
+                "sample_count": len(samples),
+                "invocations_per_sample": 1,
+                "samples_s": samples,
+                "physical_device_count": 1 if cuda else None,
+                "input_residency": "device" if cuda else "host",
+                "output_residency_at_stop": "device" if cuda else "host",
+                "excludes": ARCHITECTURAL_TIMING_EXCLUDES if cuda else ["input_construction"],
             },
             "metrics": metrics,
             "invariant_error": invariant_error,

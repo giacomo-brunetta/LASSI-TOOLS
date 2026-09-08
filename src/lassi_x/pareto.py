@@ -29,6 +29,15 @@ def frontier_indices(points: list[Measurement]) -> list[int]:
         for index, point in enumerate(points)
         if valid_point(point)
     ]
+    # Host-forward time and native device time are different metrics. When a
+    # run has architectural accelerator evidence, build its global frontier
+    # exclusively from that comparison class. CPU-only runs retain their
+    # useful local frontier as a fallback.
+    architectural = [
+        item for item in valid if item[1].timing_protocol == "architectural-single-call-v1"
+    ]
+    if architectural:
+        valid = architectural
     frontier: list[int] = []
     for i, _, latency, error in valid:
         assert latency is not None

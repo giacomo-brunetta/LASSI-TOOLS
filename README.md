@@ -98,12 +98,13 @@ stack README.
 > measurements, compensation, and frontier construction all completed. Run
 > `lassi-x execution doctor` for each new endpoint before spending an allocation.
 >
-> **Groq status: live-tested.** On August 4, 2026, the complete three-candidate
+> **Groq status: previously live-tested.** On August 4, 2026, the complete three-candidate
 > PolyBench 3mm flow also ran through Academy and Globus Compute endpoint
 > `266f3128-cc9a-403e-ab61-9284ed57d54b`. LASSI-X submitted each Groq cell from
 > the AI Testbed login node to an exclusive GroqRack PBS compute node, activated
 > `groqflow` inside the job, and recorded SDK-measured device latency against the
-> external C FP64 oracle.
+> external C FP64 oracle. The stricter single-call protocol described below was added
+> afterward and still needs one Groq hardware revalidation.
 
 In `academy` mode with an `exchange_url`, resources carrying a Globus Compute
 `endpoint_id` run on that endpoint: reference sources and fixtures are staged
@@ -186,6 +187,87 @@ model and static inputs are invoked on the LPU for the paired oracle comparison;
 PBS queueing, file transfer, and input construction are excluded.
 The legacy shared-filesystem `queue_dir` mode remains available for standalone
 workers.
+
+### Architectural single-call latency
+
+Accelerator Pareto points use one intentionally narrow metric,
+`architectural-single-call-v1`: the warm latency of one complete execution of the candidate graph
+on exactly one physical accelerator. Each reported sample contains exactly one invocation. The
+primary result is the median of independent samples; the minimum and every raw sample are retained
+as audit evidence. A long on-device loop divided by its iteration count is not accepted.
+
+Compilation, scheduler/PBS/Slurm queueing, process startup, allocation, device attachment,
+executable loading, input construction, and host-to-device and device-to-host transfers are all
+outside the timer. Inputs must have reached the device when timing begins, and timing stops when
+the canonical output is ready on the device. The output is copied back only afterward and compared
+with the matching C FP64 oracle. Thus every performance point still carries accuracy measured from
+the same executable and inputs, while transfer and orchestration time cannot leak into
+`latency_s`. This is an architectural kernel comparison, not an end-to-end or MLPerf-style system
+benchmark.
+
+The four target clocks are:
+
+- NVIDIA A100: the warmed forward is captured as one CUDA Graph outside the timer, then CUDA events
+  surround one graph replay. CUDA synchronization finishes each event sample, but compilation,
+  capture, Python dispatch, per-operation launch dispatch, and synchronization time are not part of
+  the event interval.
+- GroqCard: one `GroqModel.benchmark(repetitions=1)` call per sample, using its runtime latency.
+  Compilation and the PBS transaction occur before sampling.
+- Graphcore IPU: one PopTorch invocation with `deviceIterations(1)`, followed by
+  `getComputeLatency()` for that invocation. The built-in standalone worker compiles and warms the
+  executable before sampling.
+- Cerebras WSE-3: a site worker must return a profiler or hardware-counter interval with the same
+  boundaries. Job duration is explicitly invalid. LASSI-X will reject a record if the installed
+  Cerebras stack cannot expose such a timer.
+
+Accelerator workers must identify this protocol and report their timing boundary, native clock,
+warmup count, raw samples, one invocation per sample, one physical device, device input/output
+residency, and the excluded costs. Missing or inconsistent evidence produces
+`failure_kind: incomparable_timing`, so a convenient host or job timer can never enter a Pareto
+frontier. CPU points retain host-forward timing for local baselines, but are not evidence for this
+cross-accelerator architectural metric. Whenever architectural accelerator points exist, the
+global frontier is built only from that protocol; host points cannot dominate it. CPU-only runs
+still receive their ordinary local frontier.
+
+Graphcore and Cerebras use `type: native` backends. The Graphcore worker ships with LASSI-X;
+`worker.python` names the Python interpreter in the enabled Poplar SDK environment. Cerebras
+requires a harness-local standalone script because WSE execution/profiling APIs depend on the
+installed SDK and programming model; the script is staged to the selected resource and must emit
+the same result schema.
+
+```yaml
+measure:
+  warmup: 5
+  iterations: 30
+  backends:
+    - type: torch
+      name: a100
+      device: cuda:0
+      resource: polaris-a100
+      precisions: [fp32, fp16, bf16]
+    - type: groq
+      name: groqcard
+      resource: groq-login
+      precisions: [fp16]
+      pbs: # site settings omitted here
+        conda_sh: /path/to/conda.sh
+        python: /path/to/groqflow/bin/python
+    - type: native
+      name: graphcore-ipu
+      architecture: graphcore_ipu
+      resource: graphcore
+      precisions: [fp32, fp16]
+      worker:
+        python: /path/to/poplar/python
+    - type: native
+      name: cerebras-wse3
+      architecture: cerebras_wse3
+      resource: cerebras
+      precisions: [fp32, fp16, bf16]
+      worker:
+        python: /path/to/cerebras/python
+        script: tools/cerebras_architectural_worker.py
+```
 
 ## Flow
 
@@ -324,10 +406,10 @@ hard measurement gate.
 Torch backends share one timing semaphore by default, preventing CPU and CUDA measurements
 from perturbing each other through concurrent host-side work. Set
 `measure.serialize_torch_backends: false` only when throughput matters more than timing
-isolation. `latency_s` contains the median measured inside the worker around model forward
-only; input construction and Academy/MCP transport are excluded. CUDA measurements synchronize
-before and after the forward. `worker_wall_s` remains nullable for artifact compatibility but
-is not populated by Torch/Academy measurements.
+isolation. CUDA `latency_s` is the median CUDA-event duration around one captured forward replay;
+input construction and Academy/MCP transport are excluded. CPU timing uses `time.perf_counter` and
+is labelled separately. `worker_wall_s` remains nullable for artifact compatibility but is not
+populated by Torch/Academy measurements.
 
 ## Hermes skills
 
@@ -396,10 +478,3 @@ The former LASSI-TOOLS MINI 3mm arena has a dedicated reproduction under
 [`examples/polybench-3mm`](examples/polybench-3mm). It preserves the three
 candidates and two repair turns, uses a high-fidelity serialization of the
 original C FP64 oracle, and measures CPU and CUDA low-precision error.
-
-## Groq mutual-information kernel
-
-[`examples/mutual-information-groq`](examples/mutual-information-groq) contains a
-wiki-guided Shannon mutual-information kernel for a static `256 x 256` joint
-distribution. The complete graph was compiled and executed on Groq hardware;
-the example includes its FP64 numerical checks and SDK latency record.

@@ -107,6 +107,31 @@ def test_groq_backend_requires_queue_or_resource_pbs(tmp_path: Path) -> None:
         RunConfig.model_validate(data)
 
 
+def test_native_backend_requires_architecture_and_cerebras_worker(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    backend: dict[str, Any] = {
+        "type": "native",
+        "name": "ipu",
+        "resource": "graphcore",
+        "precisions": ["fp16"],
+        "worker": {"python": "/opt/poplar/bin/python"},
+    }
+    data["measure"]["backends"] = [backend]
+    data["execution"] = {"mode": "academy", "resources": {"graphcore": {}}}
+    with pytest.raises(ValidationError, match="requires architecture"):
+        RunConfig.model_validate(data)
+
+    backend["architecture"] = "graphcore_ipu"
+    parsed = RunConfig.model_validate(data)
+    assert parsed.required_backends == ["ipu"]
+
+    backend["architecture"] = "cerebras_wse3"
+    with pytest.raises(ValidationError, match="requires a site measurement script"):
+        RunConfig.model_validate(data)
+    backend["worker"]["script"] = "tools/cerebras_worker.py"
+    assert RunConfig.model_validate(data).measure.backends[0].architecture == "cerebras_wse3"
+
+
 def test_execution_defaults_to_local_mode(tmp_path: Path) -> None:
     config = RunConfig.model_validate(minimal_config(tmp_path))
     assert config.execution.mode == "local"
@@ -127,6 +152,21 @@ def test_success_defaults_to_all_configured_accelerators(tmp_path: Path) -> None
     assert config.required_backends == ["cuda"]
     assert config.pareto_error_metric == "max_rel_error"
     assert config.compensation.measurement_scope == "all"
+
+
+def test_accelerator_measurement_requires_warmup(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["warmup"] = 0
+    data["measure"]["backends"].append(
+        {
+            "type": "torch",
+            "name": "cuda",
+            "device": "cuda:0",
+            "precisions": ["fp16"],
+        }
+    )
+    with pytest.raises(ValidationError, match="at least one warmup"):
+        RunConfig.model_validate(data)
 
 
 def test_success_rejects_unknown_required_backend(tmp_path: Path) -> None:

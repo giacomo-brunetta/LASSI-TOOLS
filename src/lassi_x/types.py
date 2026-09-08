@@ -124,6 +124,15 @@ class Measurement:
     latency_scope: str = ""
     latency_source: str = ""
     latency_clock: str = ""
+    timing_protocol: str = ""
+    timing_warmup_count: int | None = None
+    timing_sample_count: int | None = None
+    timing_invocations_per_sample: int | None = None
+    timing_samples_s: list[float] = field(default_factory=list)
+    timing_physical_device_count: int | None = None
+    timing_input_residency: str = ""
+    timing_output_residency_at_stop: str = ""
+    timing_excludes: list[str] = field(default_factory=list)
     latency_includes_input_construction: bool | None = None
     latency_cuda_synchronized: bool | None = None
     max_abs_error: float | None = None

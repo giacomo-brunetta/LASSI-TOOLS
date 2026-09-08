@@ -50,7 +50,7 @@ def _accelerator_backend_names(config: RunConfig) -> set[str]:
     return {
         spec.name
         for spec in config.measure.backends
-        if spec.type == "groq"
+        if spec.type in {"groq", "native"}
         or (spec.type == "torch" and str(spec.device).partition(":")[0] != "cpu")
     }
 
