@@ -135,7 +135,7 @@ class CompatibilitySession:
         return None
 
 
-class EventuallyCompatibleBackend(Backend):
+class EventuallyCompatibleBackend(Backend[Any]):
     def __init__(self, spec: BackendConfig) -> None:
         super().__init__(spec)
         self.calls = 0
@@ -177,7 +177,7 @@ class EventuallyCompatibleBackend(Backend):
         )
 
 
-class DivergedBackend(Backend):
+class DivergedBackend(Backend[Any]):
     async def measure(
         self,
         config: RunConfig,

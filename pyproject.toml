@@ -49,17 +49,23 @@ dev = [
 
 [project.scripts]
 lassi-x = "lassi_x.cli:main"
-lassi-x-compat = "compat_tool.cli:main"
-lassi-x-compat-wiki = "compat_tool.query_wiki:main"
+lassi-x-compat = "lassi_x.compat.cli:main"
+lassi-x-compat-wiki = "lassi_x.compat.query_wiki:main"
 
 [tool.setuptools]
-packages = ["lassi_x", "lassi_x.remote", "compat_tool"]
-package-dir = {lassi_x = "src/lassi_x", compat_tool = "compat_tool"}
+packages = [
+  "lassi_x",
+  "lassi_x.compat",
+  "lassi_x.compat.checkers",
+  "lassi_x.execution",
+  "lassi_x.measurement",
+  "lassi_x.remote",
+]
 include-package-data = false
 
 [tool.setuptools.package-data]
 lassi_x = ["resources/**/*"]
-compat_tool = ["README.md", "data/*", "pruning.yaml", "targets/*.yaml", "snapshots/**/*", "wiki/**/*"]
+"lassi_x.compat" = ["README.md", "inventory_data/*", "targets/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -91,7 +97,7 @@ select = [
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests", "examples/polybench-3mm/golden_candidate.py"]
+files = ["lassi_x", "tests", "examples/polybench-3mm/golden_candidate.py"]
 exclude = ["build/", "runs/"]
 strict = true
 warn_return_any = true
@@ -109,3 +115,12 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "plugins.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  "lassi_x.compat.checkers.cerebras",
+  "lassi_x.compat.checkers.poptorch",
+]
+# These modules intentionally bind optional compiler SDKs at runtime. Their
+# public, SDK-independent compatibility API remains checked under strict mode.
+ignore_errors = true

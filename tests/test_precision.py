@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -95,15 +96,19 @@ def test_precision_helpers_do_not_import_the_config_stack() -> None:
 
 
 def test_every_advertised_technique_executes_on_torch_cpu() -> None:
+    repository_root = Path(__file__).parents[1]
     script = (
-        Path(__file__).parents[1]
-        / "src/lassi_x/resources/hermes_skills/lassi-x-fp16-compensate/scripts"
+        repository_root
+        / "lassi_x/resources/hermes_skills/lassi-x-fp16-compensate/scripts"
         / "torch_cpu_techniques.py"
     )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repository_root) + os.pathsep + env.get("PYTHONPATH", "")
     completed = subprocess.run(
         [sys.executable, str(script), "--smoke"],
         check=True,
         capture_output=True,
+        env=env,
         text=True,
     )
     report = json.loads(completed.stdout)

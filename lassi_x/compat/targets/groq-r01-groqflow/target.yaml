@@ -1,0 +1,12 @@
+schema_version: 1
+target_id: groq-r01-groqflow
+family: groq
+description: GroqRack r01 compiled by GroqFlow
+checker: lassi_x.compat.checkers.groq:GroqFlowChecker
+precisions: [fp16]
+timeout_s: 1800
+max_workers: 1
+options:
+  trace_dtype: float32
+  cache_dir: /home/gbrun/.cache/lassi-x/groq-compat
+  rebuild: if_needed

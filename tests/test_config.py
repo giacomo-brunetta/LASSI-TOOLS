@@ -6,7 +6,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from lassi_x.config import RunConfig
+from lassi_x.config import GroqBackendConfig, NativeBackendConfig, RunConfig
 from lassi_x.hermes_worker import resolve_api_key
 from lassi_x.protocol import WorkerInit
 
@@ -86,7 +86,9 @@ def test_groq_backend_requires_queue_or_resource_pbs(tmp_path: Path) -> None:
         RunConfig.model_validate(data)
 
     backend["queue_dir"] = str(tmp_path / "queue")
-    assert RunConfig.model_validate(data).measure.backends[0].queue_dir is not None
+    parsed = RunConfig.model_validate(data).measure.backends[0]
+    assert isinstance(parsed, GroqBackendConfig)
+    assert parsed.queue_dir is not None
 
     backend.pop("queue_dir")
     backend["resource"] = "groq-login"
@@ -99,6 +101,7 @@ def test_groq_backend_requires_queue_or_resource_pbs(tmp_path: Path) -> None:
         "resources": {"groq-login": {}},
     }
     parsed = RunConfig.model_validate(data).measure.backends[0]
+    assert isinstance(parsed, GroqBackendConfig)
     assert parsed.pbs is not None
     assert parsed.pbs.select == "select=1,place=excl"
 
@@ -129,7 +132,9 @@ def test_native_backend_requires_architecture_and_cerebras_worker(tmp_path: Path
     with pytest.raises(ValidationError, match="requires a site measurement script"):
         RunConfig.model_validate(data)
     backend["worker"]["script"] = "tools/cerebras_worker.py"
-    assert RunConfig.model_validate(data).measure.backends[0].architecture == "cerebras_wse3"
+    parsed_backend = RunConfig.model_validate(data).measure.backends[0]
+    assert isinstance(parsed_backend, NativeBackendConfig)
+    assert parsed_backend.architecture == "cerebras_wse3"
 
 
 def test_execution_defaults_to_local_mode(tmp_path: Path) -> None:

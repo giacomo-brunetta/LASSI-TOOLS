@@ -8,6 +8,7 @@ import numpy as np
 import yaml
 
 import lassi_x.pipeline as pipeline
+import lassi_x.run_record as run_record
 from lassi_x.compensation import CompensationVariant
 from lassi_x.config import RunConfig
 from lassi_x.types import Candidate, Measurement, Status
@@ -307,6 +308,6 @@ def test_skill_record_version_comes_from_install_manifest(tmp_path: Path, monkey
     (root / ".lassi-x-manifest.json").write_text(
         json.dumps({"schema_version": 1, "lassi_x_version": "9.8.7"})
     )
-    monkeypatch.setattr(pipeline, "install_root", lambda: root)
-    monkeypatch.setattr(pipeline, "AUTOMATION_SKILLS", ("one",))
-    assert pipeline._skill_records()[0]["version"] == "9.8.7"
+    monkeypatch.setattr(run_record, "install_root", lambda: root)
+    monkeypatch.setattr(run_record, "AUTOMATION_SKILLS", ("one",))
+    assert run_record.skill_records()[0]["version"] == "9.8.7"

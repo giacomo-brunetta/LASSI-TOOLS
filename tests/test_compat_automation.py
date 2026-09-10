@@ -8,21 +8,21 @@ from typing import TYPE_CHECKING, Any, cast
 import pytest
 import torch
 
-from compat_tool.checker_groq import GroqFlowChecker
-from compat_tool.checker_inductor import InductorChecker
-from compat_tool.fixtures import validate_recipe
+from lassi_x.compat.checkers.groq import GroqFlowChecker
+from lassi_x.compat.checkers.inductor import InductorChecker
+from lassi_x.compat.fixtures import validate_recipe
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-from compat_tool.inventory import build_manifest, eligibility, prepare_from_checkout
-from compat_tool.io import atomic_json, load_json
-from compat_tool.probe import _worker_payload, run_probe
-from compat_tool.probe_worker import _probe
-from compat_tool.publish import build_snapshot, publish_snapshot
-from compat_tool.query_wiki import LEGACY_TARGET, list_targets, load_snapshot, search_target_ops
-from compat_tool.target import load_target
-from compat_tool.utils import resolve_torch_schema
+from lassi_x.compat.case_builder import resolve_torch_schema
+from lassi_x.compat.inventory import build_manifest, eligibility, prepare_from_checkout
+from lassi_x.compat.io import atomic_json, load_json
+from lassi_x.compat.probe import _worker_payload, run_probe
+from lassi_x.compat.probe_worker import _probe
+from lassi_x.compat.publish import build_snapshot, publish_snapshot
+from lassi_x.compat.query_wiki import list_targets, load_snapshot, search_target_ops
+from lassi_x.compat.target import load_target
 
 MM_META = {
     "mlir_name": "torch.aten.mm",
@@ -64,7 +64,7 @@ def test_manifest_distinguishes_invalid_fixture_from_compiler_support(
     def invalid(*args: object, **kwargs: object) -> dict[str, object]:
         return {"status": "needs_fixture", "input_spec": None, "error": "bad contract"}
 
-    monkeypatch.setattr("compat_tool.inventory.validate_recipe", invalid)
+    monkeypatch.setattr("lassi_x.compat.inventory.validate_recipe", invalid)
     manifest = build_manifest(
         {"aten.mm": MM_META},
         source={"revision": "test"},
@@ -97,7 +97,7 @@ def test_low_precision_cpu_gap_uses_fp32_only_for_contract_validation(
         module = HalfUnsupported() if dtype == torch.float16 else FloatSupported()
         return module, (torch.ones(2, dtype=dtype),), f"value: dtype={dtype}"
 
-    monkeypatch.setattr("compat_tool.fixtures.build_case", fake_build_case)
+    monkeypatch.setattr("lassi_x.compat.fixtures.build_case", fake_build_case)
     validation = validate_recipe(
         "aten.example",
         {"args": [], "returns": []},
@@ -133,7 +133,7 @@ def _write_target(path: Path) -> None:
         """schema_version: 1
 target_id: fake-test-target
 family: test
-checker: compat_tool.checker_fake:FakeChecker
+checker: lassi_x.compat.checkers.fake:FakeChecker
 precisions: [fp32]
 timeout_s: 30
 max_workers: 2
@@ -178,7 +178,7 @@ def test_probe_publish_and_query_target_snapshot(tmp_path: Path) -> None:
         "mm",
         precision="fp32",
         supported=True,
-        snapshot_dir=tmp_path / "published" / "snapshots",
+        target_dir=tmp_path / "published" / "targets",
     ) == ["aten.mm"]
 
 
@@ -200,7 +200,7 @@ def test_vendor_frontend_system_exit_is_a_compile_rejection(
             del args, kwargs
             raise SystemExit(0)
 
-    monkeypatch.setattr("compat_tool.probe_worker.checker_class", lambda target: ExitingChecker)
+    monkeypatch.setattr("lassi_x.compat.probe_worker.checker_class", lambda target: ExitingChecker)
     result = _probe(
         {"target_id": "vendor-test"},
         manifest,
@@ -247,12 +247,25 @@ def test_snapshot_marks_missing_results_incomplete() -> None:
     assert snapshot["summary"]["missing_results"] == 1
 
 
-def test_target_validation_and_legacy_listing(tmp_path: Path) -> None:
-    target_path = tmp_path / "target.yaml"
+def test_target_validation_and_listing_includes_unpublished_config(tmp_path: Path) -> None:
+    target_dir = tmp_path / "fake-test-target"
+    target_dir.mkdir()
+    target_path = target_dir / "target.yaml"
     _write_target(target_path)
-    assert load_target(target_path)["target_id"] == "fake-test-target"
-    assert list_targets(tmp_path)[0]["target_id"] == LEGACY_TARGET
-    assert load_snapshot(LEGACY_TARGET)["legacy"] is True
+    assert load_target(target_dir)["target_id"] == "fake-test-target"
+    targets = list_targets(tmp_path)
+    assert targets[0]["target_id"] == "fake-test-target"
+    assert targets[0]["published"] is False
+
+
+def test_tosa_results_are_a_regular_flat_support_target() -> None:
+    snapshot = load_snapshot("torch-mlir-tosa")
+    assert snapshot["result_format"] == "flat-support"
+    assert snapshot["summary"] == {"operators": 689, "supported": 213, "unsupported": 476}
+    assert search_target_ops("torch-mlir-tosa", "mm", supported=True)
+    target = next(item for item in list_targets() if item["target_id"] == "torch-mlir-tosa")
+    assert target["published"] is True
+    assert target["result_format"] == "flat-support"
 
 
 def test_prepare_requires_exact_torch_mlir_revision(tmp_path: Path) -> None:

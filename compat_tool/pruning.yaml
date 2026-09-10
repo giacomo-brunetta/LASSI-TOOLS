@@ -1,7 +1,0 @@
-schema_version: 1
-
-# Hard rules live in compat_tool.inventory: ATen only, tensor input and output,
-# no backward ops, and no mutation/out overloads. These reviewed mappings let
-# later work explain exceptions without hiding them in code.
-include: {}
-exclude: {}

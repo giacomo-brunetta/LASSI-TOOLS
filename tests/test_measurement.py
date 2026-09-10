@@ -17,7 +17,13 @@ import pytest
 import yaml
 
 import lassi_x.measurement as measurement
-from lassi_x.config import BackendConfig, RunConfig
+from lassi_x.config import (
+    BackendConfig,
+    GroqBackendConfig,
+    NativeBackendConfig,
+    RunConfig,
+    TorchBackendConfig,
+)
 from lassi_x.execution import LocalExecutionBackend
 from lassi_x.measurement import Backend, GroqBackend, NativeBackend, TorchBackend
 from lassi_x.protocol import ExecRequest, ExecResult
@@ -90,8 +96,8 @@ def test_groq_relative_error_uses_the_same_near_zero_scale_as_torch(
     assert groq["metrics"]["max_rel_error"] == pytest.approx(torch_metrics["max_rel_error"])
 
 
-def groq_spec(queue: Path) -> BackendConfig:
-    return BackendConfig(
+def groq_spec(queue: Path) -> GroqBackendConfig:
+    return GroqBackendConfig(
         type="groq",
         name="groq",
         queue_dir=queue,
@@ -267,7 +273,7 @@ class FakeNativeExecutionBackend(LocalExecutionBackend):
 
 def test_native_backend_accepts_only_device_clock_single_call_records(tmp_path: Path) -> None:
     config, module, oracle = setup_run(tmp_path)
-    spec = BackendConfig.model_validate(
+    spec = NativeBackendConfig.model_validate(
         {
             "type": "native",
             "name": "graphcore-ipu",
@@ -369,7 +375,7 @@ def test_architectural_timing_rejects_host_clock() -> None:
 
 def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
     config, module, oracle = setup_run(tmp_path)
-    spec = BackendConfig.model_validate(
+    spec = GroqBackendConfig.model_validate(
         {
             "type": "groq",
             "name": "groq-lpu",
@@ -380,7 +386,7 @@ def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
                 "conda_sh": "/shared/miniconda3/etc/profile.d/conda.sh",
                 "conda_env": "groqflow",
                 "python": "/shared/miniconda3/envs/groqflow/bin/python",
-                "pythonpath": ["/shared/LASSI-TOOLS/src"],
+                "pythonpath": ["/shared/LASSI-TOOLS"],
             },
         }
     )
@@ -417,7 +423,7 @@ def test_groq_pbs_backend_uses_academy_and_sdk_latency(tmp_path: Path) -> None:
 
 def test_groq_direct_mode_runs_the_worker_without_pbs(tmp_path: Path) -> None:
     config, module, oracle = setup_run(tmp_path)
-    spec = BackendConfig.model_validate(
+    spec = GroqBackendConfig.model_validate(
         {
             "type": "groq",
             "name": "groq-lpu",
@@ -428,7 +434,7 @@ def test_groq_direct_mode_runs_the_worker_without_pbs(tmp_path: Path) -> None:
                 "conda_sh": "/shared/miniconda3/etc/profile.d/conda.sh",
                 "conda_env": "groqflow",
                 "python": "/shared/miniconda3/envs/groqflow/bin/python",
-                "pythonpath": ["/shared/LASSI-TOOLS/src"],
+                "pythonpath": ["/shared/LASSI-TOOLS"],
             },
         }
     )
@@ -469,7 +475,7 @@ class StalledExecutionBackend(LocalExecutionBackend):
 
 def test_groq_submission_deadline_bounds_an_unclaimed_task(tmp_path: Path) -> None:
     config, module, oracle = setup_run(tmp_path)
-    spec = BackendConfig.model_validate(
+    spec = GroqBackendConfig.model_validate(
         {
             "type": "groq",
             "name": "groq-lpu",
@@ -515,7 +521,7 @@ def test_groq_pbs_transactions_are_serialized(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     config, module, oracle = setup_run(tmp_path)
-    spec = BackendConfig.model_validate(
+    spec = GroqBackendConfig.model_validate(
         {
             "type": "groq",
             "name": "groq-lpu",
@@ -575,7 +581,7 @@ def test_stale_groq_requests_are_reaped(tmp_path: Path) -> None:
     assert not request.exists()
 
 
-class RecordingBackend(Backend):
+class RecordingBackend(Backend[BackendConfig]):
     def __init__(self, spec: BackendConfig) -> None:
         super().__init__(spec)
         self.calls: list[str] = []
@@ -629,8 +635,10 @@ def test_portable_compensation_is_broadcast_to_every_cell(tmp_path: Path) -> Non
 def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> None:
     config, oracle, module = _setup_torch(tmp_path)
     execution_root = tmp_path / "exec"
+    spec = config.measure.backends[0]
+    assert isinstance(spec, TorchBackendConfig)
     backend = TorchBackend(
-        config.measure.backends[0], LocalExecutionBackend(execution_root, "here"), "here"
+        spec, LocalExecutionBackend(execution_root, "here"), "here"
     )
     result = asyncio.run(
         backend.measure(
@@ -678,8 +686,10 @@ def test_distinct_evaluation_dataset_is_checked_against_external_oracle(
     oracle = asyncio.run(build_oracle(config, tmp_path / "run"))
     module = tmp_path / "candidate.py"
     module.write_text(GOOD_MODULE)
+    spec = config.measure.backends[0]
+    assert isinstance(spec, TorchBackendConfig)
     backend = TorchBackend(
-        config.measure.backends[0],
+        spec,
         LocalExecutionBackend(tmp_path / "exec", "here"),
         "here",
     )
@@ -704,8 +714,10 @@ def test_torch_backend_reports_unavailable_device_from_handshake(tmp_path: Path)
     data = minimal_config(tmp_path)
     data["measure"]["backends"][0]["device"] = "cuda:0"
     cuda_config = RunConfig.model_validate(data)
+    spec = cuda_config.measure.backends[0]
+    assert isinstance(spec, TorchBackendConfig)
     backend = TorchBackend(
-        cuda_config.measure.backends[0],
+        spec,
         LocalExecutionBackend(tmp_path / "exec", "cpu-box"),
         "cpu-box",
     )

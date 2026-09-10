@@ -112,7 +112,7 @@ def test_exec_result_ok_requires_zero_exit_within_deadline() -> None:
 
 
 def _run_worker(stdin: str) -> subprocess.CompletedProcess[str]:
-    package_root = Path(__file__).resolve().parents[1] / "src"
+    package_root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(package_root) + os.pathsep + env.get("PYTHONPATH", "")
     return subprocess.run(

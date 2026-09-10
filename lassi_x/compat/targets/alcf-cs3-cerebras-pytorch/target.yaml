@@ -1,0 +1,15 @@
+schema_version: 1
+target_id: alcf-cs3-cerebras-pytorch
+family: wse
+description: ALCF Cerebras CS-3 compiled by Cerebras PyTorch 2.10
+checker: lassi_x.compat.checkers.cerebras:CerebrasChecker
+precisions: [fp16]
+timeout_s: 1800
+max_workers: 1
+options:
+  precision_optimization_level: 1
+  num_csx: 1
+  max_wgt_servers: 1
+  max_act_per_csx: 1
+  num_workers_per_csx: 1
+  job_time_sec: 1800

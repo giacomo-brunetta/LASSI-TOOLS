@@ -175,7 +175,7 @@ class EditingSession:
         return None
 
 
-class ImprovingBackend(Backend):
+class ImprovingBackend(Backend[Any]):
     def __init__(self, spec: BackendConfig) -> None:
         super().__init__(spec)
         self.errors = iter([0.6, 0.1])

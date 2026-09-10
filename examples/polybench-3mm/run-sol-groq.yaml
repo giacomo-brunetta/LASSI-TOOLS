@@ -117,7 +117,7 @@ measure:
         conda_env: groqflow
         python: /home/gbrun/miniconda3/envs/groqflow/bin/python
         pythonpath:
-          - /home/gbrun/LASSI-TOOLS/src
+          - /home/gbrun/LASSI-TOOLS
         select: select=1,place=excl
         walltime: "01:00:00"
       capabilities:
