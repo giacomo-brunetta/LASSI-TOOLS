@@ -37,6 +37,8 @@ def point(
         resource=f"{backend}-resource",
         latency_s=latency,
         max_rel_error=error,
+        timing_protocol="architectural-single-call-v1",
+        latency_scope="device_resident_graph",
         evaluation_output_checked=True,
         evaluation_output_finite=True,
         evaluation_semantic_verified=True,

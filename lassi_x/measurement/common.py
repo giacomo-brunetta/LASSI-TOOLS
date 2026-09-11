@@ -27,6 +27,7 @@ _ARCHITECTURAL_TIMING_EXCLUDES = {
     "queue",
 }
 
+
 def _timing_fields(timing: dict[str, Any]) -> dict[str, Any]:
     """Map worker timing evidence into the stable measurement schema."""
 
@@ -68,6 +69,7 @@ def _timing_fields(timing: dict[str, Any]) -> dict[str, Any]:
         "latency_cuda_synchronized": bool(timing.get("cuda_synchronized", False)),
     }
 
+
 def _architectural_timing_error(measurement: Measurement) -> str | None:
     """Return why a purported architectural accelerator latency is incomparable."""
 
@@ -108,6 +110,7 @@ def _architectural_timing_error(measurement: Measurement) -> str | None:
         return "min_s must be the minimum of the single-call samples"
     return None
 
+
 def _enforce_architectural_timing(measurement: Measurement) -> Measurement:
     """Reject accelerator latency that does not satisfy the comparison contract."""
 
@@ -121,6 +124,7 @@ def _enforce_architectural_timing(measurement: Measurement) -> Measurement:
     measurement.notes = f"{measurement.notes}; latency was rejected: {error}".strip("; ")
     return measurement
 
+
 class _SubmitTimeoutError(Exception):
     """Raised when staging or submitting remote work exceeds the submit deadline.
 
@@ -132,6 +136,7 @@ class _SubmitTimeoutError(Exception):
         super().__init__(f"{stage} exceeded the {limit_s:g}s submit deadline")
         self.stage = stage
         self.limit_s = limit_s
+
 
 class Backend[BackendConfigT: BackendConfig](ABC):
     def __init__(
@@ -159,6 +164,7 @@ class Backend[BackendConfigT: BackendConfig](ABC):
         compensation: str,
         seed: int = 0,
     ) -> Measurement: ...
+
 
 def _base_measurement(
     config: RunConfig,
@@ -193,6 +199,7 @@ def _base_measurement(
         **kwargs,
     )
 
+
 def _evaluation_oracle_path(config: RunConfig, oracle: OracleResult) -> Path:
     """Return the oracle matching the workload used for both accuracy and timing."""
 
@@ -201,6 +208,7 @@ def _evaluation_oracle_path(config: RunConfig, oracle: OracleResult) -> Path:
     if config.evaluation_oracle is None:
         raise ValueError("distinct accelerator evaluation dataset requires evaluation_oracle")
     return config.resolve_project_path(config.evaluation_oracle)
+
 
 def _enforce_accuracy_latency_pair(measurement: Measurement) -> Measurement:
     """Reject successful latency records lacking device-derived evaluation accuracy."""

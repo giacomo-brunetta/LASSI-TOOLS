@@ -35,6 +35,10 @@ class Diagnostic:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> Diagnostic:
+        return cls(**value)
+
     def for_agent(self) -> str:
         lines = [f"Gate: {self.gate}", f"Failure: {self.message}"]
         if self.command:
@@ -67,6 +71,10 @@ class Usage:
         self.output_tokens += other.output_tokens
         self.estimated_cost_usd += other.estimated_cost_usd
 
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> Usage:
+        return cls(**value)
+
 
 @dataclass(slots=True)
 class Candidate:
@@ -90,6 +98,17 @@ class Candidate:
         data["module_path"] = str(self.module_path)
         data["status"] = self.status.value
         return data
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> Candidate:
+        from pathlib import Path  # noqa: PLC0415
+
+        data = dict(value)
+        data["module_path"] = Path(data["module_path"])
+        data["status"] = Status(data["status"])
+        data["diagnostics"] = [Diagnostic.from_dict(item) for item in data["diagnostics"]]
+        data["usage"] = Usage.from_dict(data["usage"])
+        return cls(**data)
 
 
 @dataclass(slots=True)
@@ -156,3 +175,23 @@ class Measurement:
         data["status"] = self.status.value
         data["y_error"] = self.y_error
         return data
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> Measurement:
+        data = dict(value)
+        data.pop("y_error", None)
+        data["status"] = Status(data["status"])
+        return cls(**data)
+
+
+@dataclass(frozen=True, slots=True)
+class PruningDecision:
+    candidate_id: str
+    enabled: bool
+    pruned: bool
+    probe_backend: str | None = None
+    probe_precision: str | None = None
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

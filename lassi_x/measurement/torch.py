@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 _DEVICE_ACCELERATORS = {"cuda": "cuda", "xpu": "xpu", "mps": "mps"}
 
+
 class TorchBackend(Backend[TorchBackendConfig]):
     """Measure latency/error cells by running the worker on one resource.
 

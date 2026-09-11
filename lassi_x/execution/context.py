@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("lassi_x.execution")
 
+
 class ExecutionContext:
     """Everything one run needs to fan tool calls out to its resources.
 

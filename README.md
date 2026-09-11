@@ -46,6 +46,9 @@ One immutable directory is written beneath the configured `runs_dir`:
 ```text
 runs/<timestamp>-<kernel>/
 ├── resolved-config.yaml
+├── checkpoint.json
+├── progress/
+│   └── cN.json
 ├── oracle/
 ├── workspaces/
 ├── diagnostics/
@@ -59,6 +62,51 @@ runs/<timestamp>-<kernel>/
 ├── pipeline-graph.mmd
 ├── run.json
 └── summary.md
+```
+
+`checkpoint.json` records completed global stages, while `progress/cN.json` is an atomic journal
+for each candidate after generation, compiler qualification, every measurement cell,
+compensation, and accelerator repair. Resume an interrupted run in place without regenerating
+finished work:
+
+```bash
+lassi-x run my-run.yaml --resume runs/<timestamp>-<kernel>
+```
+
+The resolved configuration must match the checkpoint. Completed measurement cells are restored
+from their journal, and final measurement artifacts are rewritten from typed state so a resume
+cannot duplicate rows.
+
+### Streaming and resource scheduling
+
+Candidates proceed independently from generation through qualification, measurement,
+compensation, and target-specific repair. A slow scheduled accelerator therefore blocks only the
+candidate using it, not candidates working on other resources. One central scheduler bounds model
+sessions, concurrent candidate flows, and all work sharing a named compute resource:
+
+```yaml
+scheduler:
+  max_candidate_flows: 3
+  max_model_sessions: 4
+  default_resource_concurrency: 1
+  resource_concurrency:
+    nvidia: 2
+    groq-login: 1
+```
+
+The per-resource limit is shared by measurements and compiler-only qualification. The default of
+one protects timing isolation and exclusive accelerators; increase a resource only when it truly
+has independent devices or execution capacity.
+
+Optional progressive pruning can use one accelerator cell as a probe before spending the complete
+measurement matrix. A candidate is pruned only when that probe fails to produce a valid
+architectural accuracy/latency point; it is never judged using host timing:
+
+```yaml
+pruning:
+  enabled: true
+  probe_backend: cuda
+  probe_precision: fp32
 ```
 
 `workspaces/` holds one confined directory per agent role: `c1`–`c3` for the
@@ -225,9 +273,9 @@ warmup count, raw samples, one invocation per sample, one physical device, devic
 residency, and the excluded costs. Missing or inconsistent evidence produces
 `failure_kind: incomparable_timing`, so a convenient host or job timer can never enter a Pareto
 frontier. CPU points retain host-forward timing for local baselines, but are not evidence for this
-cross-accelerator architectural metric. Whenever architectural accelerator points exist, the
-global frontier is built only from that protocol; host points cannot dominate it. CPU-only runs
-still receive their ordinary local frontier.
+cross-accelerator architectural metric. CPU and all other host-timed points are retained only as
+diagnostic records: they are never accepted into a frontier or used to satisfy a run. Queue and
+scheduler delay remain operational metadata only.
 
 Graphcore and Cerebras use `type: native` backends. The Graphcore worker ships with LASSI-X;
 `worker.python` names the Python interpreter in the enabled Poplar SDK environment. Cerebras
@@ -371,6 +419,13 @@ measure:
 compatibility:
   enabled: true
   correction_rounds: 2
+  # Whole-model compiler gates do not report latency. Required failures reject
+  # the candidate before accelerator measurements begin.
+  compile_targets:
+    - target_id: torch-mlir-tosa
+      python: python
+      precisions: [fp32]
+      required: true
 
 pareto:
   # Omit to use compensation.error_metric.
@@ -391,6 +446,13 @@ accuracy/latency pair are mandatory. New configurations should use `evaluation_d
 `evaluation_oracle`. An explicit `required_backends: []` retains exploratory behavior where any
 valid frontier point is enough. Compatibility repair uses `models.compatibility` when configured
 and otherwise reuses the failed candidate's model.
+
+Compiler-only targets are packaged under `lassi_x/compat/targets`. Each qualification compiles the
+complete candidate with the target checker and is recorded separately from measurement. The TOSA
+entry models Torch-MLIR-to-TOSA as its own accelerator/compiler target; it is not an A100 result and
+does not create a latency point. Numerical variants that are promoted after qualification are
+still measured afresh on every configured accelerator. LASSI-X never copies or assumes equivalent
+results across targets.
 
 Measurement status and `failure_kind` are deliberately separate. Status expresses the outcome;
 the failure kind distinguishes precision/resource unavailability, infrastructure/submission

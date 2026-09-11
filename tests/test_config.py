@@ -6,7 +6,12 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from lassi_x.config import GroqBackendConfig, NativeBackendConfig, RunConfig
+from lassi_x.config import (
+    GroqBackendConfig,
+    NativeBackendConfig,
+    RunConfig,
+    compatibility_target_for,
+)
 from lassi_x.hermes_worker import resolve_api_key
 from lassi_x.protocol import WorkerInit
 
@@ -263,4 +268,83 @@ def test_memory_rejects_inline_credentials(tmp_path: Path) -> None:
     data = minimal_config(tmp_path)
     data["memory"] = {"enabled": True, "api_key": "sk-inline-secret"}
     with pytest.raises(ValidationError):
+        RunConfig.model_validate(data)
+
+
+def test_compatibility_targets_are_explicit_and_architecture_specific(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"] = [
+        {
+            "type": "groq",
+            "name": "groq",
+            "queue_dir": str(tmp_path / "queue"),
+            "precisions": ["fp16"],
+        },
+        {
+            "type": "native",
+            "name": "ipu",
+            "resource": "ipu",
+            "architecture": "graphcore_ipu",
+            "precisions": ["fp16"],
+            "worker": {"python": "python"},
+        },
+    ]
+    data["execution"] = {"resources": {"ipu": {}}}
+    config = RunConfig.model_validate(data)
+    assert [compatibility_target_for(spec) for spec in config.measure.backends] == [
+        "groq-r01-groqflow",
+        "graphcore-pod64-poptorch",
+    ]
+    overridden = config.measure.backends[1].model_copy(
+        update={"compatibility_target": "torch-mlir-tosa"}
+    )
+    assert compatibility_target_for(overridden) == "torch-mlir-tosa"
+
+
+def test_compile_targets_must_be_packaged_unique_and_use_known_resources(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["compatibility"] = {
+        "compile_targets": [
+            {"target_id": "torch-mlir-tosa", "resource": "compiler"},
+        ]
+    }
+    with pytest.raises(ValidationError, match="unknown execution resources"):
+        RunConfig.model_validate(data)
+
+    data["execution"] = {"resources": {"compiler": {}}}
+    config = RunConfig.model_validate(data)
+    assert config.compatibility.compile_targets[0].precisions == ["fp32"]
+    data["compatibility"]["compile_targets"].append(
+        {"target_id": "torch-mlir-tosa", "resource": "compiler"}
+    )
+    with pytest.raises(ValidationError, match="must be unique"):
+        RunConfig.model_validate(data)
+
+    data["compatibility"]["compile_targets"] = [{"target_id": "missing-target"}]
+    with pytest.raises(ValidationError, match="unknown packaged targets"):
+        RunConfig.model_validate(data)
+
+
+def test_pruning_requires_an_architectural_accelerator_probe(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["pruning"] = {"enabled": True, "probe_backend": "cpu", "probe_precision": "fp32"}
+    with pytest.raises(ValidationError, match="must use an accelerator"):
+        RunConfig.model_validate(data)
+
+    data["measure"]["backends"].append(
+        {
+            "type": "torch",
+            "name": "cuda",
+            "device": "cuda:0",
+            "precisions": ["fp32"],
+        }
+    )
+    data["pruning"]["probe_backend"] = "cuda"
+    assert RunConfig.model_validate(data).pruning.enabled
+
+
+def test_scheduler_resource_limits_must_name_configured_resources(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["scheduler"] = {"resource_concurrency": {"missing": 2}}
+    with pytest.raises(ValidationError, match="unknown execution resources"):
         RunConfig.model_validate(data)

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
+
 class NativeBackend(Backend[NativeBackendConfig]):
     """Run a standalone Graphcore or Cerebras measurement worker on its resource.
 

@@ -163,6 +163,10 @@ class BackendConfig(StrictModel):
     healthcheck_max_age_s: float = Field(default=30.0, gt=0.0)
     stale_request_s: float = Field(default=3600.0, gt=0.0)
     capabilities: BackendCapabilities | None = None
+    compatibility_target: str | None = Field(
+        default=None,
+        pattern=r"^[a-z0-9][a-z0-9._-]*$",
+    )
 
 
 class TorchBackendConfig(BackendConfig):
@@ -216,9 +220,7 @@ class NativeBackendConfig(BackendConfig):
     @model_validator(mode="before")
     @classmethod
     def require_native_settings(cls, value: object) -> object:
-        if isinstance(value, dict) and (
-            not value.get("architecture") or not value.get("worker")
-        ):
+        if isinstance(value, dict) and (not value.get("architecture") or not value.get("worker")):
             raise ValueError("native backend requires architecture and worker settings")
         return value
 
@@ -233,6 +235,22 @@ BackendSpec = Annotated[
     TorchBackendConfig | GroqBackendConfig | NativeBackendConfig,
     Field(discriminator="type"),
 ]
+
+
+def compatibility_target_for(spec: BackendConfig) -> str | None:
+    """Resolve the published compiler snapshot associated with a backend."""
+
+    if spec.compatibility_target is not None:
+        return spec.compatibility_target
+    if spec.type == "groq":
+        return "groq-r01-groqflow"
+    if spec.type == "native":
+        architecture = getattr(spec, "architecture", None)
+        if architecture == "graphcore_ipu":
+            return "graphcore-pod64-poptorch"
+        if architecture == "cerebras_wse3":
+            return "alcf-cs3-cerebras-pytorch"
+    return None
 
 
 Precision = Literal["fp64", "fp32", "fp16", "bf16"]
@@ -268,14 +286,57 @@ def _default_repair_statuses() -> list[Literal["crashed", "no_fit"]]:
     return ["crashed", "no_fit"]
 
 
+def _default_compile_precisions() -> list[Precision]:
+    return ["fp32"]
+
+
+class CompileTargetConfig(StrictModel):
+    """Whole-candidate compiler qualification without a latency claim."""
+
+    target_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    resource: str | None = None
+    python: str = "python"
+    precisions: list[Precision] = Field(
+        default_factory=_default_compile_precisions,
+        min_length=1,
+    )
+    required: bool = True
+    timeout_s: float = Field(default=600.0, gt=0.0)
+
+
 class CompatibilityConfig(StrictModel):
-    """Policy for repairing whole-candidate accelerator failures."""
+    """Policy for repair plus compiler-only whole-model qualification."""
 
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
     repair_statuses: list[Literal["crashed", "no_fit"]] = Field(
         default_factory=_default_repair_statuses
     )
+    compile_targets: list[CompileTargetConfig] = Field(default_factory=list)
+
+
+class SchedulerConfig(StrictModel):
+    """Bound model and resource concurrency for the complete run."""
+
+    max_candidate_flows: int = Field(default=3, ge=1, le=64)
+    max_model_sessions: int = Field(default=4, ge=1, le=64)
+    default_resource_concurrency: int = Field(default=1, ge=1, le=64)
+    resource_concurrency: dict[str, int] = Field(default_factory=dict)
+
+    @field_validator("resource_concurrency")
+    @classmethod
+    def positive_resource_limits(cls, value: dict[str, int]) -> dict[str, int]:
+        if any(limit < 1 for limit in value.values()):
+            raise ValueError("scheduler.resource_concurrency values must be positive")
+        return value
+
+
+class PruningConfig(StrictModel):
+    """Optional inexpensive gate before the complete accelerator matrix."""
+
+    enabled: bool = False
+    probe_backend: str | None = None
+    probe_precision: Precision = "fp32"
 
 
 class ParetoConfig(StrictModel):
@@ -451,6 +512,8 @@ class RunConfig(StrictModel):
     pareto: ParetoConfig = Field(default_factory=ParetoConfig)
     success: SuccessConfig = Field(default_factory=SuccessConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+    pruning: PruningConfig = Field(default_factory=PruningConfig)
     runs_dir: Path = Path("runs")
 
     @model_validator(mode="after")
@@ -479,9 +542,53 @@ class RunConfig(StrictModel):
             raise ValueError(
                 "measure.backends name unknown execution resources: " + ", ".join(unknown)
             )
+        unknown_compile_resources = sorted(
+            target.resource
+            for target in self.compatibility.compile_targets
+            if target.resource is not None and target.resource not in known
+        )
+        if unknown_compile_resources:
+            raise ValueError(
+                "compatibility.compile_targets name unknown execution resources: "
+                + ", ".join(unknown_compile_resources)
+            )
+        target_root = Path(__file__).resolve().parent / "compat" / "targets"
+        unknown_compile_targets = sorted(
+            target.target_id
+            for target in self.compatibility.compile_targets
+            if not (target_root / target.target_id / "target.yaml").is_file()
+        )
+        if unknown_compile_targets:
+            raise ValueError(
+                "compatibility.compile_targets name unknown packaged targets: "
+                + ", ".join(unknown_compile_targets)
+            )
+        unknown_scheduler_resources = sorted(set(self.scheduler.resource_concurrency) - set(known))
+        if unknown_scheduler_resources:
+            raise ValueError(
+                "scheduler.resource_concurrency names unknown execution resources: "
+                + ", ".join(unknown_scheduler_resources)
+            )
         backend_names = {spec.name for spec in self.measure.backends}
         if len(backend_names) != len(self.measure.backends):
             raise ValueError("measure.backends names must be unique")
+        if self.pruning.enabled:
+            probe_backend = self.pruning.probe_backend
+            if probe_backend is None:
+                raise ValueError("pruning.probe_backend is required when pruning is enabled")
+            if probe_backend not in backend_names:
+                raise ValueError("pruning.probe_backend must name a measurement backend")
+            probe_spec = next(spec for spec in self.measure.backends if spec.name == probe_backend)
+            if probe_spec.type == "torch" and str(probe_spec.device).partition(":")[0] == "cpu":
+                raise ValueError("pruning probe must use an accelerator with architectural timing")
+            if (
+                self.pruning.probe_precision not in self.measure.precisions
+                or self.pruning.probe_precision not in probe_spec.precisions
+            ):
+                raise ValueError("pruning probe must name a configured backend/precision cell")
+        compile_target_ids = [target.target_id for target in self.compatibility.compile_targets]
+        if len(compile_target_ids) != len(set(compile_target_ids)):
+            raise ValueError("compatibility.compile_targets target_id values must be unique")
         required = set(self.success.required_backends or [])
         unknown_required = sorted(required - backend_names)
         if unknown_required:

@@ -40,6 +40,7 @@ for part in parts:
 parts[0].parent.rmdir()
 """
 
+
 async def fetch_bytes(
     backend: ExecutionBackend,
     workspace: str,
@@ -83,6 +84,7 @@ async def fetch_bytes(
         offset += len(data)
         if not content.truncated:
             return b"".join(chunks)
+
 
 async def put_bytes(
     backend: ExecutionBackend,

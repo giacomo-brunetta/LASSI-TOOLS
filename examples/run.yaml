@@ -107,6 +107,30 @@ compensation:
 compatibility:
   enabled: true
   correction_rounds: 2
+  # Optional whole-candidate compile gates. These qualify source compatibility
+  # and never contribute a latency point.
+  # compile_targets:
+  #   - target_id: torch-mlir-tosa
+  #     python: python
+  #     precisions: [fp32]
+  #     required: true
+
+# Candidate flows stream independently. All measurement and qualification work
+# on the same named execution resource shares its capacity limit.
+scheduler:
+  max_candidate_flows: 3
+  max_model_sessions: 4
+  default_resource_concurrency: 1
+  # resource_concurrency:
+  #   nvidia: 2
+  #   groq-login: 1
+
+# Optional accelerator-only early gate. Host timing is never accepted for
+# pruning, Pareto construction, or success.
+pruning:
+  enabled: false
+  # probe_backend: cuda
+  # probe_precision: fp32
 
 # The frontier and compensation loops share this objective. Omit the section to
 # use compensation.error_metric.

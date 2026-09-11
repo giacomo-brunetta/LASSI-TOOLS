@@ -637,9 +637,7 @@ def test_torch_backend_measures_through_execution_backend(tmp_path: Path) -> Non
     execution_root = tmp_path / "exec"
     spec = config.measure.backends[0]
     assert isinstance(spec, TorchBackendConfig)
-    backend = TorchBackend(
-        spec, LocalExecutionBackend(execution_root, "here"), "here"
-    )
+    backend = TorchBackend(spec, LocalExecutionBackend(execution_root, "here"), "here")
     result = asyncio.run(
         backend.measure(
             config,

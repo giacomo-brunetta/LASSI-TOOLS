@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 _ARCHITECTURAL_TIMING_PROTOCOL = "architectural-single-call-v1"
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 
+
 def _runtime_prelude(runtime: GroqRuntimeConfig) -> list[str]:
     """Open a worker script with a clean interpreter environment.
 
@@ -63,6 +64,7 @@ def _runtime_prelude(runtime: GroqRuntimeConfig) -> list[str]:
             "export PYTHONPATH=" + shlex.quote(":".join(str(path) for path in runtime.pythonpath))
         )
     return lines
+
 
 def _submit_timeout_measurement(
     config: RunConfig,
@@ -108,6 +110,7 @@ def _submit_timeout_measurement(
             "endpoint is most likely online but has no free worker to claim the task."
         ),
     )
+
 
 class GroqBackend(Backend[GroqBackendConfig]):
     """Measure Groq either through a legacy queue or Academy plus PBS."""
@@ -167,6 +170,32 @@ class GroqBackend(Backend[GroqBackendConfig]):
         compensation: str,
         seed: int = 0,
     ) -> Measurement:
+        """Run the complete Groq transaction within its shared resource slot."""
+
+        async with self.semaphore:
+            return await self._measure(
+                config,
+                oracle,
+                module_path,
+                candidate_id=candidate_id,
+                variant_id=variant_id,
+                precision=precision,
+                compensation=compensation,
+                seed=seed,
+            )
+
+    async def _measure(
+        self,
+        config: RunConfig,
+        oracle: OracleResult,
+        module_path: Path,
+        *,
+        candidate_id: str,
+        variant_id: str,
+        precision: str,
+        compensation: str,
+        seed: int = 0,
+    ) -> Measurement:
         if self.execution is not None:
             # One Academy execution agent serves the resource. Keep staging,
             # launch, and polling for each cell together so concurrent candidate
@@ -200,6 +229,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                     failure_kind="infrastructure_timeout",
                     notes=f"execution agent unreachable: {exc}",
                 )
+                return measurement
         if not self.supports(precision):
             return _base_measurement(
                 config,
@@ -451,14 +481,13 @@ class GroqBackend(Backend[GroqBackendConfig]):
                 self.resource,
                 exc,
             )
-        async with self.semaphore:
-            result = await self.execution.execute(
-                ExecRequest(
-                    workspace=workspace,
-                    argv=["bash", script_name],
-                    timeout_s=self.spec.timeout_s,
-                )
+        result = await self.execution.execute(
+            ExecRequest(
+                workspace=workspace,
+                argv=["bash", script_name],
+                timeout_s=self.spec.timeout_s,
             )
+        )
         if result.timed_out:
             return _base_measurement(
                 config,
@@ -647,135 +676,132 @@ class GroqBackend(Backend[GroqBackendConfig]):
             str(remote_workspace / stderr_name),
             job_name,
         ]
-        async with self.semaphore:
-            try:
-                submission = await self._bounded(
-                    "qsub",
-                    self.execution.execute(
-                        ExecRequest(
-                            workspace=workspace,
-                            argv=qsub,
-                            timeout_s=min(self.spec.timeout_s, 120.0),
-                        )
-                    ),
+        try:
+            submission = await self._bounded(
+                "qsub",
+                self.execution.execute(
+                    ExecRequest(
+                        workspace=workspace,
+                        argv=qsub,
+                        timeout_s=min(self.spec.timeout_s, 120.0),
+                    )
+                ),
+            )
+        except _SubmitTimeoutError as exc:
+            return _submit_timeout_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                self.resource,
+                exc,
+            )
+        if submission.timed_out or submission.exit_code != 0:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="infrastructure_submission",
+                notes=(submission.stderr or submission.stdout)[-2000:]
+                or "Groq PBS submission failed",
+            )
+        try:
+            job_id = submission.stdout.strip().splitlines()[-1].split(".", 1)[0]
+        except IndexError:
+            job_id = ""
+        if not job_id.isdigit():
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.CRASHED,
+                resource=self.resource,
+                failure_kind="infrastructure_submission",
+                notes=f"qsub returned no parseable job id: {submission.stdout[-1000:]}",
+            )
+        deadline = time.monotonic() + self.spec.timeout_s
+        try:
+            while time.monotonic() < deadline:
+                try:
+                    payload: Any = json.loads(
+                        await fetch_bytes(self.execution, workspace, result_name)
+                    )
+                    break
+                except (OSError, ValueError, json.JSONDecodeError):
+                    pass
+                status = await self.execution.execute(
+                    ExecRequest(
+                        workspace=workspace,
+                        argv=[str(pbs.qsub.with_name("qstat")), "-f", job_id],
+                        timeout_s=min(60.0, self.spec.timeout_s),
+                    )
                 )
-            except _SubmitTimeoutError as exc:
-                return _submit_timeout_measurement(
-                    config,
-                    self.spec,
-                    module_path,
-                    candidate_id,
-                    variant_id,
-                    precision,
-                    compensation,
-                    self.resource,
-                    exc,
-                )
-            if submission.timed_out or submission.exit_code != 0:
-                return _base_measurement(
-                    config,
-                    self.spec,
-                    module_path,
-                    candidate_id,
-                    variant_id,
-                    precision,
-                    compensation,
-                    Status.CRASHED,
-                    resource=self.resource,
-                    failure_kind="infrastructure_submission",
-                    notes=(submission.stderr or submission.stdout)[-2000:]
-                    or "Groq PBS submission failed",
-                )
-            try:
-                job_id = submission.stdout.strip().splitlines()[-1].split(".", 1)[0]
-            except IndexError:
-                job_id = ""
-            if not job_id.isdigit():
-                return _base_measurement(
-                    config,
-                    self.spec,
-                    module_path,
-                    candidate_id,
-                    variant_id,
-                    precision,
-                    compensation,
-                    Status.CRASHED,
-                    resource=self.resource,
-                    failure_kind="infrastructure_submission",
-                    notes=f"qsub returned no parseable job id: {submission.stdout[-1000:]}",
-                )
-            deadline = time.monotonic() + self.spec.timeout_s
-            try:
-                while time.monotonic() < deadline:
+                if status.timed_out:
+                    continue
+                if status.exit_code != 0:
+                    await asyncio.sleep(1.0)
                     try:
                         payload = json.loads(
                             await fetch_bytes(self.execution, workspace, result_name)
                         )
-                        break
                     except (OSError, ValueError, json.JSONDecodeError):
-                        pass
-                    status = await self.execution.execute(
-                        ExecRequest(
-                            workspace=workspace,
-                            argv=[str(pbs.qsub.with_name("qstat")), "-f", job_id],
-                            timeout_s=min(60.0, self.spec.timeout_s),
-                        )
+                        details = (status.stderr or status.stdout)[-2000:]
+                        with contextlib.suppress(OSError):
+                            details = (
+                                await fetch_bytes(self.execution, workspace, stderr_name)
+                            ).decode(errors="replace")[-2000:]
+                        payload = {
+                            "ok": False,
+                            "error": f"Groq PBS job {job_id} ended without a result: {details}",
+                        }
+                    break
+                await asyncio.sleep(2.0)
+            else:
+                await self.execution.execute(
+                    ExecRequest(
+                        workspace=workspace,
+                        argv=[str(pbs.qsub.with_name("qdel")), job_id],
+                        timeout_s=60.0,
                     )
-                    if status.timed_out:
-                        continue
-                    if status.exit_code != 0:
-                        await asyncio.sleep(1.0)
-                        try:
-                            payload = json.loads(
-                                await fetch_bytes(self.execution, workspace, result_name)
-                            )
-                        except (OSError, ValueError, json.JSONDecodeError):
-                            details = (status.stderr or status.stdout)[-2000:]
-                            with contextlib.suppress(OSError):
-                                details = (
-                                    await fetch_bytes(self.execution, workspace, stderr_name)
-                                ).decode(errors="replace")[-2000:]
-                            payload = {
-                                "ok": False,
-                                "error": f"Groq PBS job {job_id} ended without a result: {details}",
-                            }
-                        break
-                    await asyncio.sleep(2.0)
-                else:
-                    await self.execution.execute(
+                )
+                return _base_measurement(
+                    config,
+                    self.spec,
+                    module_path,
+                    candidate_id,
+                    variant_id,
+                    precision,
+                    compensation,
+                    Status.TIMEOUT,
+                    resource=self.resource,
+                    failure_kind="execution_timeout",
+                    notes=f"Groq PBS job {job_id} exceeded the backend timeout and was cancelled",
+                )
+        except asyncio.CancelledError:
+            with contextlib.suppress(Exception):
+                await asyncio.shield(
+                    self.execution.execute(
                         ExecRequest(
                             workspace=workspace,
                             argv=[str(pbs.qsub.with_name("qdel")), job_id],
                             timeout_s=60.0,
                         )
                     )
-                    return _base_measurement(
-                        config,
-                        self.spec,
-                        module_path,
-                        candidate_id,
-                        variant_id,
-                        precision,
-                        compensation,
-                        Status.TIMEOUT,
-                        resource=self.resource,
-                        failure_kind="execution_timeout",
-                        notes=(
-                            f"Groq PBS job {job_id} exceeded the backend timeout and was cancelled"
-                        ),
-                    )
-            except asyncio.CancelledError:
-                with contextlib.suppress(Exception):
-                    await asyncio.shield(
-                        self.execution.execute(
-                            ExecRequest(
-                                workspace=workspace,
-                                argv=[str(pbs.qsub.with_name("qdel")), job_id],
-                                timeout_s=60.0,
-                            )
-                        )
-                    )
-                raise
+                )
+            raise
         return self._finalize(
             payload,
             config,
@@ -912,6 +938,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
         )
         measurement = _enforce_accuracy_latency_pair(measurement)
         return _enforce_architectural_timing(measurement)
+
 
 def _reap_stale_groq_requests(queue: Path, stale_after_s: float) -> None:
     """Convert abandoned pending/running requests into timeout completions.

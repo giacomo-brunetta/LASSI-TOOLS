@@ -48,6 +48,7 @@ PAUSE_MAX_S = 900.0
 _ARGV_LOG_LIMIT = 160
 ResultT = TypeVar("ResultT")
 
+
 def _disable_academy_stream_deadline(transport: Any) -> None:
     """Remove aiohttp's total deadline from Academy's long-lived SSE stream.
 
@@ -69,6 +70,7 @@ def _disable_academy_stream_deadline(transport: Any) -> None:
         sock_connect=60,
         sock_read=None,
     )
+
 
 def _add_academy_send_retry(
     transport: Any,
@@ -142,6 +144,7 @@ def _add_academy_send_retry(
 
     transport.send = send_with_retry
 
+
 class RemoteCallTimeoutError(TimeoutError):
     """One Academy call outlived its bound and was abandoned.
 
@@ -171,6 +174,7 @@ class RemoteCallTimeoutError(TimeoutError):
         self.resource = resource
         self.limit_s = limit_s
 
+
 class ResourceUnavailableError(RuntimeError):
     """A resource was declared dead and is no longer being called.
 
@@ -197,6 +201,7 @@ class ResourceUnavailableError(RuntimeError):
         self.resource = resource
         self.detail = detail
 
+
 async def _warn_while_pending(description: str, interval_s: float) -> None:
     """Warn once per interval for as long as a remote call stays unanswered.
 
@@ -213,6 +218,7 @@ async def _warn_while_pending(description: str, interval_s: float) -> None:
         await asyncio.sleep(interval_s)
         waited += interval_s
         logger.warning("remote call %s unanswered after %.0fs", description, waited)
+
 
 class AcademyExecutionBackend(ExecutionBackend):
     """Forward every operation to a remote ``ExecutionAgent`` handle.
@@ -531,6 +537,7 @@ class AcademyExecutionBackend(ExecutionBackend):
     async def handshake(self) -> HandshakeReport:
         """Measure and report the remote host's capabilities."""
         return await self._traced("handshake", "capability probe", self.handle.handshake())
+
 
 def _resource_executor(name: str, spec: ResourceConfig) -> Executor:
     """Build the executor that launches one resource's execution agent.

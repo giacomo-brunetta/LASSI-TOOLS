@@ -32,6 +32,10 @@ class RunRecord(StrictModel):
     skills: list[dict[str, str]]
     execution: dict[str, Any]
     planner: dict[str, Any]
+    scheduler: dict[str, Any]
+    qualifications: list[dict[str, Any]]
+    pruning: list[dict[str, Any]]
+    checkpoint: dict[str, Any]
     acceptance: dict[str, Any]
     pareto_error_metric: str
     accuracy: dict[str, Any]
@@ -75,6 +79,9 @@ def render_summary(record: RunRecord) -> str:
         "- Candidates passing FP64 reference validation: "
         f"{sum(candidate['status'] == 'ok' for candidate in record.candidates)}",
         f"- Accelerator repair variants: {len(record.compatibility_candidates)}",
+        f"- Compiler qualifications: {len(record.qualifications)}",
+        f"- Candidates pruned before the full matrix: "
+        f"{sum(item['pruned'] for item in record.pruning)}",
         f"- Portable numerical attempts: {len(record.compensation_variants)}",
         f"- Promoted numerical trunks: {len(record.numerical_candidates)}",
         f"- Measurements: {len(record.measurements)}",

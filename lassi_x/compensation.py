@@ -5,6 +5,7 @@ import asyncio
 import json
 import re
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .agent_support import attempt_diagnostic_dir, record_turn, workspace_slug
@@ -19,7 +20,6 @@ from .validation import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from pathlib import Path
 
     from .config import BackendConfig, RunConfig
     from .execution import ExecutionContext
@@ -121,6 +121,18 @@ class CompensationVariant:
             measurement.to_dict() for measurement in self.target_measurements
         ]
         return data
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> CompensationVariant:
+        data = dict(value)
+        data["module_path"] = Path(data["module_path"])
+        data["status"] = Status(data["status"])
+        data["diagnostics"] = [Diagnostic.from_dict(item) for item in data["diagnostics"]]
+        data["usage"] = Usage.from_dict(data["usage"])
+        data["target_measurements"] = [
+            Measurement.from_dict(item) for item in data["target_measurements"]
+        ]
+        return cls(**data)
 
 
 def select_weak_points(

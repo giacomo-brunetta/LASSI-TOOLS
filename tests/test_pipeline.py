@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pytest
 import yaml
 
 import lassi_x.pipeline as pipeline
 import lassi_x.run_record as run_record
 from lassi_x.compensation import CompensationVariant
 from lassi_x.config import RunConfig
+from lassi_x.scheduler import PipelineScheduler
 from lassi_x.types import Candidate, Measurement, Status
 from lassi_x.validation import OracleResult
 
@@ -47,6 +50,8 @@ def measured(
         evaluation_output_finite=True,
         evaluation_semantic_verified=True,
         accuracy_source="timed_device_workload",
+        timing_protocol="architectural-single-call-v1",
+        latency_scope="device_resident_graph",
     )
 
 
@@ -68,10 +73,16 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
         del config, run_dir
         return OracleResult(oracle_path, np.asarray([1.0, 2.0, 3.0]))
 
-    async def fake_arena(*_: object) -> tuple[list[Candidate], dict[str, object]]:
-        return [candidate], {"text": "plan", "usage": {}}
+    async def fake_plan(*_: object) -> tuple[list[str], dict[str, object]]:
+        return ["direct"], {"text": "plan", "usage": {}}
 
-    async def fake_measure_base(*_: object) -> list[Measurement]:
+    async def fake_generate(*_: object) -> Candidate:
+        return candidate
+
+    async def fake_measure_base(*_: object, **kwargs: object) -> list[Measurement]:
+        callback = kwargs.get("on_result")
+        if callable(callback):
+            callback(base_point)
         return [base_point]
 
     async def fake_compensation(
@@ -108,22 +119,26 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
         oracle: object,
         specs: list[tuple[str, str, Path, str, str, str]],
         backends: object,
+        **kwargs: object,
     ) -> list[Measurement]:
         del config, oracle, backends
         captured_specs.extend(specs)
-        return [
-            measured(
-                specs[0][2],
-                variant_id=specs[0][1],
-                compensation=specs[0][3],
-                error=0.01,
-            )
-        ]
+        result = measured(
+            specs[0][2],
+            variant_id=specs[0][1],
+            compensation=specs[0][3],
+            error=0.01,
+        )
+        callback = kwargs.get("on_result")
+        if callable(callback):
+            callback(result)
+        return [result]
 
     monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
     monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
     monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
-    monkeypatch.setattr(pipeline, "run_arena", fake_arena)
+    monkeypatch.setattr(pipeline, "plan_strategies", fake_plan)
+    monkeypatch.setattr(pipeline, "generate_candidate", fake_generate)
     monkeypatch.setattr(pipeline, "build_backends", lambda *_: [])
     monkeypatch.setattr(pipeline, "measure_variants", fake_measure_base)
     monkeypatch.setattr(pipeline, "generate_compensation", fake_compensation)
@@ -144,29 +159,28 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
     assert "Pareto plots: [overall]" in (run_dir / "summary.md").read_text()
     graph = (run_dir / "pipeline-graph.mmd").read_text()
     assert "direction LR" in graph
-    assert "compensation_decision" in graph
+    assert "stream_candidates" in graph
+
+    async def unexpected(*_: object, **__: object) -> object:
+        raise AssertionError("completed work must not run again during resume")
+
+    monkeypatch.setattr(pipeline, "build_oracle", unexpected)
+    monkeypatch.setattr(pipeline, "plan_strategies", unexpected)
+    monkeypatch.setattr(pipeline, "generate_candidate", unexpected)
+    monkeypatch.setattr(pipeline, "build_backends", unexpected)
+    resumed_code, resumed_dir = asyncio.run(pipeline.run_pipeline(config_path, resume_dir=run_dir))
+    resumed = json.loads((resumed_dir / "run.json").read_text())
+    assert resumed_code == 0
+    assert resumed_dir == run_dir
+    assert len(resumed["measurements"]) == 2
 
 
 def test_pipeline_graph_declares_typed_orchestration_phases() -> None:
     diagram = pipeline.PIPELINE_GRAPH.render(direction="LR")
-    phases = (
-        "build_oracle",
-        "run_arena",
-        "measure_base",
-        "qualify_accelerators",
-        "route_compensation",
-        "generate_compensation",
-        "skip_compensation",
-        "measure_compensation",
-        "finalize",
-    )
+    phases = ("build_oracle", "plan_strategies", "stream_candidates", "finalize")
     assert all(phase in diagram for phase in phases)
-    assert "route_compensation --> compensation_decision" in diagram
-    assert "measure_base --> route_compensation" in diagram
-    assert "generate_compensation --> measure_compensation" in diagram
-    assert "skip_compensation --> measure_compensation" in diagram
-    assert "measure_compensation --> qualify_accelerators" in diagram
-    assert "qualify_accelerators --> finalize" in diagram
+    assert "plan_strategies --> stream_candidates" in diagram
+    assert "stream_candidates --> finalize" in diagram
 
 
 def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
@@ -188,10 +202,16 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
         del config, run_dir
         return OracleResult(oracle_path, np.asarray([1.0, 2.0, 3.0]))
 
-    async def fake_arena(*_: object) -> tuple[list[Candidate], dict[str, object]]:
-        return [candidate], {"text": "plan", "usage": {}}
+    async def fake_plan(*_: object) -> tuple[list[str], dict[str, object]]:
+        return ["direct"], {"text": "plan", "usage": {}}
 
-    async def fake_measure_base(*_: object) -> list[Measurement]:
+    async def fake_generate(*_: object) -> Candidate:
+        return candidate
+
+    async def fake_measure_base(*_: object, **kwargs: object) -> list[Measurement]:
+        callback = kwargs.get("on_result")
+        if callable(callback):
+            callback(base_point)
         return [base_point]
 
     async def reject_generation(*_: object) -> CompensationVariant:
@@ -202,6 +222,7 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
         oracle: object,
         specs: list[tuple[str, str, Path, str, str, str]],
         backends: object,
+        **kwargs: object,
     ) -> list[Measurement]:
         del config, oracle, backends
         assert specs == []
@@ -210,7 +231,8 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
     monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
     monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
     monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
-    monkeypatch.setattr(pipeline, "run_arena", fake_arena)
+    monkeypatch.setattr(pipeline, "plan_strategies", fake_plan)
+    monkeypatch.setattr(pipeline, "generate_candidate", fake_generate)
     monkeypatch.setattr(pipeline, "build_backends", lambda *_: [])
     monkeypatch.setattr(pipeline, "measure_variants", fake_measure_base)
     monkeypatch.setattr(pipeline, "generate_compensation", reject_generation)
@@ -311,3 +333,21 @@ def test_skill_record_version_comes_from_install_manifest(tmp_path: Path, monkey
     monkeypatch.setattr(run_record, "install_root", lambda: root)
     monkeypatch.setattr(run_record, "AUTOMATION_SKILLS", ("one",))
     assert run_record.skill_records()[0]["version"] == "9.8.7"
+
+
+def test_candidate_journal_rejects_unknown_schema(tmp_path: Path) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    deps = pipeline.PipelineDeps(
+        config,
+        tmp_path / "config.yaml",
+        tmp_path,
+        None,  # type: ignore[arg-type]
+        PipelineScheduler(config.scheduler),
+        "2026-01-01T00:00:00+00:00",
+        time.perf_counter(),
+    )
+    progress = tmp_path / "progress"
+    progress.mkdir()
+    (progress / "c1.json").write_text(json.dumps({"schema_version": 999}))
+    with pytest.raises(ValueError, match="unsupported candidate checkpoint schema"):
+        pipeline._load_candidate_journal(deps, "c1")

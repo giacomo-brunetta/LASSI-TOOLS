@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING, Any, cast
 
 from .agent_support import record_turn, stage_reference_bundle
+from .config import compatibility_target_for
 from .execution import ResourceUnavailableError
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Status, Usage
@@ -293,15 +294,26 @@ async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str]
 
     """
     count = config.arena.candidates
+    target_ids = sorted(
+        {
+            *(
+                target
+                for backend in config.measure.backends
+                if (target := compatibility_target_for(backend)) is not None
+            ),
+            *(target.target_id for target in config.compatibility.compile_targets),
+        }
+    )
     compatibility_context = ""
-    if any(backend.type == "groq" for backend in config.measure.backends):
-        compatibility_context = """
-Accelerator compatibility context:
-- This run targets GroqFlow. Load `lassi-x-accelerator-compatibility` before designing strategies.
-- Use its published family and portable-core evidence to compare operator structures. Do not make
-  exact function-support claims because the planner has no terminal query access.
+    if target_ids:
+        compatibility_context = f"""
+Compiler compatibility context:
+- This run targets these exact published compiler bundles: {", ".join(target_ids)}.
+- Load `lassi-x-accelerator-compatibility` before designing strategies and use its published family
+  and portable-core evidence to compare operator structures.
 - In every strategy, list expected nontrivial `aten.*` operators and require the coder to query
-  them against `groq-r01-groqflow` before finalizing the implementation.
+  uncertain operators against each applicable target before finalizing the implementation.
+- Compile-only targets such as Torch-MLIR/TOSA are qualification gates and make no latency claim.
 """
     prompt = f"""Create up to {count} materially distinct PyTorch translation strategies.
 
@@ -419,25 +431,34 @@ def _generation_prompt(
         fixture_relative_path(config) or "none; reproduce the reference initialization exactly"
     )
     reference_lines = "\n".join(f"- {path}" for path in staged_reference)
+    target_ids = sorted(
+        {
+            *(
+                target
+                for backend in config.measure.backends
+                if (target := compatibility_target_for(backend)) is not None
+            ),
+            *(target.target_id for target in config.compatibility.compile_targets),
+        }
+    )
     compatibility_requirement = ""
-    if any(backend.type == "groq" for backend in config.measure.backends):
-        compatibility_requirement = """
-Groq compatibility preflight (required):
-- This run measures the candidate through GroqFlow compilation and Groq hardware execution.
+    if target_ids:
+        compatibility_requirement = f"""
+Compiler compatibility preflight (required):
+- This run qualifies these exact targets: {", ".join(target_ids)}.
 - Load `lassi-x-accelerator-compatibility` and use its family-level evidence to review the assigned
   operator structure before making exact wiki queries.
-- Before finalizing candidate.py, run `lassi-x-compat-wiki targets` and select the closest exact
-  Groq/compiler snapshot. Do not silently use an A100 or Torch-MLIR/TOSA snapshot when an exact
-  Groq target is unavailable.
+- Before finalizing candidate.py, run `lassi-x-compat-wiki targets` and use only the exact targets
+  listed above. Do not substitute evidence from another accelerator or compiler.
 - Inventory the expected `aten.*` operators and run
-  `lassi-x-compat-wiki op OPERATOR --target TARGET --precision fp16` for each uncertain or
+  `lassi-x-compat-wiki op OPERATOR --target TARGET --precision PRECISION` for each uncertain or
   nontrivial operator. Use
-  `lassi-x-compat-wiki search PATTERN --target TARGET --precision fp16 --supported` to find
+  `lassi-x-compat-wiki search PATTERN --target TARGET --precision PRECISION --supported` to find
   compiled alternatives.
 - Prefer target-snapshot-supported formulations while preserving the C/C++ semantics. Record the
   selected target, queried operators, canonical cases, and results in the implementation summary.
-- A canonical operator compile can still fail in full-model GroqFlow compilation or placement;
-  do not claim hardware compatibility until the Groq measurement succeeds.
+- A canonical operator compile can still fail in full-model compilation or placement; do not
+  claim compatibility until whole-model qualification or hardware measurement passes.
 """
     return f"""Implement arena candidate {candidate_id}.
 

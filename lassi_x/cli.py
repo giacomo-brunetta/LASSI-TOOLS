@@ -613,6 +613,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run")
     run.add_argument("config", type=Path)
+    run.add_argument(
+        "--resume",
+        type=Path,
+        help="Resume a run directory whose checkpoint matches this configuration.",
+    )
 
     skills = sub.add_parser("skills")
     skills_sub = skills.add_subparsers(dest="skills_command", required=True)
@@ -766,7 +771,7 @@ def _dispatch() -> int:
     configure_logging(args.log_level)
     if args.command == "run":
         try:
-            code, run_dir = asyncio.run(run_pipeline(args.config))
+            code, run_dir = asyncio.run(run_pipeline(args.config, resume_dir=args.resume))
         except Exception as exc:
             emit(
                 "run",
