@@ -7,6 +7,12 @@ and constructing latency-versus-error Pareto frontiers.
 The authoritative oracle is always the original C/C++ reference executed with
 64-bit floating-point. A PyTorch module is never used as its own semantic oracle.
 
+The current end-to-end system is summarized in the paper-ready, 3:1
+[pipeline schematic](docs/lassi-x-multi-agent-pipeline.pdf); its editable source is
+[SVG](docs/lassi-x-multi-agent-pipeline.svg). The figure follows the same streaming candidate
+order, scheduler boundaries, checkpoint semantics, and architectural-timing policy implemented
+by the pipeline.
+
 ## Installation
 
 ```bash

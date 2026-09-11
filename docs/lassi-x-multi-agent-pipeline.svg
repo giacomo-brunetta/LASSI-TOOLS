@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="1000" viewBox="0 0 3000 1000" role="img" aria-labelledby="title desc">
+  <title id="title">LASSI-X streaming multi-agent pipeline</title>
+  <desc id="desc">The current LASSI-X pipeline from immutable configuration and C or C++ oracle through planning, independently streamed candidate generation, whole-model compiler qualification, optional accelerator pruning, architectural measurement, portable numerical compensation, target-specific repair, and final Pareto artifacts. A central scheduler and durable checkpoints cross-cut the candidate flow.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#082c5c"/>
+      <stop offset="1" stop-color="#115b91"/>
+    </linearGradient>
+    <linearGradient id="stream" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f8f5ff"/>
+      <stop offset="1" stop-color="#eef7ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#17324d" flood-opacity="0.16"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#236aa6"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#11856f"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#c6414c"/>
+    </marker>
+    <style>
+      .title { font: 700 45px Inter, Arial, sans-serif; fill: #ffffff; letter-spacing: .4px; }
+      .subtitle { font: 400 22px Inter, Arial, sans-serif; fill: #d9edff; }
+      .lane { font: 700 22px Inter, Arial, sans-serif; fill: #123b63; letter-spacing: .6px; }
+      .card-title { font: 700 22px Inter, Arial, sans-serif; fill: #ffffff; }
+      .body { font: 400 19px Inter, Arial, sans-serif; fill: #24384b; }
+      .body-strong { font: 700 19px Inter, Arial, sans-serif; fill: #17324d; }
+      .small { font: 400 17px Inter, Arial, sans-serif; fill: #40566b; }
+      .tiny { font: 600 15px Inter, Arial, sans-serif; fill: #53697d; letter-spacing: .2px; }
+      .small-light { font: 400 17px Inter, Arial, sans-serif; fill: #ffffff; }
+      .tiny-light { font: 600 15px Inter, Arial, sans-serif; fill: #d9edff; letter-spacing: .2px; }
+      .branch { font: 700 16px Inter, Arial, sans-serif; }
+      .cross-title { font: 700 20px Inter, Arial, sans-serif; fill: #ffffff; }
+      .cross-body { font: 400 17px Inter, Arial, sans-serif; fill: #eaf6ff; }
+      .checkpoint-title { font: 700 20px Inter, Arial, sans-serif; fill: #70430b; }
+      .checkpoint-body { font: 400 17px Inter, Arial, sans-serif; fill: #5c4930; }
+    </style>
+  </defs>
+
+  <rect width="3000" height="1000" fill="#ffffff"/>
+  <rect x="0" y="0" width="3000" height="82" fill="url(#header)"/>
+  <text x="55" y="51" class="title">LASSI-X Multi-Agent Pipeline</text>
+  <text x="2925" y="39" text-anchor="end" class="subtitle">streaming • resumable • accelerator-measured</text>
+  <text x="2925" y="65" text-anchor="end" class="tiny-light">CURRENT SYSTEM · SCHEMA v1</text>
+
+  <!-- Scientific authority lane -->
+  <rect x="38" y="102" width="2924" height="104" rx="16" fill="#eef7ff" stroke="#83b9e4" stroke-width="2"/>
+  <text x="62" y="132" class="lane">SCIENTIFIC AUTHORITY</text>
+  <rect x="332" y="119" width="408" height="57" rx="10" fill="#176eb1"/>
+  <text x="536" y="143" text-anchor="middle" class="card-title">Original C/C++ FP64 oracle</text>
+  <text x="536" y="166" text-anchor="middle" class="small-light">deterministic output + source/output hashes</text>
+  <line x1="740" y1="148" x2="2860" y2="148" stroke="#2478bc" stroke-width="4"/>
+  <line x1="536" y1="176" x2="536" y2="225" stroke="#2478bc" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="1109" y1="148" x2="1109" y2="225" stroke="#2478bc" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="2005" y1="148" x2="2005" y2="225" stroke="#2478bc" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="2303" y1="148" x2="2303" y2="225" stroke="#2478bc" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="2601" y1="148" x2="2601" y2="225" stroke="#2478bc" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="895" y="132" class="tiny">semantic validation</text>
+  <text x="1758" y="132" class="tiny">paired device accuracy</text>
+  <text x="2298" y="132" class="tiny">compensation guards + repair validation</text>
+
+  <!-- Candidate streaming background -->
+  <rect x="920" y="216" width="1791" height="440" rx="20" fill="url(#stream)" stroke="#b8a7e5" stroke-width="2" stroke-dasharray="10 8"/>
+  <text x="940" y="247" class="lane" fill="#6141a5">INDEPENDENT CANDIDATE FLOWS (C1 … CN)</text>
+  <text x="2690" y="247" text-anchor="end" class="small">each candidate advances as soon as its own stage completes</text>
+
+  <!-- Stage cards -->
+  <g filter="url(#shadow)">
+    <rect x="38" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#2a79b7" stroke-width="3"/>
+    <path d="M38 279 Q38 265 52 265 H294 Q308 265 308 279 V324 H38Z" fill="#176eb1"/>
+    <text x="58" y="303" class="card-title">0 · CONFIGURE</text>
+    <text x="58" y="356" class="body-strong">Strict YAML v1</text>
+    <text x="58" y="389" class="body">Resolve paths + resources</text>
+    <text x="58" y="422" class="body">Install/verify skills</text>
+    <text x="58" y="455" class="body">Create immutable run dir</text>
+    <text x="58" y="488" class="body">Start local or Academy</text>
+    <text x="58" y="521" class="body">execution context</text>
+    <rect x="57" y="550" width="232" height="37" rx="8" fill="#edf6fd"/>
+    <text x="173" y="575" text-anchor="middle" class="tiny">resolved-config.yaml</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="336" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#2a79b7" stroke-width="3"/>
+    <path d="M336 279 Q336 265 350 265 H592 Q606 265 606 279 V324 H336Z" fill="#176eb1"/>
+    <text x="356" y="303" class="card-title">1 · ORACLE</text>
+    <text x="356" y="356" class="body-strong">Non-agent authority</text>
+    <text x="356" y="389" class="body">Build + run reference</text>
+    <text x="356" y="422" class="body">FP64 output capture</text>
+    <text x="356" y="455" class="body">Repeat determinism runs</text>
+    <text x="356" y="488" class="body">Hash source + output</text>
+    <rect x="355" y="550" width="232" height="37" rx="8" fill="#eaf8f4"/>
+    <text x="471" y="575" text-anchor="middle" class="tiny">verified reference</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="634" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#7652bf" stroke-width="3"/>
+    <path d="M634 279 Q634 265 648 265 H890 Q904 265 904 279 V324 H634Z" fill="#7652bf"/>
+    <text x="654" y="303" class="card-title">2 · PLAN</text>
+    <text x="654" y="356" class="body-strong">Planner agent</text>
+    <text x="654" y="389" class="body">Read source + context</text>
+    <text x="654" y="422" class="body">Return N distinct</text>
+    <text x="654" y="455" class="body">vectorized strategies</text>
+    <text x="654" y="488" class="body">Retry malformed output</text>
+    <rect x="653" y="550" width="232" height="37" rx="8" fill="#f2edff"/>
+    <text x="769" y="575" text-anchor="middle" class="tiny">one persistent session</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="932" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#7652bf" stroke-width="3"/>
+    <path d="M932 279 Q932 265 946 265 H1188 Q1202 265 1202 279 V324 H932Z" fill="#7652bf"/>
+    <text x="952" y="303" class="card-title">3 · GENERATE</text>
+    <text x="952" y="356" class="body-strong">Candidate agent</text>
+    <text x="952" y="389" class="body">Isolated MCP workspace</text>
+    <text x="952" y="422" class="body">Write candidate.py</text>
+    <text x="952" y="455" class="body">Byte-compile + CPU FP64</text>
+    <text x="952" y="488" class="body">Compare with C oracle</text>
+    <text x="952" y="521" class="body">Bounded correction loop</text>
+    <rect x="951" y="550" width="232" height="37" rx="8" fill="#eaf8f4"/>
+    <text x="1067" y="575" text-anchor="middle" class="tiny">valid candidate or reject</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1230" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#d08b23" stroke-width="3"/>
+    <path d="M1230 279 Q1230 265 1244 265 H1486 Q1500 265 1500 279 V324 H1230Z" fill="#c77a13"/>
+    <text x="1250" y="303" class="card-title">4 · QUALIFY</text>
+    <text x="1250" y="356" class="body-strong">Whole-model compiler</text>
+    <text x="1250" y="389" class="body">Each target × precision</text>
+    <text x="1250" y="422" class="body">TOSA is its own target</text>
+    <text x="1250" y="455" class="body">compiled / rejected /</text>
+    <text x="1250" y="488" class="body">unavailable / timeout</text>
+    <text x="1250" y="521" class="body">No latency claim</text>
+    <rect x="1249" y="550" width="232" height="37" rx="8" fill="#fff5e5"/>
+    <text x="1365" y="575" text-anchor="middle" class="tiny">required failure → reject</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1528" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#d08b23" stroke-width="3"/>
+    <path d="M1528 279 Q1528 265 1542 265 H1784 Q1798 265 1798 279 V324 H1528Z" fill="#c77a13"/>
+    <text x="1548" y="303" class="card-title">5 · PROBE</text>
+    <text x="1548" y="356" class="body-strong">Optional early pruning</text>
+    <text x="1548" y="389" class="body">One configured</text>
+    <text x="1548" y="422" class="body">accelerator/precision cell</text>
+    <text x="1548" y="455" class="body">Paired device accuracy</text>
+    <text x="1548" y="488" class="body">+ architectural latency</text>
+    <text x="1548" y="521" class="body">Host timing forbidden</text>
+    <rect x="1547" y="550" width="232" height="37" rx="8" fill="#fff5e5"/>
+    <text x="1663" y="575" text-anchor="middle" class="tiny">invalid point → prune</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1826" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#178e79" stroke-width="3"/>
+    <path d="M1826 279 Q1826 265 1840 265 H2082 Q2096 265 2096 279 V324 H1826Z" fill="#11856f"/>
+    <text x="1846" y="303" class="card-title">6 · BASE MATRIX</text>
+    <text x="1846" y="356" class="body-strong">Every configured cell</text>
+    <text x="1846" y="389" class="body">Backend × precision</text>
+    <text x="1846" y="422" class="body">Fresh target execution</text>
+    <text x="1846" y="455" class="body">Accuracy + native clock</text>
+    <text x="1846" y="488" class="body">Single invocation/sample</text>
+    <text x="1846" y="521" class="body">One physical accelerator</text>
+    <rect x="1845" y="550" width="232" height="37" rx="8" fill="#eaf8f4"/>
+    <text x="1961" y="575" text-anchor="middle" class="tiny">no cross-target reuse</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="2124" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#7652bf" stroke-width="3"/>
+    <path d="M2124 279 Q2124 265 2138 265 H2380 Q2394 265 2394 279 V324 H2124Z" fill="#7652bf"/>
+    <text x="2144" y="303" class="card-title">7 · COMPENSATE</text>
+    <text x="2144" y="356" class="body-strong">Portable numerical agent</text>
+    <text x="2144" y="389" class="body">Weak FP16/BF16 groups</text>
+    <text x="2144" y="422" class="body">Candidate × precision</text>
+    <text x="2144" y="455" class="body">FP32-collapse + guards</text>
+    <text x="2144" y="488" class="body">Broadcast portable trunk</text>
+    <text x="2144" y="521" class="body">Fresh full matrix</text>
+    <rect x="2143" y="550" width="232" height="37" rx="8" fill="#f2edff"/>
+    <text x="2259" y="575" text-anchor="middle" class="tiny">promote only if improved</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="2422" y="265" width="270" height="344" rx="14" fill="#ffffff" stroke="#7652bf" stroke-width="3"/>
+    <path d="M2422 279 Q2422 265 2436 265 H2678 Q2692 265 2692 279 V324 H2422Z" fill="#7652bf"/>
+    <text x="2442" y="303" class="card-title">8 · REPAIR</text>
+    <text x="2442" y="356" class="body-strong">Target-specific agent</text>
+    <text x="2442" y="389" class="body">Candidate-caused failures</text>
+    <text x="2442" y="422" class="body">Immutable source leaf</text>
+    <text x="2442" y="455" class="body">Compatibility wiki evidence</text>
+    <text x="2442" y="488" class="body">Fresh failed-target cell</text>
+    <text x="2442" y="521" class="body">No accuracy regression</text>
+    <rect x="2441" y="550" width="232" height="37" rx="8" fill="#f2edff"/>
+    <text x="2557" y="575" text-anchor="middle" class="tiny">infra failures bypass</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="2720" y="265" width="242" height="344" rx="14" fill="#ffffff" stroke="#2a79b7" stroke-width="3"/>
+    <path d="M2720 279 Q2720 265 2734 265 H2948 Q2962 265 2962 279 V324 H2720Z" fill="#176eb1"/>
+    <text x="2740" y="303" class="card-title">9 · FINALIZE</text>
+    <text x="2740" y="356" class="body-strong">Merge typed state</text>
+    <text x="2740" y="389" class="body">Architectural Pareto</text>
+    <text x="2740" y="422" class="body">Required backend/</text>
+    <text x="2740" y="455" class="body">precision acceptance</text>
+    <text x="2740" y="488" class="body">ok / partial / failed</text>
+    <text x="2740" y="528" class="tiny">measurements.jsonl</text>
+    <text x="2740" y="552" class="tiny">frontier.json + SVGs</text>
+    <text x="2740" y="576" class="tiny">run.json + summary.md</text>
+  </g>
+
+  <!-- Main flow arrows -->
+  <g stroke="#236aa6" stroke-width="4" fill="none" marker-end="url(#arrow)">
+    <line x1="308" y1="437" x2="329" y2="437"/>
+    <line x1="606" y1="437" x2="627" y2="437"/>
+    <line x1="904" y1="437" x2="925" y2="437"/>
+    <line x1="1202" y1="437" x2="1223" y2="437"/>
+    <line x1="1500" y1="437" x2="1521" y2="437"/>
+    <line x1="1798" y1="437" x2="1819" y2="437"/>
+    <line x1="2096" y1="437" x2="2117" y2="437"/>
+    <line x1="2394" y1="437" x2="2415" y2="437"/>
+    <line x1="2692" y1="437" x2="2713" y2="437"/>
+  </g>
+
+  <!-- Terminal branches -->
+  <path d="M1067 609 V640 H2810" fill="none" stroke="#c6414c" stroke-width="3" stroke-dasharray="7 6" marker-end="url(#arrow-red)"/>
+  <path d="M1365 609 V640" fill="none" stroke="#c6414c" stroke-width="3"/>
+  <path d="M1663 609 V640" fill="none" stroke="#c6414c" stroke-width="3"/>
+  <text x="1120" y="635" class="branch" fill="#b73542">reject</text>
+  <text x="1414" y="635" class="branch" fill="#b73542">required failure</text>
+  <text x="1712" y="635" class="branch" fill="#b73542">pruned</text>
+  <text x="2700" y="635" text-anchor="end" class="branch" fill="#b73542">record outcome, then finalize</text>
+
+  <!-- Scheduler cross-cutting lane -->
+  <rect x="38" y="685" width="2924" height="105" rx="16" fill="#0d526f"/>
+  <text x="62" y="718" class="cross-title">CENTRAL PIPELINE SCHEDULER</text>
+  <text x="62" y="751" class="cross-body">max_candidate_flows bounds end-to-end streams</text>
+  <line x1="735" y1="704" x2="735" y2="771" stroke="#77bdd3" stroke-width="2"/>
+  <text x="775" y="726" class="cross-body">max_model_sessions is shared by planner, candidate, compensation, and repair agents</text>
+  <text x="775" y="755" class="cross-body">per-resource semaphores are shared by compiler qualification and measurements</text>
+  <line x1="1960" y1="704" x2="1960" y2="771" stroke="#77bdd3" stroke-width="2"/>
+  <text x="2000" y="726" class="cross-body">default resource concurrency = 1</text>
+  <text x="2000" y="755" class="cross-body">queue/PBS/Kubernetes delay is metadata—not latency</text>
+
+  <!-- Checkpoint/resume lane -->
+  <rect x="38" y="808" width="2924" height="105" rx="16" fill="#fff7e8" stroke="#e1ad58" stroke-width="2"/>
+  <text x="62" y="841" class="checkpoint-title">DURABLE CHECKPOINT + RESUME</text>
+  <text x="62" y="874" class="checkpoint-body">checkpoint.json: global stages, accumulated typed state, config SHA-256, elapsed wall time</text>
+  <line x1="1370" y1="828" x2="1370" y2="893" stroke="#d4a457" stroke-width="2"/>
+  <text x="1410" y="850" class="checkpoint-body">progress/cN.json: atomic journal after generation, qualification, probe, every measurement result,</text>
+  <text x="1410" y="879" class="checkpoint-body">compensation, repair, and completion; resume restores completed cells without duplicate rows</text>
+
+  <!-- Footer principles -->
+  <rect x="0" y="942" width="3000" height="58" fill="#eaf1f7"/>
+  <text x="45" y="977" class="body-strong">INVARIANTS</text>
+  <text x="255" y="977" class="small">C/C++ FP64 remains authoritative</text>
+  <text x="760" y="977" class="small">agent writes remain workspace-confined</text>
+  <text x="1330" y="977" class="small">every accelerator is measured independently</text>
+  <text x="1950" y="977" class="small">only native architectural timing enters Pareto/acceptance</text>
+  <text x="2770" y="977" text-anchor="end" class="small">full provenance retained</text>
+</svg>
