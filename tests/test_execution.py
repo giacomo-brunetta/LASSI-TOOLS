@@ -20,6 +20,7 @@ from academy.exchange.client import UserExchangeClient
 from academy.exchange.cloud.client import HttpExchangeTransport
 from academy.identifier import UserId
 from academy.manager import Manager
+from academy.message import Message, PingRequest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
@@ -36,12 +37,13 @@ from lassi_x.execution import (
     LocalExecutionBackend,
     RemoteCallTimeoutError,
     ResourceUnavailableError,
-    _add_academy_send_retry,
-    _disable_academy_stream_deadline,
     fetch_bytes,
     put_bytes,
 )
-from lassi_x.execution.academy import PersistentHttpExchangeFactory
+from lassi_x.execution.academy import (
+    PersistentHttpExchangeFactory,
+    PersistentHttpExchangeTransport,
+)
 from lassi_x.hermes import HermesSession
 from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
@@ -51,9 +53,8 @@ from lassi_x.remote.ops import resolve_member
 from .test_config import minimal_config
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Coroutine
+    from collections.abc import AsyncIterator, Callable
     from pathlib import Path
-    from typing import Any
 
 
 @asynccontextmanager
@@ -89,16 +90,6 @@ def test_local_backend_write_execute_read_cycle(tmp_path: Path) -> None:
     asyncio.run(_exercise_backend(LocalExecutionBackend(tmp_path)))
 
 
-def test_academy_stream_has_no_total_or_read_deadline() -> None:
-    session = type("Session", (), {"_timeout": object()})()
-    transport = type("Transport", (), {"_session": session})()
-    _disable_academy_stream_deadline(transport)
-    timeout = vars(session)["_timeout"]
-    assert timeout.total is None
-    assert timeout.sock_connect == 60
-    assert timeout.sock_read is None
-
-
 def test_academy_manager_copy_preserves_remote_stream_timeout() -> None:
     """The factory Academy passes to agents must retain the HTTP hardening."""
 
@@ -112,6 +103,7 @@ def test_academy_manager_copy_preserves_remote_stream_timeout() -> None:
         manager_transport = await factory._create_transport(mailbox_id=user_id)
         try:
             assert manager_transport._session.timeout.total is None
+            assert manager_transport._session.timeout.sock_connect == 60
             client = UserExchangeClient[HttpExchangeTransport](
                 user_id, manager_transport, start_listener=False
             )
@@ -144,54 +136,83 @@ def _http_error(status: int) -> aiohttp.ClientResponseError:
     return aiohttp.ClientResponseError(info, (), status=status)
 
 
-class _RetryTransport:
-    """Small assignable transport matching the retry wrapper's contract."""
+@asynccontextmanager
+async def _retry_transport(
+    monkeypatch: pytest.MonkeyPatch, errors: list[BaseException]
+) -> AsyncIterator[tuple[PersistentHttpExchangeTransport, Message[PingRequest], list[object]]]:
+    """Exercise the real factory and transport with a controlled HTTP send."""
+    pending = list(errors)
+    sent: list[object] = []
 
-    def __init__(self, errors: list[BaseException]) -> None:
-        self.sent: list[object] = []
-        self.pending = list(errors)
-        self.send: Callable[[object], Coroutine[Any, Any, None]] = self._send
+    async def send(_transport: HttpExchangeTransport, message: object) -> None:
+        if pending:
+            raise pending.pop(0)
+        sent.append(message)
 
-    async def _send(self, message: object) -> None:
-        if self.pending:
-            raise self.pending.pop(0)
-        self.sent.append(message)
-
-
-def _retry_transport(errors: list[BaseException]) -> tuple[_RetryTransport, list[object]]:
-    """Build a fake transport whose send raises `errors` before succeeding."""
-    transport = _RetryTransport(errors)
-    return transport, transport.sent
-
-
-def test_academy_send_retries_transient_gateway_failure() -> None:
-    transport, sent = _retry_transport([_http_error(502), _http_error(503)])
-    _add_academy_send_retry(transport, base_delay_s=0)
-    asyncio.run(transport.send("response"))
-    assert sent == ["response"]
+    monkeypatch.setattr(HttpExchangeTransport, "send", send)
+    monkeypatch.setattr("lassi_x.execution.academy.SEND_RETRY_BASE_DELAY_S", 0.0)
+    factory = PersistentHttpExchangeFactory("https://exchange.example")
+    transport = await factory._create_transport(mailbox_id=UserId.new())
+    message = Message.create(src=UserId.new(), dest=UserId.new(), body=PingRequest())
+    try:
+        yield transport, message, sent
+    finally:
+        await transport.close()
 
 
-def test_academy_send_retries_dropped_connection() -> None:
-    transport, sent = _retry_transport([aiohttp.ClientConnectionError("reset")])
-    _add_academy_send_retry(transport, base_delay_s=0)
-    asyncio.run(transport.send("response"))
-    assert sent == ["response"]
+def test_academy_send_retries_transient_gateway_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def run() -> None:
+        async with _retry_transport(monkeypatch, [_http_error(502), _http_error(503)]) as (
+            transport,
+            message,
+            sent,
+        ):
+            await transport.send(message)
+            assert sent == [message]
+
+    asyncio.run(run())
 
 
-def test_academy_send_does_not_retry_client_error() -> None:
-    transport, sent = _retry_transport([_http_error(404), _http_error(404)])
-    _add_academy_send_retry(transport, base_delay_s=0)
-    with pytest.raises(aiohttp.ClientResponseError):
-        asyncio.run(transport.send("response"))
-    assert sent == []
+def test_academy_send_retries_dropped_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def run() -> None:
+        async with _retry_transport(monkeypatch, [aiohttp.ClientConnectionError("reset")]) as (
+            transport,
+            message,
+            sent,
+        ):
+            await transport.send(message)
+            assert sent == [message]
+
+    asyncio.run(run())
 
 
-def test_academy_send_raises_after_exhausting_attempts() -> None:
-    transport, sent = _retry_transport([_http_error(502) for _ in range(3)])
-    _add_academy_send_retry(transport, attempts=3, base_delay_s=0)
-    with pytest.raises(aiohttp.ClientResponseError):
-        asyncio.run(transport.send("response"))
-    assert sent == []
+def test_academy_send_does_not_retry_client_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def run() -> None:
+        async with _retry_transport(monkeypatch, [_http_error(404), _http_error(404)]) as (
+            transport,
+            message,
+            sent,
+        ):
+            with pytest.raises(aiohttp.ClientResponseError):
+                await transport.send(message)
+            assert sent == []
+
+    asyncio.run(run())
+
+
+def test_academy_send_raises_after_exhausting_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def run() -> None:
+        monkeypatch.setattr("lassi_x.execution.academy.SEND_RETRY_ATTEMPTS", 3)
+        async with _retry_transport(monkeypatch, [_http_error(502) for _ in range(3)]) as (
+            transport,
+            message,
+            sent,
+        ):
+            with pytest.raises(aiohttp.ClientResponseError):
+                await transport.send(message)
+            assert sent == []
+
+    asyncio.run(run())
 
 
 def _stalling_backend(release: asyncio.Event) -> AcademyExecutionBackend:

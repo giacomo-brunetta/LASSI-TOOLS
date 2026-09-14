@@ -10,6 +10,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, TypeVar
 
+import aiohttp
 from academy.exchange.cloud.client import (
     HttpExchangeFactory,
     HttpExchangeTransport,
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from academy.exchange.transport import AgentRegistration
     from academy.handle import Handle
     from academy.identifier import EntityId
+    from academy.message import Message
 
     from ..config import ResourceConfig
     from ..protocol import (
@@ -56,102 +58,6 @@ _ARGV_LOG_LIMIT = 160
 ResultT = TypeVar("ResultT")
 
 
-def _disable_academy_stream_deadline(transport: Any) -> None:
-    """Remove aiohttp's total deadline from Academy's long-lived SSE stream.
-
-    Academy 0.4 creates its HTTP session with aiohttp's five-minute default
-    total timeout. That deadline also covers the hosted exchange's event
-    stream, so a healthy multi-minute run can silently lose its response
-    listener. The hosted exchange currently requires Academy 0.4; adjust each
-    new transport before the listener starts while retaining explicit timeout
-    limits on individual LASSI-X operations.
-
-    Args:
-        transport: Newly created Academy HTTP exchange transport.
-
-    """
-    import aiohttp  # noqa: PLC0415
-
-    transport._session._timeout = aiohttp.ClientTimeout(  # noqa: SLF001
-        total=None,
-        sock_connect=60,
-        sock_read=None,
-    )
-
-
-def _add_academy_send_retry(
-    transport: Any,
-    *,
-    attempts: int = SEND_RETRY_ATTEMPTS,
-    base_delay_s: float = SEND_RETRY_BASE_DELAY_S,
-) -> None:
-    """Retry hosted-exchange sends that fail with a transient HTTP error.
-
-    Academy returns every action result by sending a response message through
-    the exchange, and shields that send from cancellation without retrying it
-    (``academy/runtime.py`` ``_send_response``). A single 5xx from the hosted
-    exchange therefore discards a response the agent already computed. Because
-    no call in :class:`AcademyExecutionBackend` bounds its await, the caller
-    then blocks forever: one 502 wedged a 3mm run until the suite-level
-    timeout reaped the process nearly two hours later.
-
-    Only transport-level failures are retried. Academy maps mailbox
-    termination, unknown entities, and authorization failures to their own
-    exceptions before ``raise_for_status`` runs, so those propagate on the
-    first attempt rather than being hidden behind five rounds of backoff.
-
-    Retrying a send is not perfectly idempotent -- a 504 can mean the exchange
-    accepted the message and failed only while reporting that -- so a peer may
-    observe a duplicate. Academy routes responses by request tag and the
-    requester resolves the first one it sees, which makes a duplicate response
-    far cheaper than a lost one.
-
-    Args:
-        transport: Newly created Academy HTTP exchange transport.
-        attempts: Total send attempts, including the first.
-        base_delay_s: Initial backoff in seconds, doubled after each failure.
-
-    """
-    import aiohttp  # noqa: PLC0415
-
-    send = transport.send
-
-    async def send_with_retry(message: Any) -> None:
-        delay = base_delay_s
-        for attempt in range(1, attempts + 1):
-            try:
-                await send(message)
-            except (
-                aiohttp.ClientConnectionError,
-                aiohttp.ClientResponseError,
-            ) as exc:
-                retryable = (
-                    isinstance(exc, aiohttp.ClientConnectionError)
-                    or exc.status in SEND_RETRY_STATUSES
-                )
-                if not retryable or attempt == attempts:
-                    raise
-                logger.warning(
-                    "Academy exchange send failed (attempt %d/%d): %s; retrying in %.1fs",
-                    attempt,
-                    attempts,
-                    exc,
-                    delay,
-                )
-                await asyncio.sleep(delay)
-                delay *= 2
-            else:
-                if attempt > 1:
-                    logger.info(
-                        "Academy exchange send succeeded on attempt %d/%d",
-                        attempt,
-                        attempts,
-                    )
-                return
-
-    transport.send = send_with_retry
-
-
 class PersistentHttpExchangeTransport(HttpExchangeTransport):
     """Keep LASSI-X's HTTP hardening when Academy copies a transport."""
 
@@ -163,6 +69,43 @@ class PersistentHttpExchangeTransport(HttpExchangeTransport):
             request_timeout_s=self._info.request_timeout_s,
             ssl_verify=self._info.ssl_verify,
         )
+
+    async def send(self, message: Message[Any]) -> None:
+        """Retry transient send failures before Academy loses an action response.
+
+        Academy 0.4 does not retry its shielded response sends. A 5xx can
+        therefore strand a caller until its operation deadline. Only transient
+        transport errors are retried; mailbox and authorization errors are not.
+        A 504 can follow an accepted send, so duplicate responses are possible.
+        """
+        delay = SEND_RETRY_BASE_DELAY_S
+        for attempt in range(1, SEND_RETRY_ATTEMPTS + 1):
+            try:
+                await super().send(message)
+            except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as exc:
+                retryable = (
+                    isinstance(exc, aiohttp.ClientConnectionError)
+                    or exc.status in SEND_RETRY_STATUSES
+                )
+                if not retryable or attempt == SEND_RETRY_ATTEMPTS:
+                    raise
+                logger.warning(
+                    "Academy exchange send failed (attempt %d/%d): %s; retrying in %.1fs",
+                    attempt,
+                    SEND_RETRY_ATTEMPTS,
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+                delay *= 2
+            else:
+                if attempt > 1:
+                    logger.info(
+                        "Academy exchange send succeeded on attempt %d/%d",
+                        attempt,
+                        SEND_RETRY_ATTEMPTS,
+                    )
+                return
 
 
 class PersistentHttpExchangeFactory(HttpExchangeFactory):
@@ -181,14 +124,17 @@ class PersistentHttpExchangeFactory(HttpExchangeFactory):
         name: str | None = None,
         registration: AgentRegistration[Any] | None = None,  # noqa: ARG002
     ) -> PersistentHttpExchangeTransport:
-        """Create a transport with a persistent stream and send retries."""
+        """Create a transport without aiohttp's five-minute SSE deadline."""
         transport = await PersistentHttpExchangeTransport.new(
             connection_info=self._info,
             mailbox_id=mailbox_id,
             name=name,
         )
-        _disable_academy_stream_deadline(transport)
-        _add_academy_send_retry(transport)
+        # Academy 0.4 uses aiohttp's five-minute default for the SSE listener.
+        # Keep explicit per-operation deadlines in AcademyExecutionBackend.
+        transport._session._timeout = aiohttp.ClientTimeout(  # noqa: SLF001
+            total=None, sock_connect=60, sock_read=None
+        )
         return transport
 
 

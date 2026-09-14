@@ -4,8 +4,6 @@ from .academy import (
     AcademyExecutionBackend,
     RemoteCallTimeoutError,
     ResourceUnavailableError,
-    _add_academy_send_retry,
-    _disable_academy_stream_deadline,
 )
 from .base import ExecutionBackend
 from .context import ExecutionContext
@@ -21,6 +19,4 @@ __all__ = [
     "ResourceUnavailableError",
     "fetch_bytes",
     "put_bytes",
-    "_add_academy_send_retry",
-    "_disable_academy_stream_deadline",
 ]
