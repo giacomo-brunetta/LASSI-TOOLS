@@ -17,6 +17,7 @@ import aiohttp
 import pytest
 from academy.exchange import LocalExchangeFactory
 from academy.exchange.client import UserExchangeClient
+from academy.exchange.cloud.client import HttpExchangeTransport
 from academy.identifier import UserId
 from academy.manager import Manager
 from mcp import ClientSession
@@ -111,13 +112,13 @@ def test_academy_manager_copy_preserves_remote_stream_timeout() -> None:
         manager_transport = await factory._create_transport(mailbox_id=user_id)
         try:
             assert manager_transport._session.timeout.total is None
-            client = UserExchangeClient(user_id, manager_transport, start_listener=False)
+            client = UserExchangeClient[HttpExchangeTransport](
+                user_id, manager_transport, start_listener=False
+            )
             manager = Manager(client)
             copied_factory = pickle.loads(pickle.dumps(manager.exchange_factory))
             assert isinstance(copied_factory, PersistentHttpExchangeFactory)
-            assert copied_factory._info.additional_headers == {
-                "Authorization": "Bearer test-token"
-            }
+            assert copied_factory._info.additional_headers == {"Authorization": "Bearer test-token"}
             assert copied_factory._info.request_timeout_s == 17
 
             agent_transport = await copied_factory._create_transport(mailbox_id=UserId.new())

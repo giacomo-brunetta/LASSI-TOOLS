@@ -11,11 +11,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from academy.exchange.cloud.client import (
-    HttpAgentRegistration,
     HttpExchangeFactory,
     HttpExchangeTransport,
 )
-from academy.identifier import EntityId
 
 from .base import ExecutionBackend
 
@@ -23,7 +21,9 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from concurrent.futures import Executor
 
+    from academy.exchange.transport import AgentRegistration
     from academy.handle import Handle
+    from academy.identifier import EntityId
 
     from ..config import ResourceConfig
     from ..protocol import (
@@ -179,7 +179,7 @@ class PersistentHttpExchangeFactory(HttpExchangeFactory):
         mailbox_id: EntityId | None = None,
         *,
         name: str | None = None,
-        registration: HttpAgentRegistration[Any] | None = None,  # noqa: ARG002
+        registration: AgentRegistration[Any] | None = None,  # noqa: ARG002
     ) -> PersistentHttpExchangeTransport:
         """Create a transport with a persistent stream and send retries."""
         transport = await PersistentHttpExchangeTransport.new(
