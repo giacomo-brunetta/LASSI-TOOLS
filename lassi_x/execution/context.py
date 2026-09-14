@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .academy import (
     SHUTDOWN_TIMEOUT_S,
     AcademyExecutionBackend,
+    PersistentHttpExchangeFactory,
     ResourceUnavailableError,
-    _add_academy_send_retry,
-    _disable_academy_stream_deadline,
     _resource_executor,
 )
 from .local import LocalExecutionBackend
@@ -147,17 +146,6 @@ class ExecutionContext:
                     factory=LocalExchangeFactory(), executors=executors
                 )
             else:
-                from academy.exchange.cloud.client import HttpExchangeFactory  # noqa: PLC0415
-
-                class PersistentHttpExchangeFactory(HttpExchangeFactory):
-                    """Create hosted-exchange transports safe for long pipelines."""
-
-                    async def _create_transport(self, *args: Any, **kwargs: Any) -> Any:
-                        transport = await super()._create_transport(*args, **kwargs)
-                        _disable_academy_stream_deadline(transport)
-                        _add_academy_send_retry(transport)
-                        return transport
-
                 manager = await Manager.from_exchange_factory(
                     factory=PersistentHttpExchangeFactory(
                         execution.exchange_url,

@@ -6,6 +6,7 @@ import base64
 import hashlib
 import json
 import logging
+import pickle
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +16,8 @@ from typing import TYPE_CHECKING
 import aiohttp
 import pytest
 from academy.exchange import LocalExchangeFactory
+from academy.exchange.client import UserExchangeClient
+from academy.identifier import UserId
 from academy.manager import Manager
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
@@ -37,6 +40,7 @@ from lassi_x.execution import (
     fetch_bytes,
     put_bytes,
 )
+from lassi_x.execution.academy import PersistentHttpExchangeFactory
 from lassi_x.hermes import HermesSession
 from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
@@ -92,6 +96,41 @@ def test_academy_stream_has_no_total_or_read_deadline() -> None:
     assert timeout.total is None
     assert timeout.sock_connect == 60
     assert timeout.sock_read is None
+
+
+def test_academy_manager_copy_preserves_remote_stream_timeout() -> None:
+    """The factory Academy passes to agents must retain the HTTP hardening."""
+
+    async def run() -> None:
+        factory = PersistentHttpExchangeFactory(
+            "https://exchange.example",
+            additional_headers={"Authorization": "Bearer test-token"},
+            request_timeout_s=17,
+        )
+        user_id = UserId.new()
+        manager_transport = await factory._create_transport(mailbox_id=user_id)
+        try:
+            assert manager_transport._session.timeout.total is None
+            client = UserExchangeClient(user_id, manager_transport, start_listener=False)
+            manager = Manager(client)
+            copied_factory = pickle.loads(pickle.dumps(manager.exchange_factory))
+            assert isinstance(copied_factory, PersistentHttpExchangeFactory)
+            assert copied_factory._info.additional_headers == {
+                "Authorization": "Bearer test-token"
+            }
+            assert copied_factory._info.request_timeout_s == 17
+
+            agent_transport = await copied_factory._create_transport(mailbox_id=UserId.new())
+            try:
+                assert agent_transport._session.timeout.total is None
+                assert agent_transport._session.timeout.sock_read is None
+                assert isinstance(agent_transport.factory(), PersistentHttpExchangeFactory)
+            finally:
+                await agent_transport.close()
+        finally:
+            await manager_transport.close()
+
+    asyncio.run(run())
 
 
 def _http_error(status: int) -> aiohttp.ClientResponseError:

@@ -10,6 +10,13 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from academy.exchange.cloud.client import (
+    HttpAgentRegistration,
+    HttpExchangeFactory,
+    HttpExchangeTransport,
+)
+from academy.identifier import EntityId
+
 from .base import ExecutionBackend
 
 if TYPE_CHECKING:
@@ -143,6 +150,46 @@ def _add_academy_send_retry(
                 return
 
     transport.send = send_with_retry
+
+
+class PersistentHttpExchangeTransport(HttpExchangeTransport):
+    """Keep LASSI-X's HTTP hardening when Academy copies a transport."""
+
+    def factory(self) -> PersistentHttpExchangeFactory:
+        """Preserve the factory type and bearer headers for remote agents."""
+        return PersistentHttpExchangeFactory(
+            url=self._info.url,
+            additional_headers=dict(self._info.additional_headers or {}),
+            request_timeout_s=self._info.request_timeout_s,
+            ssl_verify=self._info.ssl_verify,
+        )
+
+
+class PersistentHttpExchangeFactory(HttpExchangeFactory):
+    """Create deadline-free exchange transports locally and on remote agents.
+
+    Academy 0.4's ``HttpExchangeTransport.factory()`` returns the base factory,
+    which silently drops subclasses when the manager copies its exchange
+    client for remote agents. The matching transport above retains this
+    factory across that copy and across serialization.
+    """
+
+    async def _create_transport(
+        self,
+        mailbox_id: EntityId | None = None,
+        *,
+        name: str | None = None,
+        registration: HttpAgentRegistration[Any] | None = None,  # noqa: ARG002
+    ) -> PersistentHttpExchangeTransport:
+        """Create a transport with a persistent stream and send retries."""
+        transport = await PersistentHttpExchangeTransport.new(
+            connection_info=self._info,
+            mailbox_id=mailbox_id,
+            name=name,
+        )
+        _disable_academy_stream_deadline(transport)
+        _add_academy_send_retry(transport)
+        return transport
 
 
 class RemoteCallTimeoutError(TimeoutError):
