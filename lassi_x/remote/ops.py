@@ -21,6 +21,7 @@ import hashlib
 import os
 import platform
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -139,6 +140,10 @@ async def run_exec(root: Path, request: ExecRequest) -> ExecResult:
             stdin=asyncio.subprocess.PIPE if stdin_data is not None else asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            # A user command may be a shell which starts grandchildren.  Make
+            # it a process-group leader so a timeout cannot leave descendants
+            # holding its output pipes open and wedging the execution agent.
+            start_new_session=os.name == "posix",
         )
     except OSError as exc:
         return ExecResult(
@@ -153,9 +158,13 @@ async def run_exec(root: Path, request: ExecRequest) -> ExecResult:
         )
         timed_out = False
     except TimeoutError:
-        process.kill()
-        await process.wait()
-        stdout_data, stderr_data = b"", b""
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:
+            process.kill()
+        # Drain the pipes after killing the whole group.  Waiting only for the
+        # shell can deadlock when a surviving child inherited either pipe.
+        stdout_data, stderr_data = await process.communicate()
         timed_out = True
     stdout, stdout_truncated = _clip(stdout_data)
     stderr, stderr_truncated = _clip(stderr_data)

@@ -1,0 +1,91 @@
+version: 1
+
+project:
+  root: ../../../PolyBenchC-4.2.1
+
+kernel:
+  name: polybench-3mm-medium-groq
+  reference: linear-algebra/kernels/3mm/3mm.c
+  task: Canonical PyTorch PolyBench 3mm measurement at MEDIUM dimensions.
+
+oracle:
+  build:
+    - gcc
+    - -O0
+    - -DPOLYBENCH_DUMP_ARRAYS
+    - -include
+    - ../LASSI-TOOLS/examples/polybench-3mm/oracle_precision_medium.h
+    - "{reference}"
+    - utilities/polybench.c
+    - -Iutilities
+    - -Ilinear-algebra/kernels/3mm
+    - -lm
+    - -o
+    - "{oracle_dir}/reference"
+  run: ["{oracle_dir}/reference"]
+  output: oracle.csv
+  capture: stderr
+  format: polybench
+  timeout_s: 180
+
+arena:
+  candidates: 1
+  correction_rounds: 0
+  equivalence:
+    # GroqFlow executes this model in FP16; the matched FP32 A100/IPU flows
+    # retain their stricter 1e-6 gate.
+    rtol: 1.0e-3
+    atol: 1.0e-3
+
+models:
+  planner: {provider: openai-codex, model: gpt-5.6-luna, reasoning_effort: medium}
+  candidates: [{provider: openai-codex, model: gpt-5.6-luna, reasoning_effort: medium}]
+  compensation: {provider: openai-codex, model: gpt-5.6-luna, reasoning_effort: medium}
+
+execution:
+  mode: academy
+  exchange_url: https://exchange.academy-agents.org
+  auth: globus
+  default_resource: groq-login
+  resources:
+    groq-login:
+      endpoint_id: 266f3128-cc9a-403e-ab61-9284ed57d54b
+      workspace_root: /home/gbrun/lassi-x-groq-academy
+      labels: [groq-login, pbs]
+  mcp_timeout_s: 900
+  call_timeout_s: 300
+  dead_after_timeouts: 2
+  # The login endpoint is a single serial execution agent. Concurrent pings
+  # time out while it serves a request and can falsely pause a healthy run.
+  # Individual protocol calls retain their explicit timeouts above.
+  heartbeat_interval_s: 0
+
+measure:
+  precisions: [fp16]
+  warmup: 3
+  iterations: 10
+  backends:
+    - type: groq
+      name: groq-lpu
+      resource: groq-login
+      precisions: [fp16]
+      timeout_s: 3600
+      pbs:
+        qsub: /opt/pbs/bin/qsub
+        select: select=1,place=excl
+        walltime: "01:00:00"
+        conda_sh: /home/gbrun/miniconda3/etc/profile.d/conda.sh
+        conda_env: groqflow
+        python: /home/gbrun/miniconda3/envs/groqflow/bin/python
+        pythonpath: [/home/gbrun/LASSI-TOOLS]
+      capabilities:
+        storage: [fp16]
+        elementwise: [fp16]
+        matmul_accumulator: backend-defined
+        explicit_fp32_tensor_ops: false
+        fp64: false
+
+success:
+  required_backends: [groq-lpu]
+  required_precisions:
+    groq-lpu: [fp16]
