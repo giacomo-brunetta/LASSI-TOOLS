@@ -146,6 +146,8 @@ class NativeBackend(Backend[NativeBackendConfig]):
             command += ["--fixture", fixture]
         if precision in config.measure.strict_precisions:
             command.append("--require-equivalence")
+        if worker.clock_hz is not None:
+            command += ["--clock-hz", str(worker.clock_hz)]
         async with self.semaphore:
             try:
                 result = await self.execution.execute(

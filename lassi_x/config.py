@@ -146,6 +146,7 @@ class NativeWorkerConfig(StrictModel):
 
     python: Path
     script: Path | None = None
+    clock_hz: float | None = None
 
 
 class BackendConfig(StrictModel):

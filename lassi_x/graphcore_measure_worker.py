@@ -15,11 +15,12 @@ import json
 import os
 import statistics
 import sys
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import poptorch  # type: ignore[import-not-found]
+import popart  # type: ignore[import-not-found]
 import torch
 
 PRECISIONS = {
@@ -139,12 +140,18 @@ def main() -> int:
     parser.add_argument("--rtol", type=float, default=1e-3)
     parser.add_argument("--atol", type=float, default=1e-6)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--clock-hz",
+        type=float,
+        default=1_850_000_000.0,
+        help="IPU tile clock used to convert PopART hardware cycles to seconds.",
+    )
     parser.add_argument("--require-equivalence", action="store_true")
     args = parser.parse_args()
 
     payload: dict[str, Any]
     phase = "load_candidate"
-    executable = None
+    device = None
     exit_code = 0
     try:
         torch.manual_seed(args.seed)
@@ -157,33 +164,84 @@ def main() -> int:
         if hasattr(model, "to"):
             model.to(dtype=dtype)
 
+        if not np.isfinite(args.clock_hz) or args.clock_hz <= 0:
+            raise ValueError("--clock-hz must be finite and positive")
+
+        # PopTorch's getComputeLatency() is zero on this site's runtime even
+        # when a graph has demonstrably executed.  Export once to ONNX and use
+        # PopART's documented hardware cycle counter instead.  This is an IPU
+        # clock counter, not a host-wall-clock measurement.
+        phase = "evaluation_export"
+        model_bytes = BytesIO()
+        # ONNX output names must identify tensors, not flattened elements.
+        probe_output = model(*inputs)
+        output_tensors = (
+            probe_output if isinstance(probe_output, (tuple, list)) else (probe_output,)
+        )
+        output_names = [f"output_{index}" for index in range(len(output_tensors))]
+        input_names = [f"input_{index}" for index in range(len(inputs))]
+        torch.onnx.export(
+            model,
+            inputs,
+            model_bytes,
+            input_names=input_names,
+            output_names=output_names,
+            # PopART 3.3 supports ONNX operators through opset 11.
+            opset_version=11,
+            do_constant_folding=True,
+        )
+
         phase = "evaluation_compile"
-        options = poptorch.Options()
-        options.deviceIterations(1)
-        options.replicationFactor(1)
-        executable = poptorch.inferenceModel(model, options=options)
-        executable.compile(*inputs)
+        options = popart.SessionOptions()
+        options.instrumentWithHardwareCycleCounter = True
+        options.hardwareInstrumentations = {popart.Instrumentation.Outer}
+        anchors = {name: popart.AnchorReturnType("ALL") for name in output_names}
+        device = popart.DeviceManager().acquireAvailableDevice(1)
+        if device is None:
+            raise RuntimeError("PopART could not acquire one IPU")
+        executable = popart.InferenceSession(
+            fnModel=model_bytes.getvalue(),
+            dataFlow=popart.DataFlow(1, anchors),
+            userOptions=options,
+            deviceInfo=device,
+        )
+        executable.prepareDevice()
+        anchor_arrays = executable.initAnchorArrays()
+        stepio = popart.PyStepIO(
+            {
+                name: value.detach().cpu().numpy()
+                # The remote PopART interpreter is Python 3.8, predating
+                # zip(strict=True); input_names is built from inputs above.
+                for name, value in zip(input_names, inputs)  # noqa: B905
+            },
+            anchor_arrays,
+        )
 
         phase = "evaluation_warmup"
         for _ in range(args.warmup):
-            executable(*inputs)
+            executable.run(stepio)
 
         phase = "evaluation_benchmark"
         samples = []
         timed_output = None
         for _ in range(args.iterations):
-            timed_output = executable(*inputs)
-            minimum, maximum, average = executable.getComputeLatency()
-            del minimum, maximum
-            elapsed_s = float(average)
+            executable.run(stepio)
+            cycles = float(executable.getCycleCount())
+            elapsed_s = cycles / args.clock_hz
             if not np.isfinite(elapsed_s) or elapsed_s <= 0:
-                raise RuntimeError("PopTorch did not return a finite positive compute latency")
+                raise RuntimeError("PopART did not return a finite positive hardware cycle count")
             samples.append(elapsed_s)
+            timed_output = tuple(
+                torch.from_numpy(anchor_arrays[name].copy()) for name in output_names
+            )
         if timed_output is None:
             raise RuntimeError("no timed invocation was executed")
 
         candidate = _flatten(timed_output)
-        repeated = _flatten(executable(*inputs))
+        executable.run(stepio)
+        repeated = _flatten(
+            tuple(torch.from_numpy(anchor_arrays[name].copy()) for name in output_names)
+        )
         if not np.array_equal(candidate, repeated, equal_nan=True):
             raise RuntimeError("IPU output is nondeterministic across identical evaluation inputs")
         phase = "evaluation_comparison"
@@ -191,7 +249,9 @@ def main() -> int:
         equivalent = bool(comparison["equivalent"])
         valid = equivalent or not args.require_equivalence
         declared = getattr(module, "LASSI_PRECISION", {}) or {}
-        observed = str(getattr(timed_output, "dtype", dtype)).removeprefix("torch.")
+        observed = str(getattr(timed_output[0], "dtype", dtype))
+        if observed.startswith("torch."):
+            observed = observed[len("torch.") :]
         payload = {
             "ok": True,
             "valid": valid,
@@ -201,8 +261,8 @@ def main() -> int:
             "timing": {
                 "protocol": "architectural-single-call-v1",
                 "scope": "device_resident_graph",
-                "source": "poptorch_get_compute_latency",
-                "clock": "ipu_runtime_performance_counters",
+                "source": "popart_get_cycle_count",
+                "clock": "ipu_hardware_cycle_counter",
                 "includes_input_construction": False,
                 "cuda_synchronized": False,
                 "warmup_count": args.warmup,
@@ -237,11 +297,11 @@ def main() -> int:
         payload = {"ok": False, "phase": phase, "error": f"{type(exc).__name__}: {exc}"}
         exit_code = 1
     finally:
-        if executable is not None:
+        if device is not None:
             # Teardown is outside both the metric and its validity. Preserve
             # the completed record even if the SDK cannot release cleanly.
             with contextlib.suppress(Exception):
-                executable.destroy()
+                device.detach()
     _atomic_json(args.output, payload)
     return exit_code
 

@@ -1,0 +1,73 @@
+version: 1
+
+project:
+  root: ../../../PolyBenchC-4.2.1
+
+kernel:
+  name: polybench-3mm-medium-graphcore
+  reference: linear-algebra/kernels/3mm/3mm.c
+  task: Canonical PyTorch PolyBench 3mm measurement at MEDIUM dimensions.
+
+oracle:
+  build:
+    - gcc
+    - -O0
+    - -DPOLYBENCH_DUMP_ARRAYS
+    - -include
+    - ../LASSI-TOOLS/examples/polybench-3mm/oracle_precision_medium.h
+    - "{reference}"
+    - utilities/polybench.c
+    - -Iutilities
+    - -Ilinear-algebra/kernels/3mm
+    - -lm
+    - -o
+    - "{oracle_dir}/reference"
+  run: ["{oracle_dir}/reference"]
+  output: oracle.csv
+  capture: stderr
+  format: polybench
+  timeout_s: 180
+
+arena:
+  candidates: 1
+  correction_rounds: 0
+  equivalence:
+    rtol: 1.0e-6
+    atol: 1.0e-6
+
+models:
+  planner: {provider: openai-codex, model: gpt-5.6-luna, reasoning_effort: medium}
+  candidates: [{provider: openai-codex, model: gpt-5.6-luna, reasoning_effort: medium}]
+  compensation: {provider: openai-codex, model: gpt-5.6-luna, reasoning_effort: medium}
+
+execution:
+  mode: academy
+  exchange_url: https://exchange.academy-agents.org
+  auth: globus
+  default_resource: graphcore
+  resources:
+    graphcore:
+      endpoint_id: 2d9a47f0-b768-40d6-ab83-1e2c4c99e11b
+      workspace_root: /home/gbrun/lassi-x-graphcore-work
+  mcp_timeout_s: 900
+  call_timeout_s: 300
+
+measure:
+  precisions: [fp32]
+  warmup: 3
+  iterations: 10
+  backends:
+    - type: native
+      name: graphcore-ipu
+      architecture: graphcore_ipu
+      resource: graphcore
+      precisions: [fp32]
+      worker:
+        python: /home/gbrun/miniconda3/envs/lassi-graphcore-poptorch/bin/python
+        # Verified from PopVision on this Bow-2000 partition.
+        clock_hz: 1850000000
+
+success:
+  required_backends: [graphcore-ipu]
+  required_precisions:
+    graphcore-ipu: [fp32]
