@@ -7,7 +7,7 @@ import hashlib
 import uuid
 from typing import TYPE_CHECKING
 
-from ..protocol import MAX_INLINE_BYTES, ExecRequest, FileGet, FilePut
+from ..protocol import ExecRequest, FileGet, FilePut
 
 if TYPE_CHECKING:
     from .base import ExecutionBackend
@@ -54,7 +54,9 @@ async def fetch_bytes(
         backend: Backend serving the workspace.
         workspace: Workspace identifier.
         path: Workspace-relative file path.
-        chunk_size: Maximum bytes per read; defaults to the inline limit.
+        chunk_size: Maximum raw bytes per read. Defaults to 128 KiB, which
+            remains safely below Academy's 512 KiB single-SSE-line ceiling
+            after base64 and message-envelope expansion.
 
     Returns:
         The complete file content.
@@ -72,7 +74,7 @@ async def fetch_bytes(
                 workspace=workspace,
                 path=path,
                 offset=offset,
-                max_bytes=chunk_size or MAX_INLINE_BYTES,
+                max_bytes=chunk_size or TRANSFER_CHUNK_BYTES,
             )
         )
         data = (

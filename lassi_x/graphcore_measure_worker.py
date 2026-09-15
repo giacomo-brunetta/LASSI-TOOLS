@@ -183,7 +183,7 @@ def main() -> int:
         torch.onnx.export(
             model,
             inputs,
-            model_bytes,
+            model_bytes,  # type: ignore[arg-type]  # PyTorch accepts binary file objects.
             input_names=input_names,
             output_names=output_names,
             # PopART 3.3 supports ONNX operators through opset 11.
