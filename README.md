@@ -83,6 +83,52 @@ The resolved configuration must match the checkpoint. Completed measurement cell
 from their journal, and final measurement artifacts are rewritten from typed state so a resume
 cannot duplicate rows.
 
+To generate and validate candidates on the harness host before acquiring accelerator
+resources, use the full run configuration with an explicit stopping point:
+
+```bash
+lassi-x run my-run.yaml --until cpu-verified
+lassi-x run my-run.yaml --resume runs/<timestamp>-<kernel>
+```
+
+The first command builds the C/C++ FP64 oracle and completes candidate generation,
+CPU validation, and correction rounds. It uses local execution, even when the
+configuration specifies remote resources, and skips compiler qualification,
+accelerator preflight, measurements, compensation, and accelerator repair.
+`run.json` reports `cpu_verified` when at least one candidate passes; individual
+candidate failures are retained. The checkpoint leaves accelerator work pending.
+The second command continues with the configured resources and backends without
+regenerating candidates. Declare all intended accelerator backends in the original
+configuration: changing the configuration before resume is still rejected.
+
+### Independent accelerator ablations from a CPU baseline
+
+CPU-only runs also publish `cpu-baseline/manifest.json`, passing candidate sources,
+and the validation oracle. The baseline is a write-once snapshot: later continuation
+of the source run does not update it. File checksums detect modified artifacts on import.
+
+```bash
+lassi-x run generation.yaml --until cpu-verified
+lassi-x run accelerator-a.yaml --from-cpu-baseline runs/<cpu-run>
+lassi-x run accelerator-b.yaml --from-cpu-baseline runs/<cpu-run>/cpu-baseline
+```
+
+Each import creates a new run with private copies and records the baseline manifest
+hash, original candidate identities, and generation metadata in
+`cpu-baseline-provenance.json`. Generation models, candidate count, accelerator
+resources, and downstream measurement policies may differ. The kernel, oracle
+configuration, reference/context/fixture contents, and CPU equivalence tolerances
+must match. Only CPU-passing candidates are imported; their original model metadata
+is preserved. No oracle build, planning, generation, or CPU correction is repeated.
+
+Imported runs default to frozen candidates: compiler qualification and configured
+backend measurements run, but compensation and model-based accelerator repair do not.
+Use `--allow-adaptations` with `--from-cpu-baseline` to explicitly enable those stages.
+Resume an imported run with its own directory and unchanged accelerator configuration;
+its frozen/adaptive policy is restored automatically. Baseline import cannot be combined
+with `--resume` or `--until`. Baselines contain trusted executable code, not a sandbox
+or a cryptographic attestation of validation.
+
 ### Streaming and resource scheduling
 
 Candidates proceed independently from generation through qualification, measurement,
@@ -172,9 +218,11 @@ pip install -e '.[globus]'
 lassi-x execution doctor --config my-run.yaml
 ```
 
-Two annotated examples cover a first remote deployment: the endpoint
-configuration for the remote node (standalone and Slurm variants) in
-[examples/globus-endpoint/config.yaml.example](examples/globus-endpoint/config.yaml.example),
+The annotated examples cover a first remote deployment: Endpoint 4.x's
+endpoint-level
+[config.yaml.example](examples/globus-endpoint/config.yaml.example), its
+standalone/Slurm worker
+[user_config_template.yaml.j2.example](examples/globus-endpoint/user_config_template.yaml.j2.example),
 and the matching harness-side run configuration in
 [examples/run-remote-node.yaml.example](examples/run-remote-node.yaml.example).
 
@@ -526,6 +574,10 @@ backend's `stale_request_s` interval.
 
 ## Trust boundary
 
+CPU candidate execution and agent-issued commands can be isolated using
+[`execution.mode: docker`](docker/cpu/README.md). This leaves the orchestrator,
+model worker and trusted C oracle on the host; it does not sandbox the entire pipeline.
+
 This is a trusted research tool, not an adversarial-code sandbox. Workspace APIs reject path
 traversal and measurements verify staged source hashes, but Hermes agents have terminal tools and
 generated Python is imported and executed in subprocesses. The candidate currently owns
@@ -546,3 +598,9 @@ The former LASSI-TOOLS MINI 3mm arena has a dedicated reproduction under
 [`examples/polybench-3mm`](examples/polybench-3mm). It preserves the three
 candidates and two repair turns, uses a high-fidelity serialization of the
 original C FP64 oracle, and measures CPU and CUDA low-precision error.
+
+For broader model comparisons through CPU verification, see the
+[`CPU ablation suite`](examples/cpu-ablation-suite/README.md): 24 representative
+PolyBench kernels plus five scientific kernels, optionally all 30 PolyBench kernels.
+It provides campaign configuration generation, C-only oracle checks, CPU-only batch
+launching, outcome CSVs and frozen-baseline accelerator follow-up instructions.

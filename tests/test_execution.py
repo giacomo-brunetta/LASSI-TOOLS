@@ -11,7 +11,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import aiohttp
 import pytest
@@ -44,9 +44,10 @@ from lassi_x.execution.academy import (
     PersistentHttpExchangeFactory,
     PersistentHttpExchangeTransport,
 )
+from lassi_x.execution.preflight import native_runtime_checks
 from lassi_x.hermes import HermesSession
 from lassi_x.mcp_server import WORKSPACE_HEADER
-from lassi_x.protocol import ExecRequest, FileGet, FilePut, ListDir
+from lassi_x.protocol import ExecRequest, ExecResult, FileGet, FilePut, ListDir
 from lassi_x.remote import ExecutionAgent
 from lassi_x.remote.ops import resolve_member
 
@@ -666,6 +667,65 @@ def test_execution_doctor_reports_resources(
     assert payload["ok"]
     assert payload["mode"] == "local"
     assert payload["resources"]["local"]["python_executable"]
+
+
+def test_execution_doctor_rejects_native_backend_without_visible_device(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A transport handshake must not be mistaken for an IPU allocation."""
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"] = [
+        {
+            "type": "native",
+            "name": "graphcore-ipu",
+            "architecture": "graphcore_ipu",
+            "resource": "local",
+            "precisions": ["fp16"],
+            "worker": {"python": sys.executable},
+        }
+    ]
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(safe_dump(data))
+    code = asyncio.run(_execution_doctor_command(argparse.Namespace(config=config_path, json=True)))
+    assert code == 3
+    payload = json.loads(capsys.readouterr().out)
+    assert not payload["ok"]
+    assert not payload["native_runtime"]["graphcore-ipu"]["ok"]
+    assert "poptorch" in payload["native_runtime"]["graphcore-ipu"]["detail"]
+
+
+def test_graphcore_native_preflight_compiles_and_executes_a_model(tmp_path: Path) -> None:
+    """IPU discovery alone must not be accepted as a usable accelerator."""
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"] = [
+        {
+            "type": "native",
+            "name": "graphcore-ipu",
+            "architecture": "graphcore_ipu",
+            "resource": "local",
+            "precisions": ["fp16"],
+            "worker": {"python": "/opt/graphcore/bin/python"},
+        }
+    ]
+    config = RunConfig.model_validate(data)
+    requests: list[ExecRequest] = []
+
+    class Backend:
+        async def execute(self, request: ExecRequest) -> ExecResult:
+            requests.append(request)
+            return ExecResult(workspace=request.workspace, exit_code=0, duration_s=0.0)
+
+    class Context:
+        default_resource = "local"
+        backends = {"local": Backend()}
+
+    ok, reports = asyncio.run(native_runtime_checks(config, cast("ExecutionContext", Context())))
+    assert ok
+    assert reports["graphcore-ipu"]["ok"]
+    source = requests[0].argv[2]
+    assert "poptorch.inferenceModel" in source
+    assert "executor.compile(inputs)" in source
+    assert "output = executor(inputs)" in source
 
 
 def test_resolve_member_rejects_symlink_escape(tmp_path: Path) -> None:

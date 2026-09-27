@@ -1,0 +1,14 @@
+Use case: infographic-diagram.
+Create a polished scientific presentation infographic, exact 2:1 horizontal canvas, white/off-white background, crisp readable typography, restrained navy, blue and teal palette.
+Title verbatim: "Precision error: before and after correction"
+Subtitle verbatim: "Luna · Jacobi-2D MINI · NVIDIA A100 · candidate c1"
+This is a measured case study, NOT a model-comparison aggregate. Define correction as numerical compensation, FP32 stencil accumulation for low-precision tensors; NOT CPU semantic repair.
+Layout: Three equally sized precision cards FP64, FP32, FP16. Each card has a paired-value comparison, blue "Without correction", teal "With correction", scientific notation numbers exceptionally legible. No misleading linear bar comparing errors of different orders; use exact numeric cards with arrows instead.
+Exact card data:
+FP64: Without correction "5.67 × 10⁻¹⁶"; With correction "5.67 × 10⁻¹⁶"; badge "Unchanged".
+FP32: Without correction "1.03 × 10⁻⁶"; With correction "1.03 × 10⁻⁶"; badge "Unchanged".
+FP16: Without correction "5.30 × 10⁻³"; With correction "2.71 × 10⁻³"; badge "48.9% lower error".
+Main metric label "Maximum relative error vs FP64 C reference" and "Lower is better".
+Small lower strip show stencil sum -> FP32 accumulation -> low-precision output. Caption "Correction: FP32 accumulation for FP16 stencil sums".
+Bottom scientific footnote "Single-kernel case study; not a Terra/Luna/DS4 aggregate." and "FP32 and FP64 code paths are unchanged."
+All numerical values copied exactly. No unsupported tolerance-pass claims, no invented data, no extra accelerator results. High-quality flat infographic, generous spacing, clean hierarchy.

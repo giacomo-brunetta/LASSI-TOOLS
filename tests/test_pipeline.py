@@ -11,8 +11,11 @@ import yaml
 
 import lassi_x.pipeline as pipeline
 import lassi_x.run_record as run_record
+from lassi_x.cli import build_parser
 from lassi_x.compensation import CompensationVariant
-from lassi_x.config import RunConfig
+from lassi_x.config import ExecutionConfig, RunConfig
+from lassi_x.execution import ExecutionContext
+from lassi_x.qualification import QualificationResult
 from lassi_x.scheduler import PipelineScheduler
 from lassi_x.types import Candidate, Measurement, Status
 from lassi_x.validation import OracleResult
@@ -351,3 +354,244 @@ def test_candidate_journal_rejects_unknown_schema(tmp_path: Path) -> None:
     (progress / "c1.json").write_text(json.dumps({"schema_version": 999}))
     with pytest.raises(ValueError, match="unsupported candidate checkpoint schema"):
         pipeline._load_candidate_journal(deps, "c1")
+
+
+@pytest.mark.parametrize("passing_candidates", [0, 2])
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_cpu_verified_pause_and_resume(
+    tmp_path: Path, monkeypatch: Any, passing_candidates: int, interrupted: bool
+) -> None:
+    """CPU preparation needs no remote device; resume consumes its journals once."""
+    (tmp_path / "tiny.c").write_text("reference fixture")
+    data = minimal_config(tmp_path)
+    data["runs_dir"] = str(tmp_path / "runs")
+    data["execution"] = {
+        "mode": "academy",
+        "exchange_url": "https://unavailable.example/exchange",
+        "default_resource": "remote",
+        "resources": {"remote": {"endpoint_id": "unavailable", "workspace_root": "/remote/run"}},
+    }
+    data["measure"]["backends"] = [
+        {
+            "type": "native",
+            "name": "ipu",
+            "architecture": "graphcore_ipu",
+            "resource": "remote",
+            "precisions": ["fp16"],
+            "worker": {"python": "/unavailable/python"},
+        }
+    ]
+    data["compatibility"] = {
+        "compile_targets": [{"target_id": "torch-mlir-tosa", "resource": "remote"}],
+    }
+    data["compensation"] = {"enabled": False}
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+    oracle_path = tmp_path / "oracle.npy"
+    np.save(oracle_path, np.asarray([1.0, 2.0, 3.0]))
+    calls: list[str] = []
+    context_configs: list[RunConfig] = []
+    start = ExecutionContext.start
+    interrupt_generation = interrupted
+
+    async def fake_start(config: RunConfig, run_dir: Path) -> ExecutionContext:
+        context_configs.append(config)
+        # Simulate the remote execution context locally during the continuation.
+        return await start(config.model_copy(update={"execution": ExecutionConfig()}), run_dir)
+
+    async def fake_oracle(*_: object) -> OracleResult:
+        calls.append("oracle")
+        return OracleResult(oracle_path, np.asarray([1.0, 2.0, 3.0]))
+
+    async def fake_plan(*_: object) -> tuple[list[str], dict[str, object]]:
+        calls.append("plan")
+        return ["direct"] * 3, {}
+
+    async def fake_generate(
+        config: RunConfig,
+        oracle: OracleResult,
+        run_dir: Path,
+        execution: ExecutionContext,
+        index: int,
+        strategy: str,
+    ) -> Candidate:
+        calls.append(f"generate-{index}")
+        if interrupt_generation and index == 3:
+            raise RuntimeError("CPU preparation interrupted")
+        module = execution.workspace_dir(f"c{index}") / "candidate.py"
+        module.parent.mkdir(parents=True, exist_ok=True)
+        module.write_text(GOOD_MODULE)
+        return Candidate(
+            f"c{index}",
+            "model",
+            None,
+            strategy,
+            module,
+            status=Status.OK if index <= passing_candidates else Status.REJECTED,
+        )
+
+    async def fake_preflight(*_: object) -> tuple[bool, dict[str, Any]]:
+        calls.append("preflight")
+        return True, {}
+
+    async def fake_qualify(
+        config: RunConfig,
+        execution: ExecutionContext,
+        candidate: Candidate,
+        target: Any,
+        precision: str,
+    ) -> QualificationResult:
+        calls.append(f"qualify-{candidate.candidate_id}")
+        return QualificationResult(
+            candidate.candidate_id,
+            target.target_id,
+            precision,
+            True,
+            "compiled",
+            "remote",
+        )
+
+    async def fake_measure(*args: Any, **kwargs: Any) -> list[Measurement]:
+        candidate_id, variant_id, module, compensation = args[2][0]
+        calls.append(f"measure-{candidate_id}")
+        point = measured(module, variant_id=variant_id, compensation=compensation, error=0.01)
+        point.candidate_id = candidate_id
+        point.backend = "ipu"
+        kwargs["on_result"](point)
+        return [point]
+
+    monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
+    monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
+    monkeypatch.setattr(ExecutionContext, "start", fake_start)
+    monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
+    monkeypatch.setattr(pipeline, "plan_strategies", fake_plan)
+    monkeypatch.setattr(pipeline, "generate_candidate", fake_generate)
+    monkeypatch.setattr(pipeline, "native_runtime_checks", fake_preflight)
+    monkeypatch.setattr(pipeline, "qualify_candidate", fake_qualify)
+    monkeypatch.setattr(pipeline, "build_backends", lambda *_: [])
+    monkeypatch.setattr(pipeline, "measure_variants", fake_measure)
+
+    args = build_parser().parse_args(["run", str(config_path), "--until", "cpu-verified"])
+    resume_dir = None
+    if interrupted:
+        failed_code, resume_dir = asyncio.run(pipeline.run_pipeline(args.config, until=args.until))
+        assert failed_code == 1
+        assert "--until cpu-verified" in (resume_dir / "summary.md").read_text()
+        for index in (1, 2):
+            assert (resume_dir / "progress" / f"c{index}.json").exists()
+        interrupt_generation = False
+        calls.clear()
+    code, run_dir = asyncio.run(
+        pipeline.run_pipeline(args.config, until=args.until, resume_dir=resume_dir)
+    )
+    assert code == (0 if passing_candidates else 1)
+    assert context_configs[0].execution.mode == "local"
+    assert context_configs[0].execution.resources == {}
+    assert sorted(calls) == (
+        ["generate-3"]
+        if interrupted
+        else ["generate-1", "generate-2", "generate-3", "oracle", "plan"]
+    )
+    record = json.loads((run_dir / "run.json").read_text())
+    assert record["status"] == ("cpu_verified" if passing_candidates else "failed")
+    assert len(record["candidates"]) == 3
+    assert record["accuracy"]["final_passes"] == passing_candidates
+    assert record["measurements"] == []
+    checkpoint = json.loads((run_dir / "checkpoint.json").read_text())
+    assert "cpu_verified" in checkpoint["completed_stages"]
+    assert "stream_candidates" not in checkpoint["completed_stages"]
+    assert "finalize" not in checkpoint["completed_stages"]
+    assert checkpoint["completed_candidate_ids"] == []
+    assert not (run_dir / "native-runtime-preflight.json").exists()
+    assert not (run_dir / "frontier.json").exists()
+
+    manifest_bytes = (run_dir / "cpu-baseline" / "manifest.json").read_bytes()
+    if passing_candidates:
+        fork_config = RunConfig.load(config_path)
+        fork_config.models.planner.model = "different-planner"
+        fork_dir = tmp_path / "fork"
+        fork_dir.mkdir()
+        imported = pipeline._import_cpu_baseline(
+            run_dir, fork_config, fork_dir, allow_adaptations=False
+        )
+        assert len(imported.strategies) == passing_candidates
+        assert imported.oracle is not None
+        assert imported.oracle.output_path.parent == fork_dir / "baseline-inputs"
+        provenance = json.loads((fork_dir / "cpu-baseline-provenance.json").read_text())
+        assert provenance["frozen_candidates"]
+        assert provenance["manifest_sha256"]
+        journal = json.loads((fork_dir / "progress" / "c1.json").read_text())
+        copied_module = fork_dir / "baseline-inputs" / "c1.py"
+        assert journal["outcome"]["candidate"]["module_path"] == str(copied_module)
+        copied_module.write_text("modified independent copy")
+        assert (run_dir / "cpu-baseline" / "c1.py").read_text() == GOOD_MODULE
+        mismatched = fork_config.model_copy(deep=True)
+        mismatched.kernel.task = "different problem"
+        with pytest.raises(ValueError, match="contract does not match"):
+            pipeline._import_cpu_baseline(
+                run_dir, mismatched, tmp_path / "bad-contract", allow_adaptations=False
+            )
+        baseline_module = run_dir / "cpu-baseline" / "c1.py"
+        baseline_module.write_text("tampered")
+        with pytest.raises(ValueError, match="checksum mismatch"):
+            pipeline._import_cpu_baseline(
+                run_dir, fork_config, tmp_path / "tampered", allow_adaptations=False
+            )
+        baseline_module.write_text(GOOD_MODULE)
+    else:
+        with pytest.raises(ValueError, match="no passing candidates"):
+            pipeline._import_cpu_baseline(
+                run_dir, RunConfig.load(config_path), tmp_path / "empty", allow_adaptations=False
+            )
+
+    calls.clear()
+    repeated_code, repeated_dir = asyncio.run(
+        pipeline.run_pipeline(config_path, resume_dir=run_dir, until="cpu-verified")
+    )
+    assert repeated_code == code
+    assert repeated_dir == run_dir
+    assert calls == []
+    assert (run_dir / "cpu-baseline" / "manifest.json").read_bytes() == manifest_bytes
+
+    if passing_candidates:
+        fork_data = {**data, "compensation": {"enabled": True, "error_threshold": 0.001}}
+        fork_data["models"] = {**data["models"], "planner": {"model": "other-planner"}}
+        fork_path = tmp_path / "accelerator-ablation.yaml"
+        fork_path.write_text(yaml.safe_dump(fork_data))
+        fork_code, fork_run = asyncio.run(
+            pipeline.run_pipeline(fork_path, from_cpu_baseline=run_dir)
+        )
+        assert fork_code == 0
+        assert fork_run != run_dir
+        assert not any(call.startswith("generate") or call in {"oracle", "plan"} for call in calls)
+        fork_report = json.loads((fork_run / "run.json").read_text())
+        assert len(fork_report["candidates"]) == passing_candidates
+        assert not fork_report["compensation_variants"]
+        calls.clear()
+        assert asyncio.run(pipeline.run_pipeline(fork_path, resume_dir=fork_run))[0] == 0
+        assert calls == ["preflight"]
+        assert (run_dir / "cpu-baseline" / "manifest.json").read_bytes() == manifest_bytes
+
+    changed = dict(data)
+    changed["kernel"] = {**data["kernel"], "task": "A different task"}
+    config_path.write_text(yaml.safe_dump(changed))
+    with pytest.raises(ValueError, match="resume configuration does not match"):
+        asyncio.run(pipeline.run_pipeline(config_path, resume_dir=run_dir))
+    config_path.write_text(yaml.safe_dump(data))
+
+    calls.clear()
+    code, resumed_dir = asyncio.run(pipeline.run_pipeline(config_path, resume_dir=run_dir))
+    assert resumed_dir == run_dir
+    assert code == (0 if passing_candidates else 1)
+    assert context_configs[-1].execution.mode == "academy"
+    assert sorted(calls) == sorted(
+        [
+            "preflight",
+            *[f"qualify-c{i}" for i in range(1, passing_candidates + 1)],
+            *[f"measure-c{i}" for i in range(1, passing_candidates + 1)],
+        ]
+    )
+    resumed = json.loads((run_dir / "run.json").read_text())
+    assert len(resumed["candidates"]) == 3
+    assert len(resumed["measurements"]) == passing_candidates
+    assert "finalize" in resumed["checkpoint"]["completed_stages"]

@@ -1,0 +1,16 @@
+Edit the supplied infographic into a NEW sibling version with an NVIDIA reference, preserve the original file. Use case infographic-diagram. Exact 2:1 horizontal aspect ratio. Keep the white background, polished scientific slide style, sans-serif typography, purple Graphcore/orange Cerebras/teal Groq colors. All existing measured numbers must stay exactly unchanged.
+Critical scientific requirement: NVIDIA A100 has only a configured CUDA/Torch Inductor target in the repository, NO measured compatibility snapshot. Do NOT invent NVIDIA support, percentages, overlap, or claim it supports all 356 cases. Never use a filled coverage bar for NVIDIA. Unknown is NOT zero.
+Keep the LEFT three-target Venn unchanged with exact counts: Graphcore only32, Cerebras only12, Groq only15, Graphcore+Cerebras only56, Graphcore+Groq only19, Cerebras+Groq only12, shared154 (43.3%). Title its panel "Measured overlap: three targets". Outside circles say "None of these three compiled: 56". Beneath say "Counts exact; areas schematic". NO fourth Venn circle, NO NVIDIA superset enclosing the three circles.
+RIGHT overall coverage: existing three measured bars Graphcore261/35673.3%, CerebrasCS-3234/35665.7%, Groq200/35656.2%. Add a fourth row accented green named "NVIDIA A100" with a dashed neutral unfilled placeholder instead of a bar, and label "Not measured".
+Below show same six-row heatmap, expand with a fourth column "NVIDIA". All NVIDIA cells neutral grey with an em dash, never0or100%. Caption "— = no published measurement".
+Data rows, columns Graphcore / CS-3 / Groq / NVIDIA:
+Arithmetic & logic:55/71,55/71,53/71,—
+Transcendental math:32/38,30/38,17/38,—
+Linear algebra:18/27,14/27,14/27,—
+Convolution:8/11,0/11,5/11,—
+Reductions:32/40,29/40,31/40,—
+Shape & layout:63/76,57/76,39/76,—
+Include a small clear green-outlined reference note: "NVIDIA reference: A100 · CUDA · Torch Inductor" and "Target configured; compatibility sweep pending".
+Title "PyTorch operator compatibility across accelerators". Subtitle "356 runnable canonical ATen cases • NVIDIA reference included".
+Bottom caveats readable: "Compilation evidence ≠ full-model support, correctness or performance." "CS-3: compile-only. Groq: FP32 trace. Graphcore: FP16." "NVIDIA is excluded from measured overlap and totals." "Source: LASSI-TOOLS committed snapshots and A100 target configuration."
+Reflow spacing for legibility, preserve all measured data. Keep the overall image clean and useful as a comparison reference.

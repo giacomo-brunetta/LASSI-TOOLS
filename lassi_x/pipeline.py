@@ -7,12 +7,13 @@ import datetime as dt
 import hashlib
 import json
 import logging
+import shutil
 import time
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 from types import NoneType
-from typing import Any, Protocol, TypeVar
+from typing import Any, Literal, Protocol, TypeVar
 
 from pydantic_graph import GraphBuilder
 
@@ -26,8 +27,9 @@ from .compensation import (
     group_portable_weak_points,
     select_weak_points,
 )
-from .config import RunConfig
+from .config import ExecutionConfig, RunConfig
 from .execution import ExecutionContext
+from .execution.preflight import native_runtime_checks
 from .measurement import Backend, build_backends, measure_compensation_variants, measure_variants
 from .pareto import frontier_indices, valid_point
 from .qualification import QualificationResult, qualify_candidate
@@ -72,6 +74,8 @@ class PipelineDeps:
     started_at: str
     started: float
     previous_wall_seconds: float = 0.0
+    until: Literal["cpu-verified"] | None = None
+    frozen_candidates: bool = False
 
 
 StepInputT_co = TypeVar("StepInputT_co", covariant=True)
@@ -142,6 +146,138 @@ _acceptance = evaluate_acceptance
 def _config_hash(config: RunConfig) -> str:
     payload = json.dumps(config.model_dump(mode="json"), sort_keys=True, default=str)
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _baseline_contract(config: RunConfig) -> dict[str, Any]:
+    """Bind the baseline to its numerical problem, not its generation model."""
+    files = [config.kernel.reference, *config.kernel.context]
+    if config.oracle.input_fixture is not None:
+        files.append(config.oracle.input_fixture)
+    return {
+        "kernel": config.kernel.model_dump(mode="json"),
+        "oracle": config.oracle.model_dump(mode="json"),
+        "equivalence": config.arena.equivalence.model_dump(mode="json"),
+        "files": {
+            str(path): hashlib.sha256(
+                (path if path.is_absolute() else config.project.root / path).read_bytes()
+            ).hexdigest()
+            for path in files
+        },
+    }
+
+
+def _export_cpu_baseline(
+    deps: PipelineDeps, state: PipelineState, candidates: list[Candidate]
+) -> None:
+    baseline = deps.run_dir / "cpu-baseline"
+    if (baseline / "manifest.json").exists():
+        return  # Never rewrite a published baseline during resume.
+    baseline.mkdir(exist_ok=True)
+    entries = []
+    for candidate in candidates:
+        if candidate.status != Status.OK:
+            continue
+        name = f"{candidate.candidate_id}.py"
+        shutil.copyfile(candidate.module_path, baseline / name)
+        record = candidate.to_dict()
+        record["module_path"] = name
+        entries.append(record)
+    oracle = _require_oracle(state)
+    oracle_name = "oracle" + oracle.output_path.suffix
+    shutil.copyfile(oracle.output_path, baseline / oracle_name)
+    manifest = {
+        "schema_version": 1,
+        "contract": _baseline_contract(deps.config),
+        "source_config_sha256": _config_hash(deps.config),
+        "planner": state.planner_record,
+        "candidates": entries,
+        "oracle": {
+            "output_path": oracle_name,
+            "source_sha256": oracle.source_sha256,
+            "output_sha256": oracle.output_sha256,
+            "determinism_runs": oracle.determinism_runs,
+        },
+        "files": {
+            name: hashlib.sha256((baseline / name).read_bytes()).hexdigest()
+            for name in [oracle_name, *(entry["module_path"] for entry in entries)]
+        },
+    }
+    write_json(baseline / "manifest.json", manifest)
+
+
+def _import_cpu_baseline(
+    source: Path, config: RunConfig, run_dir: Path, *, allow_adaptations: bool
+) -> PipelineState:
+    baseline = source.resolve()
+    if not (baseline / "manifest.json").is_file():
+        baseline = baseline / "cpu-baseline"
+    raw = (baseline / "manifest.json").read_bytes()
+    manifest = json.loads(raw)
+    if manifest.get("schema_version") != 1:
+        raise ValueError("unsupported CPU baseline schema")
+    if manifest["contract"] != _baseline_contract(config):
+        raise ValueError("CPU baseline numerical problem or validation contract does not match")
+    if not manifest["candidates"]:
+        raise ValueError("CPU baseline has no passing candidates")
+    required = {manifest["oracle"]["output_path"]}
+    required.update(item["module_path"] for item in manifest["candidates"])
+    if required != set(manifest["files"]):
+        raise ValueError("CPU baseline file inventory does not match")
+    for name, digest in manifest["files"].items():
+        if Path(name).name != name or name in {".", ".."}:
+            raise ValueError("unsafe CPU baseline artifact path")
+        if hashlib.sha256((baseline / name).read_bytes()).hexdigest() != digest:
+            raise ValueError(f"CPU baseline checksum mismatch: {name}")
+    imported = run_dir / "baseline-inputs"
+    imported.mkdir()
+    for name in required:
+        shutil.copyfile(baseline / name, imported / name)
+    state = PipelineState(completed_stages=["build_oracle", "plan_strategies"])
+    oracle_data = manifest["oracle"]
+    oracle_path = imported / oracle_data["output_path"]
+    state.oracle = OracleResult(
+        output_path=oracle_path,
+        values=load_reference_output(oracle_path),
+        source_sha256=oracle_data["source_sha256"],
+        output_sha256=oracle_data["output_sha256"],
+        determinism_runs=oracle_data["determinism_runs"],
+    )
+    state.planner_record = manifest["planner"]
+    candidate_mapping = []
+    for index, record in enumerate(manifest["candidates"], 1):
+        candidate = Candidate.from_dict(record)
+        if candidate.status != Status.OK:
+            raise ValueError("CPU baseline contains an unverified candidate")
+        original_id = candidate.candidate_id
+        candidate.candidate_id = f"c{index}"
+        candidate.module_path = imported / record["module_path"]
+        state.strategies.append(candidate.strategy)
+        write_json(
+            _candidate_journal_path(run_dir, candidate.candidate_id),
+            {
+                "schema_version": 1,
+                "config_sha256": _config_hash(config),
+                "stage": "generated",
+                "outcome": CandidateOutcome(candidate).to_dict(),
+            },
+        )
+        candidate_mapping.append(
+            {
+                "imported_candidate_id": candidate.candidate_id,
+                "source_candidate_id": original_id,
+            }
+        )
+    write_json(
+        run_dir / "cpu-baseline-provenance.json",
+        {
+            "source": str(baseline),
+            "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+            "frozen_candidates": not allow_adaptations,
+            "manifest": manifest,
+            "candidate_mapping": candidate_mapping,
+        },
+    )
+    return state
 
 
 def _elapsed(deps: PipelineDeps) -> float:
@@ -457,6 +593,10 @@ async def _candidate_flow(
         _save_candidate_journal(deps, outcome, stage)
     else:
         stage, outcome = restored
+    if deps.until == "cpu-verified":
+        if stage != "generated":
+            raise ValueError(f"candidate {candidate_id} has already passed the CPU stopping point")
+        return outcome
     if stage == "complete" or outcome.candidate.status != Status.OK:
         _save_candidate_journal(deps, outcome, "complete")
         return outcome
@@ -510,7 +650,7 @@ async def _candidate_flow(
                 error_metric=config.pareto_error_metric,
                 comparison_scope=config.compensation.comparison_scope,
             )
-            if config.compensation.enabled
+            if config.compensation.enabled and not deps.frozen_candidates
             else []
         )
         backend_specs = {backend.name: backend for backend in config.measure.backends}
@@ -602,7 +742,11 @@ async def _candidate_flow(
         _save_candidate_journal(deps, outcome, stage)
 
     if stage == "compensated":
-        failures = select_compatibility_failures(config, outcome.measurements)
+        failures = (
+            []
+            if deps.frozen_candidates
+            else select_compatibility_failures(config, outcome.measurements)
+        )
         candidate_map = {
             candidate.candidate_id: candidate
             for candidate in [outcome.candidate, *outcome.numerical_candidates]
@@ -690,7 +834,11 @@ async def _plan_strategies_step(ctx: PipelineStepContext[None]) -> None:
 async def _stream_candidates_step(ctx: PipelineStepContext[None]) -> None:
     if "stream_candidates" in ctx.state.completed_stages:
         return
-    backends = build_backends(ctx.deps.config, ctx.deps.execution, ctx.deps.scheduler)
+    backends = (
+        []
+        if ctx.deps.until == "cpu-verified"
+        else build_backends(ctx.deps.config, ctx.deps.execution, ctx.deps.scheduler)
+    )
     completed = set(ctx.state.completed_candidate_ids)
     tasks = [
         asyncio.create_task(
@@ -711,7 +859,8 @@ async def _stream_candidates_step(ctx: PipelineStepContext[None]) -> None:
     try:
         for task in asyncio.as_completed(tasks):
             outcome = await task
-            _merge_outcome(ctx.state, outcome)
+            if ctx.deps.until is None:
+                _merge_outcome(ctx.state, outcome)
             _save_checkpoint(ctx.state, ctx.deps, "stream_candidates", complete=False)
     except BaseException:
         for task in tasks:
@@ -719,7 +868,11 @@ async def _stream_candidates_step(ctx: PipelineStepContext[None]) -> None:
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
     ctx.state.candidates.sort(key=lambda item: item.candidate_id)
-    _save_checkpoint(ctx.state, ctx.deps, "stream_candidates")
+    _save_checkpoint(
+        ctx.state,
+        ctx.deps,
+        "cpu_verified" if ctx.deps.until == "cpu-verified" else "stream_candidates",
+    )
 
 
 @_pipeline_graph_builder.step(
@@ -730,6 +883,57 @@ async def _finalize_step(ctx: PipelineStepContext[None]) -> tuple[int, Path]:
     deps = ctx.deps
     config = deps.config
     oracle = _require_oracle(state)
+    if deps.until == "cpu-verified":
+        candidates = []
+        for index in range(1, len(state.strategies) + 1):
+            restored = _load_candidate_journal(deps, f"c{index}")
+            if restored is None:
+                raise RuntimeError(f"missing CPU verification journal for c{index}")
+            candidates.append(restored[1].candidate)
+        passed = any(candidate.status == Status.OK for candidate in candidates)
+        _export_cpu_baseline(deps, state, candidates)
+        write_json(
+            deps.run_dir / "run.json",
+            {
+                "schema_version": 1,
+                "status": "cpu_verified" if passed else "failed",
+                "until": "cpu-verified",
+                "kernel": config.kernel.name,
+                "started_at": deps.started_at,
+                "finished_at": dt.datetime.now(dt.UTC).isoformat(),
+                "wall_seconds": round(_elapsed(deps), 3),
+                "config_path": str(deps.config_path.resolve()),
+                "oracle": {"kind": "c_reference_fp64", "output_path": str(oracle.output_path)},
+                "planner": state.planner_record,
+                "accuracy": candidate_accuracy(candidates),
+                "candidates": [candidate.to_dict() for candidate in candidates],
+                "measurements": [],
+                "execution": {
+                    "mode": config.execution.mode if config.execution.mode == "docker" else "local",
+                    "docker": config.execution.docker.model_dump(mode="json")
+                    if config.execution.mode == "docker"
+                    else None,
+                    "scope": (
+                        "Agent commands and candidate execution; "
+                        "orchestrator and C oracle remain on host."
+                    ),
+                },
+                "checkpoint": {
+                    "path": str(deps.run_dir / "checkpoint.json"),
+                    "resumable": True,
+                    "completed_stages": state.completed_stages,
+                },
+            },
+        )
+        atomic_write(
+            deps.run_dir / "summary.md",
+            f"# LASSI-X run: {config.kernel.name}\n\n"
+            f"- CPU verification: {sum(c.status == Status.OK for c in candidates)}"
+            f"/{len(candidates)} candidates passed\n"
+            "- Accelerator evaluation: pending\n"
+            f"- Continue: `lassi-x run {deps.config_path} --resume {deps.run_dir}`\n",
+        )
+        return (0 if passed else 1), deps.run_dir
     if config.evaluation_dataset == config.kernel.validation_dataset:
         evaluation_oracle_path = oracle.output_path
     else:
@@ -772,10 +976,21 @@ async def _finalize_step(ctx: PipelineStepContext[None]) -> tuple[int, Path]:
                 "evaluation": config.evaluation_dataset,
             },
             "security": {
-                "execution_mode": f"trusted_{config.execution.mode}_unsandboxed",
-                "warning": "Agent-authored code runs on trusted configured resources.",
+                "execution_mode": "docker_cpu_workers"
+                if config.execution.mode == "docker"
+                else f"trusted_{config.execution.mode}_unsandboxed",
+                "warning": (
+                    "Docker isolates execution commands, not the orchestrator or model worker."
+                    if config.execution.mode == "docker"
+                    else "Agent-authored code runs on trusted configured resources."
+                ),
             },
             "evaluation": {
+                "cpu_baseline": (
+                    json.loads((deps.run_dir / "cpu-baseline-provenance.json").read_text())
+                    if (deps.run_dir / "cpu-baseline-provenance.json").exists()
+                    else None
+                ),
                 "oracle_determinism_runs": oracle.determinism_runs,
                 "oracle_source_sha256": oracle.source_sha256,
                 "oracle_output_sha256": oracle.output_sha256,
@@ -837,9 +1052,26 @@ _pipeline_graph_builder.add(
 PIPELINE_GRAPH = _pipeline_graph_builder.build()
 
 
-async def run_pipeline(config_path: Path, *, resume_dir: Path | None = None) -> tuple[int, Path]:
-    """Execute or resume the complete translation and measurement pipeline."""
+async def run_pipeline(
+    config_path: Path,
+    *,
+    resume_dir: Path | None = None,
+    until: Literal["cpu-verified"] | None = None,
+    from_cpu_baseline: Path | None = None,
+    allow_adaptations: bool = False,
+) -> tuple[int, Path]:
+    """Execute or resume the pipeline, optionally stopping after CPU validation.
 
+    The CPU phase runs on the harness host without starting configured remote
+    resources. Its checkpoints retain the full configuration for later resume.
+    """
+
+    if until not in {None, "cpu-verified"}:
+        raise ValueError(f"unsupported pipeline stopping point: {until}")
+    if from_cpu_baseline is not None and (resume_dir is not None or until is not None):
+        raise ValueError("--from-cpu-baseline cannot be combined with --resume or --until")
+    if allow_adaptations and from_cpu_baseline is None:
+        raise ValueError("--allow-adaptations requires --from-cpu-baseline")
     require_automation_skills()
     config = RunConfig.load(config_path)
     run_root = (
@@ -851,14 +1083,48 @@ async def run_pipeline(config_path: Path, *, resume_dir: Path | None = None) -> 
         state = PipelineState()
         started_at = dt.datetime.now(dt.UTC).isoformat()
         previous_wall_seconds = 0.0
+        if from_cpu_baseline is not None:
+            state = _import_cpu_baseline(
+                from_cpu_baseline, config, run_dir, allow_adaptations=allow_adaptations
+            )
     else:
         run_dir = resume_dir.resolve()
         if not run_dir.is_dir():
             raise ValueError(f"resume directory does not exist: {run_dir}")
         state, started_at, previous_wall_seconds = _load_checkpoint(run_dir, config)
+        if until is not None and "stream_candidates" in state.completed_stages:
+            raise ValueError(
+                "cannot stop at CPU verification after accelerator evaluation completed"
+            )
     started = time.perf_counter()
+    provenance_path = run_dir / "cpu-baseline-provenance.json"
+    provenance = json.loads(provenance_path.read_text()) if provenance_path.exists() else None
+    if provenance is not None:
+        for name, digest in provenance["manifest"]["files"].items():
+            if (
+                hashlib.sha256((run_dir / "baseline-inputs" / name).read_bytes()).hexdigest()
+                != digest
+            ):
+                raise ValueError(f"imported CPU baseline checksum mismatch: {name}")
     try:
-        async with await ExecutionContext.start(config, run_dir) as execution:
+        execution_config = (
+            config
+            if until is None or config.execution.mode == "docker"
+            else config.model_copy(
+                update={"execution": ExecutionConfig(mcp_timeout_s=config.execution.mcp_timeout_s)}
+            )
+        )
+        async with await ExecutionContext.start(execution_config, run_dir) as execution:
+            if until is None:
+                native_ok, native_reports = await native_runtime_checks(config, execution)
+                write_json(
+                    run_dir / "native-runtime-preflight.json",
+                    {"ok": native_ok, "backends": native_reports},
+                )
+                if not native_ok:
+                    raise RuntimeError(
+                        "native accelerator preflight failed; inspect native-runtime-preflight.json"
+                    )
             deps = PipelineDeps(
                 config,
                 config_path,
@@ -868,7 +1134,11 @@ async def run_pipeline(config_path: Path, *, resume_dir: Path | None = None) -> 
                 started_at,
                 started,
                 previous_wall_seconds,
+                until,
+                bool(provenance and provenance["frozen_candidates"]),
             )
+            if from_cpu_baseline is not None:
+                _save_checkpoint(state, deps, "import_cpu_baseline")
             atomic_write(
                 run_dir / "pipeline-graph.mmd",
                 PIPELINE_GRAPH.render(title="LASSI-X pipeline", direction="LR") + "\n",
@@ -893,6 +1163,7 @@ async def run_pipeline(config_path: Path, *, resume_dir: Path | None = None) -> 
             run_dir / "summary.md",
             f"# LASSI-X run: {config.kernel.name}\n\n"
             f"- Status: **failed**\n- Error: `{record['error']}`\n"
-            f"- Resume: `lassi-x run {config_path} --resume {run_dir}`\n",
+            f"- Resume: `lassi-x run {config_path} --resume {run_dir}"
+            f"{' --until cpu-verified' if until is not None else ''}`\n",
         )
         return 1, run_dir

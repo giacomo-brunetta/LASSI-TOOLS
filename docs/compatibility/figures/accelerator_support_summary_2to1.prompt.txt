@@ -1,0 +1,23 @@
+Use case: infographic-diagram.
+Create a polished scientific presentation infographic, exactly 2:1 horizontal aspect ratio, ideally 2400 x 1200 pixels. White background, crisp readable sans-serif typography, restrained publication-quality design. Title verbatim: "PyTorch operator compatibility across accelerators". Subtitle: "356 runnable canonical ATen cases • compilation evidence".
+Use three coherent colors: Graphcore purple, Cerebras CS-3 orange, Groq teal. No logos, no hardware photos, no decorative circuit patterns.
+Layout: left 55% presents a compact three-circle Venn diagram, with exact region counts and generous label spacing. Right 45% presents three small overall-coverage horizontal bars, followed by a compact six-row family heatmap. Bottom spans the full width with readable caveats. The Venn circles must NOT be represented as area-proportional. Put "Counts exact; areas schematic" beneath it.
+VENN EXACT DATA: Graphcore only 32; Cerebras CS-3 only 12; Groq only 15; Graphcore + Cerebras only 56; Graphcore + Groq only 19; Cerebras + Groq only 12; all three 154. Label each circle clearly with its accelerator name. Highlight central 154 with the caption "Shared core" and "43.3% of tested cases". Outside all circles show a small separate box "None compiled: 56". Do not confuse this with untested cases.
+Overall coverage bars text EXACT:
+"Graphcore" — "261/356 · 73.3%"
+"Cerebras CS-3" — "234/356 · 65.7%"
+"Groq" — "200/356 · 56.2%"
+Heatmap title "Selected function families". Column headers "Graphcore", "CS-3", "Groq". Cells contain exact compiled/runnable counts (no invented statistics). Six rows:
+"Arithmetic & logic" 55/71, 55/71, 53/71
+"Transcendental math" 32/38, 30/38, 17/38
+"Linear algebra" 18/27, 14/27, 14/27
+"Convolution" 8/11, 0/11, 5/11
+"Reductions" 32/40, 29/40, 31/40
+"Shape & layout" 63/76, 57/76, 39/76
+Use pale-to-dark blue heatmap cells with stronger blue meaning higher compiled fraction; ensure text contrast. Tiny label: "compiled / runnable".
+Footnotes exact, clearly readable not tiny:
+"Canonical-case compilation ≠ full-model support, correctness or performance."
+"CS-3: compile-only. Groq: floating inputs traced as FP32. Graphcore: FP16."
+"437 included operators: 356 runnable, 70 need fixtures, 11 not applicable."
+Source label: "Source: LASSI-TOOLS committed compatibility snapshots".
+Avoid additional claims, especially blanket unsupported-function claims. All data is from local repository snapshots, not live hardware measurements. Make it concise, balanced, ready to use in a research talk. Render every number exactly.

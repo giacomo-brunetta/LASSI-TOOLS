@@ -1,0 +1,9 @@
+# Do not send benchmark runs, credentials or the rest of the repository to Docker.
+**
+!lassi_x/
+!lassi_x/**
+!docker/
+!docker/cpu/
+!docker/cpu/**
+**/__pycache__/
+**/*.pyc

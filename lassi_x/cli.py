@@ -25,6 +25,7 @@ from .artifacts import atomic_write, write_json
 from .compensation import TECHNIQUE_SUMMARY
 from .config import RunConfig
 from .execution import ExecutionContext, LocalExecutionBackend
+from .execution.preflight import native_runtime_checks
 from .measurement import build_backends
 from .model_doctor import DEFAULT_TIMEOUT_S as MODEL_PROBE_TIMEOUT_S
 from .model_doctor import distinct_models, probe_model
@@ -275,6 +276,7 @@ async def _execution_doctor_command(args: argparse.Namespace) -> int:
             return 3
         try:
             reports = await context.handshakes()
+            native_ok, native_reports = await native_runtime_checks(config, context)
         except Exception as exc:
             emit(
                 "execution.doctor",
@@ -293,20 +295,33 @@ async def _execution_doctor_command(args: argparse.Namespace) -> int:
             return 3
         finally:
             await context.close()
+    ok = native_ok
     emit(
         "execution.doctor",
         {
-            "ok": True,
+            "ok": ok,
             "mode": config.execution.mode,
             "default_resource": context.default_resource,
             "resources": {
                 name: report.model_dump(mode="json", exclude={"schema_version"})
                 for name, report in reports.items()
             },
+            "native_runtime": native_reports,
+            **(
+                {}
+                if ok
+                else {
+                    "hint": (
+                        "A native accelerator worker could not acquire its device. "
+                        "For Graphcore, verify that IPUOF_CONFIG_PATH names a ready "
+                        "V-IPU partition with the cluster-required sync mode."
+                    )
+                }
+            ),
         },
         json_output=args.json,
     )
-    return 0
+    return 0 if ok else 3
 
 
 async def _benchmark_command(args: argparse.Namespace) -> int:
@@ -614,6 +629,21 @@ def build_parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run")
     run.add_argument("config", type=Path)
     run.add_argument(
+        "--from-cpu-baseline",
+        type=Path,
+        help="Start an independent frozen accelerator run from a CPU run or baseline directory.",
+    )
+    run.add_argument(
+        "--allow-adaptations",
+        action="store_true",
+        help="Allow compensation and model-based repair when importing a CPU baseline.",
+    )
+    run.add_argument(
+        "--until",
+        choices=["cpu-verified"],
+        help="Stop after candidate generation and CPU validation on the harness host.",
+    )
+    run.add_argument(
         "--resume",
         type=Path,
         help="Resume a run directory whose checkpoint matches this configuration.",
@@ -771,7 +801,15 @@ def _dispatch() -> int:
     configure_logging(args.log_level)
     if args.command == "run":
         try:
-            code, run_dir = asyncio.run(run_pipeline(args.config, resume_dir=args.resume))
+            code, run_dir = asyncio.run(
+                run_pipeline(
+                    args.config,
+                    resume_dir=args.resume,
+                    until=args.until,
+                    from_cpu_baseline=args.from_cpu_baseline,
+                    allow_adaptations=args.allow_adaptations,
+                )
+            )
         except Exception as exc:
             emit(
                 "run",

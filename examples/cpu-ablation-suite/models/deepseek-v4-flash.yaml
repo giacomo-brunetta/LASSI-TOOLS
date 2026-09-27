@@ -1,0 +1,12 @@
+models:
+  planner: &model
+    provider: custom
+    model: deepseek-v4-flash
+    base_url: http://spark-01.evl.uic.edu:8000/v1
+    api_mode: chat_completions
+    # Endpoint does not authenticate; Hermes still requires a nonempty key.
+    # Set LASSI_DEEPSEEK_API_KEY=not-required when launching.
+    api_key_env: LASSI_DEEPSEEK_API_KEY
+    reasoning_effort: medium
+  candidates: [*model, *model, *model]
+  compensation: *model

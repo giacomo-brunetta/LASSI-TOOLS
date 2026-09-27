@@ -1,0 +1,14 @@
+models:
+  planner: &model
+    provider: custom
+    model: gemini-3.8-flash
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_mode: chat_completions
+    api_key_env: GEMINI_API_KEY
+    reasoning_effort: medium
+    max_tokens: 16384
+    max_iterations: 90
+    turn_timeout_s: 600
+    turn_retries: 2
+  candidates: [*model, *model, *model]
+  compensation: *model

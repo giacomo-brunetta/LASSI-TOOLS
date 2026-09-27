@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="680" viewBox="0 0 1380 680">
+<rect width="1380" height="680" fill="#f5f7fb"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#203047}.muted{fill:#627088}</style>
+<text x="44" y="53" font-size="30" font-weight="700">CPU verification: model success rates</text>
+<text x="44" y="84" font-size="17" class="muted">PolyBench + scientific kernels · MINI inputs · medium effort · up to 2 correction rounds</text>
+<rect x="44" y="118" width="410" height="352" rx="16" fill="white"/>
+<text x="66" y="154" font-size="21" font-weight="700">First-attempt candidates</text>
+<text x="66" y="179" font-size="14" class="muted">Among evaluated results only</text>
+<text x="66" y="218" font-size="16" font-weight="600">Terra</text>
+<text x="432" y="218" font-size="16" text-anchor="end">84.7% · 72/85</text>
+<rect x="66" y="230" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="66" y="230" width="310.02" height="18" rx="6" fill="#3478c5"/>
+<text x="66" y="296" font-size="16" font-weight="600">Luna</text>
+<text x="432" y="296" font-size="16" text-anchor="end">86.6% · 71/82</text>
+<rect x="66" y="308" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="66" y="308" width="316.90" height="18" rx="6" fill="#8157bb"/>
+<text x="66" y="374" font-size="16" font-weight="600">DS4 Flash</text>
+<text x="432" y="374" font-size="16" text-anchor="end">100.0% · 9/9</text>
+<rect x="66" y="386" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="66" y="386" width="366.00" height="18" rx="6" fill="#d68624"/>
+<rect x="486" y="118" width="410" height="352" rx="16" fill="white"/>
+<text x="508" y="154" font-size="21" font-weight="700">Final candidates</text>
+<text x="508" y="179" font-size="14" class="muted">Among evaluated results only</text>
+<text x="508" y="218" font-size="16" font-weight="600">Terra</text>
+<text x="874" y="218" font-size="16" text-anchor="end">100.0% · 85/85</text>
+<rect x="508" y="230" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="508" y="230" width="366.00" height="18" rx="6" fill="#3478c5"/>
+<text x="508" y="296" font-size="16" font-weight="600">Luna</text>
+<text x="874" y="296" font-size="16" text-anchor="end">96.3% · 79/82</text>
+<rect x="508" y="308" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="508" y="308" width="352.61" height="18" rx="6" fill="#8157bb"/>
+<text x="508" y="374" font-size="16" font-weight="600">DS4 Flash</text>
+<text x="874" y="374" font-size="16" text-anchor="end">100.0% · 9/9</text>
+<rect x="508" y="386" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="508" y="386" width="366.00" height="18" rx="6" fill="#d68624"/>
+<rect x="928" y="118" width="410" height="352" rx="16" fill="white"/>
+<text x="950" y="154" font-size="21" font-weight="700">Kernels solved</text>
+<text x="950" y="179" font-size="14" class="muted">Among evaluated results only</text>
+<text x="950" y="218" font-size="16" font-weight="600">Terra</text>
+<text x="1316" y="218" font-size="16" text-anchor="end">100.0% · 29/29</text>
+<rect x="950" y="230" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="950" y="230" width="366.00" height="18" rx="6" fill="#3478c5"/>
+<text x="950" y="296" font-size="16" font-weight="600">Luna</text>
+<text x="1316" y="296" font-size="16" text-anchor="end">96.6% · 28/29</text>
+<rect x="950" y="308" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="950" y="308" width="353.38" height="18" rx="6" fill="#8157bb"/>
+<text x="950" y="374" font-size="16" font-weight="600">DS4 Flash</text>
+<text x="1316" y="374" font-size="16" text-anchor="end">100.0% · 3/3</text>
+<rect x="950" y="386" width="366" height="18" rx="6" fill="#e9edf4"/>
+<rect x="950" y="386" width="366.00" height="18" rx="6" fill="#d68624"/>
+<text x="44" y="511" font-size="19" font-weight="700">Evaluated coverage</text>
+<text x="44" y="543" font-size="19" >Terra: 29/29 kernels</text>
+<text x="486" y="543" font-size="19" >Luna: 29/29 kernels</text>
+<text x="928" y="543" font-size="19" >DS4 Flash: 3/29 kernels</text>
+<text x="44" y="585" font-size="17" font-weight="600">DS4 is preliminary: only correlation, covariance and GEMM have completed evaluation.</text>
+<text x="44" y="611" font-size="16" class="muted">Unevaluated kernels / connection and quota interruptions are not counted as model validation failures.</text>
+<text x="44" y="639" font-size="14" class="muted">Latest completed non-quota result per kernel; discarded campaign excluded. Accelerator compatibility is not measured here.</text>
+<text x="44" y="662" font-size="13" class="muted">Snapshot: 2026-09-18 15:28 UTC · Descriptive arena rates, not IID pass@k estimates.</text>
+</svg>

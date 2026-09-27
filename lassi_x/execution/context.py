@@ -13,6 +13,7 @@ from .academy import (
     ResourceUnavailableError,
     _resource_executor,
 )
+from .docker import DockerExecutionBackend
 from .local import LocalExecutionBackend
 from .transfer import fetch_bytes, put_bytes
 
@@ -126,7 +127,15 @@ class ExecutionContext:
             """Keep the first retirement reason for a resource."""
             dead_resources.setdefault(resource, detail)
 
-        if execution.mode == "local":
+        if execution.mode == "docker":
+            backends = {
+                name: DockerExecutionBackend(mirror_root, execution.docker, name)
+                for name in resources
+            }
+            # Fail before planner/model calls if the daemon or prebuilt image is unavailable.
+            for backend in backends.values():
+                await backend.cached_handshake()
+        elif execution.mode == "local":
             backends = {
                 name: LocalExecutionBackend(spec.workspace_root or mirror_root, name)
                 for name, spec in resources.items()

@@ -374,6 +374,15 @@ class ResourceConfig(StrictModel):
     labels: list[str] = Field(default_factory=list)
 
 
+class DockerExecutionConfig(StrictModel):
+    """Trusted configuration for disposable CPU execution containers."""
+
+    image: str = Field(default="lassi-x-cpu:0.1", pattern=r"^[A-Za-z0-9][^\s]*$")
+    cpus: float = Field(default=2.0, gt=0.0)
+    memory_mb: int = Field(default=4096, ge=256)
+    pids_limit: int = Field(default=128, ge=16)
+
+
 class ExecutionConfig(StrictModel):
     """Where agent tool calls and harness commands execute.
 
@@ -384,7 +393,8 @@ class ExecutionConfig(StrictModel):
     ``endpoint_id`` values they run on remote Globus Compute endpoints.
     """
 
-    mode: Literal["local", "academy"] = "local"
+    mode: Literal["local", "academy", "docker"] = "local"
+    docker: DockerExecutionConfig = Field(default_factory=DockerExecutionConfig)
     exchange_url: str | None = None
     auth: Literal["none", "globus"] = "none"
     resources: dict[str, ResourceConfig] = Field(default_factory=dict)
@@ -439,6 +449,10 @@ class ExecutionConfig(StrictModel):
 
     @model_validator(mode="after")
     def consistent_targets(self) -> ExecutionConfig:
+        if self.mode == "docker" and self.resources:
+            raise ValueError(
+                "Docker CPU execution uses one local resource; omit execution.resources"
+            )
         if self.default_resource is not None and self.default_resource not in self.resources:
             raise ValueError("execution.default_resource must name a configured resource")
         if self.exchange_url is not None and self.mode != "academy":

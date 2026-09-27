@@ -1,6 +1,6 @@
 # Harness-side run configuration for one remote standalone node (no scheduler).
 #
-# Pairs with examples/globus-endpoint/config.yaml.example running on the node.
+# Pairs with both files in examples/globus-endpoint/ running on the node.
 # Copy, fill in the placeholders, then verify connectivity BEFORE a real run:
 #
 #   pip install -e '.[globus]'

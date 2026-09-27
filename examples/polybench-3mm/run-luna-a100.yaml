@@ -4,21 +4,15 @@ project:
   root: ../../../PolyBenchC-4.2.1
 
 kernel:
-  name: polybench-jacobi-2d-mini-luna-a100-graphcore
-  reference: stencils/jacobi-2d/jacobi-2d.c
+  name: polybench-3mm-mini-luna-a100-graphcore
+  reference: linear-algebra/kernels/3mm/3mm.c
   context:
-    - stencils/jacobi-2d/jacobi-2d.h
+    - linear-algebra/kernels/3mm/3mm.h
   task: >-
-    Translate the original PolyBench/C 4.2.1 jacobi-2d MINI kernel into a
-    semantically equivalent, export-friendly PyTorch module. Use N=30 and
-    TSTEPS=20. Reproduce init_array exactly: A[i,j]=(i*(j+2)+2)/N and
-    B[i,j]=(i*(j+3)+3)/N. Expose build_inputs(device, dtype) returning (A, B),
-    make_model(), and forward(A, B) returning the final A. Each step updates
-    only the interior of B from the five-point stencil on A, then only the
-    interior of A from the five-point stencil on the new B, with factor 0.2.
-    Keep both arrays' boundaries unchanged for all 20 steps and do not mutate
-    the caller's inputs. Preserve the C kernel's update order and FP64
-    correctness before considering lower-precision performance.
+    Translate the PolyBench/C 4.2.1 3mm MINI kernel into a semantically
+    equivalent, export-friendly PyTorch module. Reproduce init_array exactly;
+    expose build_inputs(device, dtype) returning (A, B, C, D), make_model(),
+    and forward(A, B, C, D) returning G where E=A@B, F=C@D, and G=E@F.
 
 oracle:
   build:
@@ -26,11 +20,11 @@ oracle:
     - -O0
     - -DPOLYBENCH_DUMP_ARRAYS
     - -include
-    - ../LASSI-TOOLS/examples/polybench-jacobi-2d/oracle_precision.h
+    - ../LASSI-TOOLS/examples/polybench-3mm/oracle_precision.h
     - "{reference}"
     - utilities/polybench.c
     - -Iutilities
-    - -Istencils/jacobi-2d
+    - -Ilinear-algebra/kernels/3mm
     - -lm
     - -o
     - "{oracle_dir}/reference"
@@ -118,4 +112,4 @@ success:
     a100-cuda: [fp32, fp16, bf16]
     graphcore-ipu: [fp32, fp16]
 
-runs_dir: ../LASSI-TOOLS/runs/polybench-jacobi-2d
+runs_dir: ../LASSI-TOOLS/runs/polybench-3mm
