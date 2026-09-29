@@ -8,7 +8,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .agent_support import attempt_diagnostic_dir, record_turn, workspace_slug
+from .agent_support import (
+    BOUNDED_TOOL_OUTPUT_POLICY,
+    attempt_diagnostic_dir,
+    record_turn,
+    workspace_slug,
+)
 from .hermes import HermesSession
 from .types import Candidate, Diagnostic, Measurement, Status, Usage
 from .validation import (
@@ -49,7 +54,9 @@ otherwise no-op edit is not compensation.
 
 Workspace access: your only access to files and commands is the assigned workspace
 toolset (list_resources, run_command, write_file, read_file, list_files). All paths
-are workspace-relative. Call list_resources when choosing where to run commands."""
+are workspace-relative. Call list_resources when choosing where to run commands.""" + (
+    BOUNDED_TOOL_OUTPUT_POLICY
+)
 
 
 TECHNIQUE_SUMMARY = {
@@ -610,7 +617,8 @@ The compensation target candidate.py in your workspace failed:
 {diagnostic.for_agent()}
 
 Repair the target without changing tolerances, disabling compensation, or embedding oracle
-data. Preserve the selected technique where feasible. Return a short summary.
+data. Preserve the selected technique where feasible. Do not print tensors, numerical artifacts,
+or complete logs; use bounded summaries and artifact files. Return a short summary.
 """
             turn = await session.send(repair)
             record_turn(variant, turn)

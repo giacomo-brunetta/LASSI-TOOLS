@@ -25,6 +25,12 @@ if TYPE_CHECKING:
     from lassi_x.config import BackendConfig
 
 
+def test_compensation_prompt_bounds_tensor_and_tool_output() -> None:
+    assert "Bounded tool output (hard requirement)" in compensation.COMPENSATION_SYSTEM
+    assert "bounded-tool-output-v1" in compensation.COMPENSATION_SYSTEM
+    assert "tensors or numerical" in compensation.COMPENSATION_SYSTEM
+
+
 def point(
     candidate_id: str,
     *,

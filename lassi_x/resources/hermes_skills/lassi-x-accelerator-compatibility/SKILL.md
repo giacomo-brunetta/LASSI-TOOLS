@@ -53,6 +53,17 @@ Choose the workflow matching the agent role.
 6. Rerun full candidate validation and the real target compiler. Canonical operator evidence is a
    preflight signal, not proof that a complete graph will compile, fit, execute, or be correct.
 
+## Bounded diagnostics
+
+- Never print a complete Export, FX, TorchScript, ONNX, MLIR, or compiler graph into the tool
+  response. Save complete IR to an artifact when needed.
+- Inspect graphs through node counts, operator histograms, unsupported or suspicious nodes, and
+  short context around a specifically selected node. Keep each excerpt under 100 lines and 8 KiB.
+- Query the compatibility wiki without `--markdown` first. Request full fixture or diagnostic text
+  only for one unresolved operator, and inspect a targeted excerpt if it is large.
+- Reduce compiler logs to the root error, relevant operator or source location, and a short tail;
+  retain the complete log as an artifact.
+
 ## Evidence standard
 
 Report the exact target ID, precision, queried operators, canonical statuses, wiki pages used,

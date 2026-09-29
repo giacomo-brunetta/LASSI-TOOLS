@@ -51,7 +51,15 @@ If any condition is missing, stop and report the missing evidence.
 9. Measure the target precision against the C/C++ FP64 oracle:
    `lassi-x precision measure --config CONFIG --module MODULE --backend NAME --precision PRECISION`
 10. Compare error reduction and latency cost. For stochastic rounding, report multiple seeds and
-   distributional statistics rather than one favorable run.
+    distributional statistics rather than one favorable run.
+
+## Bounded diagnostics
+
+- Keep smoke-test, validation, and measurement responses to status, precision roles, aggregate
+  errors, latency statistics, and the root failure. Store full logs or samples as artifacts.
+- Never print tensors, complete numerical outputs, per-element comparisons, or all stochastic
+  trials. Summarize trials statistically and inspect only a few selected failures.
+- Keep each tool response under 100 lines and approximately 8 KiB.
 
 ## Selection guidance
 

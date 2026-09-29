@@ -131,7 +131,7 @@ compensation:
   enabled: true
   correction_rounds: 2
   error_threshold: 0.01
-  error_metric: max_rel_error
+  error_metric: relative_l2
   comparison_scope: same_candidate
   measurement_scope: all
 

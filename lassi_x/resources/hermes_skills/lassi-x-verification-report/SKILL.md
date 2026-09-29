@@ -28,6 +28,13 @@ the distinction between pass, fail, unsupported, and missing evidence impossible
 6. Reconcile totals with the raw run and measurement artifacts. Mark absent or contradictory
    evidence explicitly.
 
+## Bounded diagnostics
+
+- Do not return the complete verification JSON, run record, measurement file, or agent trace.
+- Select fields with a structured query, report aggregate counts first, and retrieve individual
+  records only for a specific contradiction or failure.
+- Retain full reports as artifacts and keep every displayed excerpt under 100 lines and 8 KiB.
+
 ## Evidence standard
 
 Every conclusion must point to a recorded artifact or structured field. Report passed gates,

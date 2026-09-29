@@ -6,7 +6,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any, cast
 
-from .agent_support import record_turn, stage_reference_bundle
+from .agent_support import BOUNDED_TOOL_OUTPUT_POLICY, record_turn, stage_reference_bundle
 from .config import compatibility_target_for
 from .execution import ResourceUnavailableError
 from .hermes import HermesSession
@@ -74,7 +74,8 @@ Tool and scope rules:
 - Follow the requested JSON schema exactly. Return JSON only, with no Markdown fences,
   commentary, preamble, or trailing explanation."""
 
-CANDIDATE_SYSTEM = """Role: senior scientific software engineer specializing in faithful
+CANDIDATE_SYSTEM = (
+    """Role: senior scientific software engineer specializing in faithful
 C/C++-to-PyTorch translation and numerical debugging.
 
 You own one arena candidate from initial implementation through any correction rounds. The
@@ -136,6 +137,8 @@ Workspace access:
   run_command, write_file, read_file, list_files). All paths are workspace-relative.
 - Call list_resources first when choosing where to run commands; pass the chosen resource
   name to later calls, or omit it to use the default machine."""
+    + BOUNDED_TOOL_OUTPUT_POLICY
+)
 
 
 def _source_context(config: RunConfig) -> str:
@@ -513,6 +516,7 @@ The external validator rejected the current implementation:
 
 Inspect and repair the existing target in place. Fix the underlying algorithm or contract
 problem without weakening validation, changing tolerances, or fabricating reference output.
+Keep diagnostics bounded; summarize or save large output rather than returning it to the model.
 Compile-check with run_command: python -m py_compile candidate.py before returning.
 Return a short repair summary.
 """

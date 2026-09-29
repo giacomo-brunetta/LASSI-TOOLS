@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="680" viewBox="0 0 1380 680">
-<rect width="1380" height="680" fill="#f5f7fb"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="720" viewBox="0 0 1380 720">
+<title>LEGACY RESULT — full campaign rerun required</title>
+<metadata>status=legacy; publishable=false; superseded_by_policy=bounded-tool-output-v1; status_note=docs/experiments/README.md</metadata>
+<rect width="1380" height="720" fill="#f5f7fb"/>
 <style>text{font-family:Arial,Helvetica,sans-serif;fill:#203047}.muted{fill:#627088}</style>
 <text x="44" y="53" font-size="30" font-weight="700">CPU verification: model success rates</text>
 <text x="44" y="84" font-size="17" class="muted">PolyBench + scientific kernels · MINI inputs · medium effort · up to 2 correction rounds</text>
@@ -56,4 +58,6 @@
 <text x="44" y="611" font-size="16" class="muted">Unevaluated kernels / connection and quota interruptions are not counted as model validation failures.</text>
 <text x="44" y="639" font-size="14" class="muted">Latest completed non-quota result per kernel; discarded campaign excluded. Accelerator compatibility is not measured here.</text>
 <text x="44" y="662" font-size="13" class="muted">Snapshot: 2026-09-18 15:28 UTC · Descriptive arena rates, not IID pass@k estimates.</text>
+<rect x="0" y="680" width="1380" height="40" fill="#8b1e2d"/>
+<text x="690" y="706" font-size="16" font-weight="700" text-anchor="middle" fill="white">LEGACY RESULT · PRE-Bounded-tool-output-v1 · FULL RERUN REQUIRED</text>
 </svg>

@@ -178,6 +178,7 @@ async def measure_compensation_variants(
     variants: list[tuple[str, str, Path, str, str, str]],
     backends: list[Backend[Any]],
     *,
+    cells: set[tuple[str, str]] | None = None,
     on_result: Callable[[Measurement], None] | None = None,
 ) -> list[Measurement]:
     """Broadcast portable numerical variants across every configured backend and precision.
@@ -198,6 +199,8 @@ async def measure_compensation_variants(
         del target_backend, target_precision
         for backend in backends:
             for precision in config.measure.precisions:
+                if cells is not None and (backend.spec.name, precision) not in cells:
+                    continue
                 calls.append(
                     _measure_compensated_cell(
                         config,

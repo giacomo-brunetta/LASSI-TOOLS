@@ -10,8 +10,10 @@ __pycache__/
 build/
 dist/
 
-# Generated benchmark artifacts.
-runs/
+# Generated benchmark artifacts. Keep corpus-wide provenance markers versioned.
+runs/*
+!runs/LEGACY.md
+!runs/LEGACY.json
 compat-runs/
 .groq-compat-cache/
 docker/mem0/.env

@@ -34,6 +34,13 @@ evaluation, target lowering, and application acceptance as separate claims.
    cases, dense/random sweeps, ULP and absolute error, the C/C++ oracle, scientific invariants, and
    real target compilation. One workload accuracy result is not a function-level proof.
 
+## Bounded diagnostics
+
+Summarize domain sweeps with sample count, maximum and quantile errors, special-value counts, and a
+small worst-case table. Never print every sampled input/output/error tuple, coefficient-generation
+trace, or full compiler graph. Store complete samples as artifacts and keep displayed excerpts
+under 100 lines and 8 KiB.
+
 ## Evidence standard
 
 Report function, domain, target format and rounding mode, required contract, range reduction,

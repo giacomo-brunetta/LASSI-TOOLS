@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -268,6 +269,142 @@ def test_numerically_ineffective_compensation_is_rejected(tmp_path: Path) -> Non
     assert variant.status == Status.REJECTED
     assert variant.diagnostics[0].gate == "compensation-effect"
     assert generated.status == Status.REJECTED
+
+
+@pytest.mark.parametrize("audit_fraction, expected_base_target_builds", [(0.0, 0), (1.0, 1)])
+def test_gpu_screening_promotes_repair_before_target_builds(
+    tmp_path: Path,
+    monkeypatch: Any,
+    audit_fraction: float,
+    expected_base_target_builds: int,
+) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"] = {
+        "precisions": ["fp32", "fp16"],
+        "backends": [
+            {
+                "type": "torch",
+                "name": "cuda",
+                "device": "cuda",
+                "precisions": ["fp32", "fp16"],
+            },
+            {
+                "type": "native",
+                "name": "ipu",
+                "resource": "ipu",
+                "architecture": "graphcore_ipu",
+                "precisions": ["fp16"],
+                "worker": {"python": "python"},
+            },
+        ],
+    }
+    data["execution"] = {"resources": {"ipu": {}}}
+    data["screening"] = {
+        "backend": "cuda",
+        "precisions": ["fp16"],
+        "smoke_precision": "fp32",
+        "audit_fraction": audit_fraction,
+    }
+    data["compensation"] = {"error_threshold": 0.1}
+    config = RunConfig.model_validate(data)
+    module = tmp_path / "candidate.py"
+    module.write_text(GOOD_MODULE)
+    repaired_module = tmp_path / "repaired.py"
+    repaired_module.write_text(GOOD_MODULE.replace("return x\n", "return x + 0\n"))
+    oracle_path = tmp_path / "oracle.npy"
+    np.save(oracle_path, np.asarray([1.0]))
+    oracle = OracleResult(oracle_path, np.asarray([1.0]))
+    candidate = Candidate("c1", "model", None, "direct", module, status=Status.OK)
+    outcome = pipeline.CandidateOutcome(candidate)
+    (tmp_path / "progress").mkdir()
+    deps = pipeline.PipelineDeps(
+        config,
+        tmp_path / "config.yaml",
+        tmp_path,
+        None,  # type: ignore[arg-type]
+        PipelineScheduler(config.scheduler),
+        "2026-01-01T00:00:00+00:00",
+        time.perf_counter(),
+    )
+    backends: Any = [
+        SimpleNamespace(spec=SimpleNamespace(name="cuda")),
+        SimpleNamespace(spec=SimpleNamespace(name="ipu")),
+    ]
+    calls: list[tuple[Path, set[tuple[str, str]]]] = []
+    compensation_calls = 0
+
+    def point(
+        path: Path,
+        backend: str,
+        precision: str,
+        variant_id: str,
+        compensation: str,
+        error: float,
+    ) -> Measurement:
+        result = measured(path, variant_id=variant_id, compensation=compensation, error=error)
+        result.backend = backend
+        result.precision = precision
+        result.storage_precision = precision
+        result.operator_precision = precision
+        result.accumulator_precision = precision
+        result.output_precision = precision
+        return result
+
+    async def fake_measure(
+        config: object,
+        oracle: object,
+        specs: list[tuple[str, str, Path, str]],
+        backends: object,
+        *,
+        cells: set[tuple[str, str]],
+        on_result: Any,
+    ) -> list[Measurement]:
+        del config, oracle, backends
+        _, variant_id, path, compensation = specs[0]
+        calls.append((path, cells))
+        results = []
+        for backend, precision in cells:
+            error = 0.5 if backend == "cuda" and precision == "fp16" else 0.01
+            result = point(path, backend, precision, variant_id, compensation, error)
+            results.append(result)
+            on_result(result)
+        return results
+
+    async def fake_compensation(*args: Any, **kwargs: Any) -> CompensationVariant:
+        nonlocal compensation_calls
+        del args, kwargs
+        compensation_calls += 1
+        variant = CompensationVariant(
+            "c1",
+            "n-c1-fp16",
+            "portable",
+            "fp16",
+            "kahan",
+            repaired_module,
+            status=Status.OK,
+            target_backends=["cuda"],
+        )
+        variant.target_measurements = [
+            point(repaired_module, "cuda", "fp16", variant.variant_id, "kahan", 0.01)
+        ]
+        return variant
+
+    monkeypatch.setattr(pipeline, "measure_variants", fake_measure)
+    monkeypatch.setattr(pipeline, "generate_compensation", fake_compensation)
+    result = asyncio.run(pipeline._screened_candidate_flow(deps, oracle, outcome, backends))
+
+    ipu_calls = [(path, cells) for path, cells in calls if ("ipu", "fp16") in cells]
+    assert sum(path == module for path, _ in ipu_calls) == expected_base_target_builds
+    assert sum(path == repaired_module for path, _ in ipu_calls) == 1
+    assert result.numerical_candidates[0].module_path == repaired_module
+    assert result.numerical_candidates[0].target_precision == "fp16"
+
+    measured_calls = len(calls)
+    measurement_count = len(result.measurements)
+    resumed = asyncio.run(pipeline._screened_candidate_flow(deps, oracle, result, backends))
+    assert compensation_calls == 1
+    assert len(calls) == measured_calls
+    assert len(resumed.measurements) == measurement_count
 
 
 def test_portable_compensation_rejects_cross_platform_regression(tmp_path: Path) -> None:

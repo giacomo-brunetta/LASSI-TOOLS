@@ -42,3 +42,25 @@ def test_bundled_skills_define_roles_evidence_and_guardrails() -> None:
         assert "## Evidence standard" in body
         assert "## Guardrails" in body
         assert "LASSI-X" not in text
+
+
+def test_output_sensitive_skills_require_bounded_diagnostics() -> None:
+    output_sensitive = {
+        "lassi-x-accelerator-compatibility",
+        "lassi-x-compare-outputs",
+        "lassi-x-elementary-function-audit",
+        "lassi-x-fp-error-diagnose",
+        "lassi-x-fp16-compensate",
+        "lassi-x-groq-latency",
+        "lassi-x-pareto-explore",
+        "lassi-x-repair-candidate",
+        "lassi-x-run-benchmark",
+        "lassi-x-summarize-output",
+        "lassi-x-translate-kernel",
+        "lassi-x-verification-report",
+    }
+
+    for name in output_sensitive:
+        text = (source_root() / name / "SKILL.md").read_text()
+        assert "## Bounded diagnostics" in text
+        assert "8 KiB" in text

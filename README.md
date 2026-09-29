@@ -447,6 +447,32 @@ as source first, but still require deterministic certification on every executab
 `compatibility_candidates`, and their `parent_candidate_id` links so the complete lineage can be
 reconstructed without inferring it from filenames.
 
+### GPU-first numerical screening
+
+When a non-CPU Torch backend supports the configured screening precisions, LASSI-X uses it as the
+numerical gate before building on other accelerators. The order is CPU semantic validation, GPU
+smoke measurement, GPU low-precision screening, portable numerical repair, CPU revalidation,
+static target qualification, and finally target measurement. A successful portable repair is
+promoted only for the precision it repaired; target-specific compatibility leaves are never
+promoted to another backend.
+
+```yaml
+screening:
+  enabled: true
+  # Omit backend to select the first compatible non-CPU Torch backend.
+  backend: cuda
+  precisions: [fp16, bf16]
+  smoke_precision: fp32
+  promote_repairs: true
+  # Deterministic sample that builds both original and promoted sources on targets.
+  audit_fraction: 0.1
+```
+
+The audit sample estimates transfer errors instead of assuming that CUDA numerical behavior proves
+another accelerator's behavior. Outside that sample, a promoted FP16/BF16 source replaces the
+original source for the corresponding target build. Runs without a compatible GPU keep the
+all-backend flow. `run.json.screening` records the resolved backend, policy, and promotion scope.
+
 ### Merged accelerator evaluation and success
 
 The C/C++ oracle is executed twice by default (`oracle.determinism_runs`) and the source and output
@@ -474,7 +500,7 @@ compatibility:
   enabled: true
   correction_rounds: 2
   # Whole-model compiler gates do not report latency. Required failures reject
-  # the candidate before accelerator measurements begin.
+  # the stabilized candidate before target accelerator measurements begin.
   compile_targets:
     - target_id: torch-mlir-tosa
       python: python
@@ -504,9 +530,9 @@ and otherwise reuses the failed candidate's model.
 Compiler-only targets are packaged under `lassi_x/compat/targets`. Each qualification compiles the
 complete candidate with the target checker and is recorded separately from measurement. The TOSA
 entry models Torch-MLIR-to-TOSA as its own accelerator/compiler target; it is not an A100 result and
-does not create a latency point. Numerical variants that are promoted after qualification are
-still measured afresh on every configured accelerator. LASSI-X never copies or assumes equivalent
-results across targets.
+does not create a latency point. Numerical variants that pass GPU screening and CPU revalidation
+are still measured afresh on every configured target accelerator. LASSI-X reuses the portable
+source repair, never a GPU result, and never assumes equivalent results across targets.
 
 Measurement status and `failure_kind` are deliberately separate. Status expresses the outcome;
 the failure kind distinguishes precision/resource unavailability, infrastructure/submission

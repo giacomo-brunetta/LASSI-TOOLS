@@ -1,8 +1,8 @@
 """Shared mechanics for the pipeline's persistent agent sessions.
 
-This module deliberately contains only workspace and bookkeeping helpers.  The
-planner, candidate, compatibility, and compensation workflows retain their own
-prompts, gates, and correction policies in their owning modules.
+This module contains workspace and bookkeeping helpers plus policies shared by
+every agent that can execute commands.  Role-specific prompts, gates, and
+correction policies remain in their owning modules.
 """
 
 from __future__ import annotations
@@ -20,6 +20,25 @@ if TYPE_CHECKING:
     from .execution import ExecutionContext
     from .hermes import HermesTurn
     from .types import Usage
+
+
+BOUNDED_TOOL_OUTPUT_POLICY = """
+
+Bounded tool output (hard requirement):
+Policy version: `bounded-tool-output-v1`.
+- Keep every tool response small and relevant. Before running a command, consider whether its
+  output can grow with graph, tensor, file, directory, diff, trace, or log size.
+- Never print complete compiler, Export, FX, TorchScript, or ONNX graphs; tensors or numerical
+  artifacts; generated files; recursive directory listings; long logs or stack traces; or large
+  diffs. Do not reread unchanged content already present in the conversation.
+- Limit ordinary diagnostic output to at most 100 lines and approximately 8 KiB. Use targeted
+  queries, filters, counts, summaries, and short head/tail excerpts.
+- If complete output may be useful, redirect it to a workspace artifact and return only its path,
+  byte or line count, command status, and a compact summary. Inspect further bounded excerpts only
+  when they answer a specific unresolved question.
+- Prefer shapes, dtypes, devices, finite-value counts, ranges, norms, aggregate error metrics,
+  operator histograms, unsupported nodes, and a few selected examples over raw contents.
+"""
 
 
 class TurnRecorder(Protocol):

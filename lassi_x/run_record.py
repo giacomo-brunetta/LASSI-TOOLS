@@ -33,6 +33,7 @@ class RunRecord(StrictModel):
     execution: dict[str, Any]
     planner: dict[str, Any]
     scheduler: dict[str, Any]
+    screening: dict[str, Any]
     qualifications: list[dict[str, Any]]
     pruning: list[dict[str, Any]]
     checkpoint: dict[str, Any]

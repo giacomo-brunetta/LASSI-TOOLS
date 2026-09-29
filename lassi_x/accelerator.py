@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from .agent_support import (
+    BOUNDED_TOOL_OUTPUT_POLICY,
     attempt_diagnostic_dir,
     record_turn,
     stage_reference_bundle,
@@ -25,7 +26,8 @@ if TYPE_CHECKING:
     from .validation import OracleResult
 
 
-COMPATIBILITY_SYSTEM = """Role: accelerator compiler compatibility engineer.
+COMPATIBILITY_SYSTEM = (
+    """Role: accelerator compiler compatibility engineer.
 
 You receive an FP64-correct PyTorch candidate that failed on one real accelerator/compiler cell.
 Repair only operator structure, graph lowering, static-shape behavior, or placement pressure. Load
@@ -40,6 +42,8 @@ stage. Every edit must still pass the external CPU FP64 oracle before it is trie
 Use only the assigned workspace tools and edit only candidate.py. Report evidence actually
 observed, including target ID, queried operators, substitutions, and checks run.
 """
+    + BOUNDED_TOOL_OUTPUT_POLICY
+)
 
 
 def _accelerator_backend_names(config: RunConfig) -> set[str]:
@@ -269,7 +273,8 @@ The external gate rejected candidate.py:
 {diagnostic.for_agent()}
 
 Re-query the exact target wiki for implicated operators, repair the root compiler/graph issue,
-preserve CPU FP64 semantics, and byte-compile the file. Return a concise evidence summary.
+preserve CPU FP64 semantics, and byte-compile the file. Do not print complete graphs or compiler
+logs; use bounded summaries and artifact files. Return a concise evidence summary.
 """
             )
             record_turn(candidate, turn)

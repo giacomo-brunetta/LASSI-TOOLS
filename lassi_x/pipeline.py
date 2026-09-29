@@ -487,6 +487,69 @@ def _measurement_key(point: Measurement) -> tuple[str, str]:
     return point.backend, point.precision
 
 
+def _screening_cells(config: RunConfig) -> set[tuple[str, str]]:
+    """Return the GPU smoke and low-precision cells used before target builds."""
+
+    backend = config.screening_backend
+    if backend is None:
+        return set()
+    return {
+        (backend, precision)
+        for precision in {config.screening.smoke_precision, *config.screening.precisions}
+    }
+
+
+def _audit_candidate(config: RunConfig, candidate_id: str) -> bool:
+    """Select a stable fraction of candidates for original-vs-promoted target audits."""
+
+    fraction = config.screening.audit_fraction
+    if fraction <= 0.0:
+        return False
+    if fraction >= 1.0:
+        return True
+    sample = int(hashlib.sha256(candidate_id.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    return sample < fraction
+
+
+async def _measure_cells(
+    deps: PipelineDeps,
+    oracle: OracleResult,
+    outcome: CandidateOutcome,
+    candidate: Candidate,
+    backends: list[Backend[Any]],
+    cells: set[tuple[str, str]],
+    *,
+    compensation: str = "none",
+    variant_id: str | None = None,
+    journal_stage: str,
+) -> list[Measurement]:
+    """Measure a bounded cell set and checkpoint every completed observation."""
+
+    generated: list[Measurement] = []
+
+    def record(point: Measurement) -> None:
+        generated.append(point)
+        outcome.measurements.append(point)
+        _save_candidate_journal(deps, outcome, journal_stage)
+
+    await measure_variants(
+        deps.config,
+        oracle,
+        [
+            (
+                outcome.candidate.candidate_id,
+                variant_id or f"{candidate.candidate_id}-base",
+                candidate.module_path,
+                compensation,
+            )
+        ],
+        backends,
+        cells=cells,
+        on_result=record,
+    )
+    return generated
+
+
 async def _measure_base_candidate(
     deps: PipelineDeps,
     oracle: OracleResult,
@@ -565,6 +628,333 @@ async def _measure_base_candidate(
     return True
 
 
+async def _screened_candidate_flow(
+    deps: PipelineDeps,
+    oracle: OracleResult,
+    outcome: CandidateOutcome,
+    backends: list[Backend[Any]],
+) -> CandidateOutcome:
+    """Run GPU screening, promote portable repairs, then build accelerator targets."""
+
+    config = deps.config
+    scheduler = deps.scheduler
+    screen_cells = _screening_cells(config)
+    all_cells: set[tuple[str, str]] = {
+        (backend.name, precision)
+        for backend in config.measure.backends
+        for precision in config.measure.precisions
+        if precision in backend.precisions
+    }
+    target_cells = all_cells - screen_cells
+    stage = "screening_measuring"
+
+    existing_screen = {_measurement_key(point) for point in outcome.base_measurements}
+    missing_screen = screen_cells - existing_screen
+    if missing_screen:
+        screened = await _measure_cells(
+            deps,
+            oracle,
+            outcome,
+            outcome.candidate,
+            backends,
+            missing_screen,
+            journal_stage=stage,
+        )
+        outcome.base_measurements.extend(screened)
+    if not outcome.measurements:
+        outcome.measurements = list(outcome.base_measurements)
+    _save_candidate_journal(deps, outcome, "screened")
+
+    # Repair an unusable GPU screen before asking the numerical agent to reason
+    # from it. These leaves remain backend-specific and are never promoted.
+    backend_map = {backend.spec.name: backend for backend in backends}
+    repaired_screen_keys = {
+        (candidate.parent_candidate_id, candidate.target_backend, candidate.target_precision)
+        for candidate in outcome.compatibility_candidates
+        if candidate.target_backend == config.screening_backend
+    }
+    screen_failures = [
+        failure
+        for failure in select_compatibility_failures(config, outcome.base_measurements)
+        if (failure.candidate_id, failure.backend, failure.precision) not in repaired_screen_keys
+    ]
+    screen_repairs = [
+        scheduler.run_model(
+            partial(
+                repair_accelerator_candidate,
+                config,
+                oracle,
+                deps.run_dir,
+                deps.execution,
+                outcome.candidate,
+                failure,
+                backend_map[failure.backend],
+            )
+        )
+        for failure in screen_failures
+    ]
+    repaired_screen = list(await asyncio.gather(*screen_repairs)) if screen_repairs else []
+    outcome.compatibility_candidates.extend(candidate for candidate, _ in repaired_screen)
+    screen_repair_measurements = [
+        measurement for _, measurement in repaired_screen if measurement is not None
+    ]
+    outcome.measurements.extend(screen_repair_measurements)
+    repaired_screen_keys.update(
+        (failure.candidate_id, failure.backend, failure.precision) for failure in screen_failures
+    )
+    _save_candidate_journal(deps, outcome, "screen_compatible")
+
+    weak = (
+        select_weak_points(
+            outcome.base_measurements,
+            error_threshold=config.compensation.error_threshold,
+            error_metric=config.pareto_error_metric,
+            comparison_scope=config.compensation.comparison_scope,
+        )
+        if config.compensation.enabled and not deps.frozen_candidates
+        else []
+    )
+    backend_specs = {backend.name: backend for backend in config.measure.backends}
+    compensation_calls = (
+        []
+        if outcome.compensation_variants
+        else [
+            scheduler.run_model(
+                partial(
+                    generate_compensation,
+                    config,
+                    oracle,
+                    deps.run_dir,
+                    deps.execution,
+                    outcome.candidate,
+                    group,
+                    [backend_specs[point.backend] for point in group],
+                    target_backends=backend_map,
+                    guard_points=[],
+                )
+            )
+            for group in group_portable_weak_points(weak)
+        ]
+    )
+    if compensation_calls:
+        outcome.compensation_variants = list(await asyncio.gather(*compensation_calls))
+
+    variant_ids = {variant.variant_id for variant in outcome.compensation_variants}
+    generated = [point for point in outcome.measurements if point.variant_id in variant_ids]
+    for variant in outcome.compensation_variants:
+        known = {
+            (point.variant_id, point.backend, point.precision, point.compensation)
+            for point in generated
+        }
+        generated.extend(
+            point
+            for point in variant.target_measurements
+            if (point.variant_id, point.backend, point.precision, point.compensation) not in known
+        )
+    valid_variants = [
+        variant for variant in outcome.compensation_variants if variant.status == Status.OK
+    ]
+    measured_variant_cells = {
+        (point.variant_id, point.backend, point.precision) for point in generated
+    }
+    for variant in valid_variants:
+        wanted = {(config.screening_backend or "", variant.precision)}
+        missing = {
+            cell
+            for cell in wanted
+            if (variant.variant_id, cell[0], cell[1]) not in measured_variant_cells
+        }
+        if not missing:
+            continue
+
+        def record_generated(point: Measurement) -> None:
+            generated.append(point)
+            outcome.measurements.append(point)
+            _save_candidate_journal(deps, outcome, "screening_compensation_measuring")
+
+        await measure_compensation_variants(
+            config,
+            oracle,
+            [
+                (
+                    variant.candidate_id,
+                    variant.variant_id,
+                    variant.module_path,
+                    variant.technique,
+                    variant.backend,
+                    variant.precision,
+                )
+            ],
+            backends,
+            cells=missing,
+            on_result=record_generated,
+        )
+    _reject_non_improving_variants(config, valid_variants, outcome.base_measurements, generated)
+    promoted = {
+        variant.precision: variant
+        for variant in valid_variants
+        if variant.status == Status.OK and config.screening.promote_repairs
+    }
+    outcome.numerical_candidates = [
+        Candidate(
+            candidate_id=variant.variant_id,
+            model=outcome.candidate.model,
+            provider=outcome.candidate.provider,
+            strategy=(
+                f"GPU-screened portable {variant.precision} numerical variant of "
+                f"{variant.candidate_id}: {variant.technique}"
+            ),
+            module_path=variant.module_path,
+            reasoning_effort=outcome.candidate.reasoning_effort,
+            status=Status.OK,
+            parent_candidate_id=variant.candidate_id,
+            target_precision=variant.precision,
+        )
+        for variant in promoted.values()
+    ]
+    known_measurements = {
+        (point.variant_id, point.backend, point.precision, point.compensation)
+        for point in outcome.measurements
+    }
+    for point in [*outcome.base_measurements, *screen_repair_measurements, *generated]:
+        key = (point.variant_id, point.backend, point.precision, point.compensation)
+        if key not in known_measurements:
+            outcome.measurements.append(point)
+            known_measurements.add(key)
+    _save_candidate_journal(deps, outcome, "numerically_stabilized")
+
+    trunks = {candidate.target_precision: candidate for candidate in outcome.numerical_candidates}
+
+    async def qualify(target: Any, precision: str) -> QualificationResult:
+        candidate = trunks.get(precision, outcome.candidate)
+        resource = target.resource or deps.execution.default_resource
+        async with scheduler.resource_slot(resource):
+            return await qualify_candidate(config, deps.execution, candidate, target, precision)
+
+    qualification_calls = (
+        []
+        if outcome.qualifications
+        else [
+            qualify(target, precision)
+            for target in config.compatibility.compile_targets
+            for precision in target.precisions
+        ]
+    )
+    if qualification_calls:
+        outcome.qualifications = list(await asyncio.gather(*qualification_calls))
+    failed_trunks = {
+        item.candidate_id for item in outcome.qualifications if item.required and not item.passed
+    }
+    if outcome.candidate.candidate_id in failed_trunks:
+        outcome.candidate.status = Status.REJECTED
+        outcome.candidate.diagnostics.extend(
+            Diagnostic(
+                gate="compiler-qualification",
+                message=f"{item.target_id}/{item.precision}: {item.status}; {item.notes}",
+            )
+            for item in outcome.qualifications
+            if item.candidate_id == outcome.candidate.candidate_id and not item.passed
+        )
+    for candidate in outcome.numerical_candidates:
+        if candidate.candidate_id in failed_trunks:
+            candidate.status = Status.REJECTED
+            promoted.pop(candidate.target_precision or "", None)
+    _save_candidate_journal(deps, outcome, "targets_qualified")
+
+    promoted_cells = {
+        cell
+        for cell in target_cells
+        if cell[1] in promoted and promoted[cell[1]].status == Status.OK
+    }
+    base_target_cells = target_cells - promoted_cells
+    if _audit_candidate(config, outcome.candidate.candidate_id):
+        base_target_cells |= promoted_cells
+    measured_base_cells = {
+        (point.backend, point.precision)
+        for point in outcome.base_measurements
+        if point.variant_id == f"{outcome.candidate.candidate_id}-base"
+    }
+    base_target_cells -= measured_base_cells
+    if base_target_cells and outcome.candidate.status == Status.OK:
+        base_target = await _measure_cells(
+            deps,
+            oracle,
+            outcome,
+            outcome.candidate,
+            backends,
+            base_target_cells,
+            journal_stage="target_measuring",
+        )
+        outcome.base_measurements.extend(base_target)
+    for precision, variant in promoted.items():
+        cells = {cell for cell in promoted_cells if cell[1] == precision}
+        cells -= {
+            (point.backend, point.precision)
+            for point in outcome.measurements
+            if point.variant_id == variant.variant_id
+        }
+        if not cells:
+            continue
+        candidate = next(
+            item for item in outcome.numerical_candidates if item.candidate_id == variant.variant_id
+        )
+        await _measure_cells(
+            deps,
+            oracle,
+            outcome,
+            candidate,
+            backends,
+            cells,
+            compensation=variant.technique,
+            variant_id=variant.variant_id,
+            journal_stage="target_measuring",
+        )
+    _save_candidate_journal(deps, outcome, "targets_measured")
+
+    candidate_map = {
+        candidate.candidate_id: candidate
+        for candidate in [outcome.candidate, *outcome.numerical_candidates]
+    }
+    repaired_keys = {
+        (candidate.parent_candidate_id, candidate.target_backend, candidate.target_precision)
+        for candidate in outcome.compatibility_candidates
+    }
+    failures = [
+        point
+        for point in select_compatibility_failures(config, outcome.measurements)
+        if (
+            point.variant_id if point.compensation != "none" else point.candidate_id,
+            point.backend,
+            point.precision,
+        )
+        not in repaired_keys
+    ]
+    repairs = [
+        scheduler.run_model(
+            partial(
+                repair_accelerator_candidate,
+                config,
+                oracle,
+                deps.run_dir,
+                deps.execution,
+                candidate_map[
+                    point.variant_id if point.compensation != "none" else point.candidate_id
+                ],
+                point,
+                backend_map[point.backend],
+            )
+        )
+        for point in failures
+    ]
+    repaired = list(await asyncio.gather(*repairs)) if repairs else []
+    outcome.compatibility_candidates.extend(candidate for candidate, _ in repaired)
+    outcome.measurements.extend(
+        measurement for _, measurement in repaired if measurement is not None
+    )
+    _save_candidate_journal(deps, outcome, "complete")
+    return outcome
+
+
 async def _candidate_flow(
     deps: PipelineDeps,
     oracle: OracleResult,
@@ -600,6 +990,9 @@ async def _candidate_flow(
     if stage == "complete" or outcome.candidate.status != Status.OK:
         _save_candidate_journal(deps, outcome, "complete")
         return outcome
+
+    if config.screening_backend is not None:
+        return await _screened_candidate_flow(deps, oracle, outcome, backends)
 
     if stage == "generated":
 
@@ -789,7 +1182,9 @@ def _merge_outcome(state: PipelineState, outcome: CandidateOutcome) -> None:
         state.valid_candidates.append(outcome.candidate)
     state.numerical_candidates.extend(outcome.numerical_candidates)
     state.compatibility_candidates.extend(outcome.compatibility_candidates)
-    state.valid_candidates.extend(outcome.numerical_candidates)
+    state.valid_candidates.extend(
+        item for item in outcome.numerical_candidates if item.status == Status.OK
+    )
     state.valid_candidates.extend(
         item for item in outcome.compatibility_candidates if item.status == Status.OK
     )
@@ -1017,6 +1412,17 @@ async def _finalize_step(ctx: PipelineStepContext[None]) -> tuple[int, Path]:
             },
             "planner": state.planner_record,
             "scheduler": config.scheduler.model_dump(mode="json"),
+            "screening": {
+                **config.screening.model_dump(mode="json"),
+                "resolved_backend": config.screening_backend,
+                "flow": (
+                    "gpu-screen-promote-target"
+                    if config.screening_backend is not None
+                    else "all-backend-legacy"
+                ),
+                "promotion_scope": "portable-repairs-by-precision",
+                "target_specific_repairs_promoted": False,
+            },
             "qualifications": [item.to_dict() for item in state.qualification_results],
             "pruning": [item.to_dict() for item in state.pruning_decisions],
             "checkpoint": {

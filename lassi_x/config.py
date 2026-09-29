@@ -340,6 +340,30 @@ class PruningConfig(StrictModel):
     probe_precision: Precision = "fp32"
 
 
+def _default_screening_precisions() -> list[Precision]:
+    return ["fp16", "bf16"]
+
+
+class ScreeningConfig(StrictModel):
+    """GPU-first numerical screening before expensive accelerator builds.
+
+    When ``backend`` is omitted, the first configured non-CPU Torch backend is
+    selected. If no such backend exists, the pipeline retains the legacy
+    all-backend measurement flow. Successful portable numerical repairs are
+    promoted only for their target precision.
+    """
+
+    enabled: bool = True
+    backend: str | None = None
+    precisions: list[Precision] = Field(
+        default_factory=_default_screening_precisions,
+        min_length=1,
+    )
+    smoke_precision: Precision = "fp32"
+    promote_repairs: bool = True
+    audit_fraction: float = Field(default=0.1, ge=0.0, le=1.0)
+
+
 class ParetoConfig(StrictModel):
     """The scientific objective used on every latency/error frontier."""
 
@@ -529,6 +553,7 @@ class RunConfig(StrictModel):
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     pruning: PruningConfig = Field(default_factory=PruningConfig)
+    screening: ScreeningConfig = Field(default_factory=ScreeningConfig)
     runs_dir: Path = Path("runs")
 
     @model_validator(mode="after")
@@ -601,6 +626,29 @@ class RunConfig(StrictModel):
                 or self.pruning.probe_precision not in probe_spec.precisions
             ):
                 raise ValueError("pruning probe must name a configured backend/precision cell")
+        if self.screening.backend is not None:
+            if self.screening.backend not in backend_names:
+                raise ValueError("screening.backend must name a measurement backend")
+            screening_spec = next(
+                spec for spec in self.measure.backends if spec.name == self.screening.backend
+            )
+            if (
+                screening_spec.type != "torch"
+                or str(screening_spec.device).partition(":")[0] == "cpu"
+            ):
+                raise ValueError("screening.backend must be a non-CPU Torch backend")
+            requested = {*self.screening.precisions, self.screening.smoke_precision}
+            unavailable = sorted(
+                precision
+                for precision in requested
+                if precision not in self.measure.precisions
+                or precision not in screening_spec.precisions
+            )
+            if unavailable:
+                raise ValueError(
+                    "screening precisions must be configured on the screening backend: "
+                    + ", ".join(unavailable)
+                )
         compile_target_ids = [target.target_id for target in self.compatibility.compile_targets]
         if len(compile_target_ids) != len(set(compile_target_ids)):
             raise ValueError("compatibility.compile_targets target_id values must be unique")
@@ -694,6 +742,23 @@ class RunConfig(StrictModel):
             if spec.type in {"groq", "native"}
             or (spec.type == "torch" and str(spec.device).partition(":")[0] != "cpu")
         ]
+
+    @property
+    def screening_backend(self) -> str | None:
+        """Resolve the explicit or automatic non-CPU Torch screening backend."""
+
+        if not self.screening.enabled:
+            return None
+        if self.screening.backend is not None:
+            return self.screening.backend
+        for spec in self.measure.backends:
+            if spec.type == "torch" and str(spec.device).partition(":")[0] != "cpu":
+                requested = {*self.screening.precisions, self.screening.smoke_precision}
+                if requested.issubset(set(spec.precisions)) and requested.issubset(
+                    set(self.measure.precisions)
+                ):
+                    return spec.name
+        return None
 
     @classmethod
     def load(cls, path: Path) -> RunConfig:

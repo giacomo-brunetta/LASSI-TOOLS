@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "status": "legacy",
+  "scope": "All files and directories already present recursively under runs/ at marked_at_utc",
+  "marked_at_utc": "2026-09-29T19:12:44Z",
+  "superseded_by_policy": "bounded-tool-output-v1",
+  "publishable": false,
+  "resume_allowed": false,
+  "baseline_reuse_allowed": false,
+  "required_action": "Rerun the complete three-phase campaign from C-to-Torch generation",
+  "reason": "The earlier protocol allowed oversized tool output to consume excessive model context during agentic repair",
+  "note": "LEGACY.md"
+}

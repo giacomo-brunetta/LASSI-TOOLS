@@ -26,6 +26,12 @@ hiding failures, uncertainty, or tradeoffs behind a single aggregate score.
 5. Retain dominated, unsupported, rejected, and failed points in the run record for auditability.
 6. Treat close latency measurements cautiously when run counts or variability are insufficient.
 
+## Bounded diagnostics
+
+Do not print complete measurement or frontier files. Query counts and selected fields, summarize
+points by status/backend/precision, and inspect only the small set needed to explain a frontier
+decision. Keep each tool response under 100 lines and approximately 8 KiB.
+
 ## Evidence standard
 
 Report candidate, variant, backend, precision roles, compensation, latency, error metrics,

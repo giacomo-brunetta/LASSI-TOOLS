@@ -28,6 +28,12 @@ if TYPE_CHECKING:
     from lassi_x.config import BackendConfig
 
 
+def test_compatibility_prompt_bounds_graph_and_tool_output() -> None:
+    assert "Bounded tool output (hard requirement)" in accelerator.COMPATIBILITY_SYSTEM
+    assert "bounded-tool-output-v1" in accelerator.COMPATIBILITY_SYSTEM
+    assert "Never print complete compiler" in accelerator.COMPATIBILITY_SYSTEM
+
+
 def _point(backend: str, precision: str, status: Status) -> Measurement:
     return Measurement(
         kernel="tiny",

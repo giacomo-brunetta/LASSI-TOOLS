@@ -100,9 +100,19 @@ compensation:
   # source is generated per candidate/precision family, then broadcast to all
   # backends before target-specific compatibility branches are created.
   error_threshold: 0.01
-  error_metric: max_rel_error
+  error_metric: relative_l2
   comparison_scope: same_candidate
   measurement_scope: all
+
+# Screen numerical behavior on CUDA before building the promoted portable
+# source on Groq or other accelerators. Omit backend for automatic selection.
+screening:
+  enabled: true
+  backend: cuda
+  precisions: [fp16, bf16]
+  smoke_precision: fp32
+  promote_repairs: true
+  audit_fraction: 0.1
 
 compatibility:
   enabled: true
@@ -135,7 +145,7 @@ pruning:
 # The frontier and compensation loops share this objective. Omit the section to
 # use compensation.error_metric.
 pareto:
-  error_metric: max_rel_error
+  error_metric: relative_l2
 
 # By default every configured non-CPU backend is required. List targets explicitly
 # to make the acceptance contract auditable, or use [] for exploratory runs.

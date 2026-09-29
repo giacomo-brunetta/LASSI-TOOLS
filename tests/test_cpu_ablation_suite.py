@@ -80,7 +80,9 @@ def test_prepare_configures_scheduler(tmp_path: Path) -> None:
         pytest.skip("PolyBench/C 4.2.1 source tree not installed")
     model = {"provider": "custom", "model": "test-model"}
     models = tmp_path / "models.yaml"
-    models.write_text(yaml.safe_dump({"planner": model, "candidates": [model], "compensation": model}))
+    models.write_text(
+        yaml.safe_dump({"planner": model, "candidates": [model], "compensation": model})
+    )
     output = tmp_path / "campaign"
     result = cli(
         "prepare",

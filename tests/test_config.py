@@ -343,6 +343,30 @@ def test_pruning_requires_an_architectural_accelerator_probe(tmp_path: Path) -> 
     assert RunConfig.model_validate(data).pruning.enabled
 
 
+def test_screening_auto_selects_gpu_and_validates_explicit_backend(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["precisions"] = ["fp32", "fp16", "bf16"]
+    data["measure"]["backends"].append(
+        {
+            "type": "torch",
+            "name": "cuda",
+            "device": "cuda:0",
+            "precisions": ["fp32", "fp16", "bf16"],
+        }
+    )
+    config = RunConfig.model_validate(data)
+    assert config.screening_backend == "cuda"
+    assert config.screening.audit_fraction == 0.1
+
+    data["screening"] = {"backend": "cpu"}
+    with pytest.raises(ValidationError, match="non-CPU Torch"):
+        RunConfig.model_validate(data)
+
+    data["screening"] = {"backend": "cuda", "precisions": ["fp64"]}
+    with pytest.raises(ValidationError, match="screening precisions"):
+        RunConfig.model_validate(data)
+
+
 def test_scheduler_resource_limits_must_name_configured_resources(tmp_path: Path) -> None:
     data = minimal_config(tmp_path)
     data["scheduler"] = {"resource_concurrency": {"missing": 2}}

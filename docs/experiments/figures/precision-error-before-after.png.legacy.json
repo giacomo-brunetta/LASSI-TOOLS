@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "artifact": "precision-error-before-after.png",
+  "status": "legacy",
+  "publishable": false,
+  "superseded_by_policy": "bounded-tool-output-v1",
+  "required_action": "Regenerate only from the complete replacement campaign",
+  "status_note": "docs/experiments/README.md"
+}

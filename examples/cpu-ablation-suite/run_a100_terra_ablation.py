@@ -176,7 +176,11 @@ def execute(plan: Path) -> int:
         if result.returncode:
             failures += 1
             state["failures"].append(
-                {"model": entry["model"], "kernel": entry["kernel"], "returncode": result.returncode}
+                {
+                    "model": entry["model"],
+                    "kernel": entry["kernel"],
+                    "returncode": result.returncode,
+                }
             )
         save()
     state["status"] = "finished_with_failures" if failures else "finished"
@@ -188,7 +192,9 @@ def execute(plan: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true", help="Run all prepared accelerator jobs")
-    parser.add_argument("--detach", action="store_true", help="Run in the background and log output")
+    parser.add_argument(
+        "--detach", action="store_true", help="Run in the background and log output"
+    )
     parser.add_argument("--run-plan", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.run_plan:

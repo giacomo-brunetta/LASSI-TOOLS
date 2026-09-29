@@ -51,6 +51,13 @@ def test_system_prompts_define_concrete_roles_without_project_branding() -> None
     assert "LASSI-X" not in arena.CANDIDATE_SYSTEM
 
 
+def test_only_execution_capable_arena_prompt_has_bounded_output_policy() -> None:
+    assert "Bounded tool output (hard requirement)" in arena.CANDIDATE_SYSTEM
+    assert "bounded-tool-output-v1" in arena.CANDIDATE_SYSTEM
+    assert "approximately 8 KiB" in arena.CANDIDATE_SYSTEM
+    assert "Bounded tool output" not in arena.PLANNER_SYSTEM
+
+
 def test_groq_generation_prompt_requires_compatibility_preflight(tmp_path: Path) -> None:
     data = minimal_config(tmp_path)
     data["measure"]["backends"].append(

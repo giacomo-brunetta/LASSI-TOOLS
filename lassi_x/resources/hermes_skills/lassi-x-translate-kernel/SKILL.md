@@ -36,7 +36,17 @@ authority.
    precision, A100, or the `torch-mlir-tosa` compiler target.
 9. Preserve FP64 behavior first. Avoid accidental broadcasting, reassociation, aliasing, and
    premature low-precision initialization.
-10. Run `python -m py_compile TARGET` and inspect the complete target once more.
+10. Run `python -m py_compile TARGET` and review the target's structure and changed sections once
+    more without printing the complete file into the conversation.
+
+## Bounded diagnostics
+
+- Read source files in targeted sections and do not reread unchanged content already present in
+  the conversation. Use symbol searches, line ranges, and summaries rather than whole-file output.
+- Do not print complete graphs, tensors, generated files, validation logs, or large diffs. Save
+  complete diagnostics as artifacts and inspect excerpts under 100 lines and 8 KiB.
+- Inventory expected operators from source structure or a compact operator histogram; never dump a
+  complete traced or exported graph.
 
 ## Evidence standard
 

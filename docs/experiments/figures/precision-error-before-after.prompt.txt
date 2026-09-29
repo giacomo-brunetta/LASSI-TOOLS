@@ -1,3 +1,5 @@
+LEGACY RESULT — provenance/forensic use only. The underlying campaign predates bounded-tool-output-v1 and must be rerun from phase 1. See docs/experiments/README.md. Do not regenerate or publish this figure as a current result.
+
 Use case: infographic-diagram.
 Create a polished scientific presentation infographic, exact 2:1 horizontal canvas, white/off-white background, crisp readable typography, restrained navy, blue and teal palette.
 Title verbatim: "Precision error: before and after correction"

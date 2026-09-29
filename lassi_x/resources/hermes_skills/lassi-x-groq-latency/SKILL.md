@@ -35,6 +35,13 @@ across disconnected submitter and worker hosts, and classify every terminal stat
 9. Include only valid paired device latency/error points in performance comparisons unless
    estimates are clearly labeled and analyzed separately.
 
+## Bounded diagnostics
+
+Do not return complete compiler, placement, queue, or worker logs. Retain them as request artifacts
+and report terminal state, root diagnostic, implicated operator or phase, and a short relevant tail.
+Inspect further excerpts only for a specific unresolved question, with at most 100 lines or 8 KiB
+per tool response. Never print the complete compiled graph.
+
 ## Evidence standard
 
 Report request ID, source identity, queried operators and wiki results, precision capabilities,

@@ -27,8 +27,14 @@ def main() -> int:
         output.mkdir(parents=True)
         with (output / "launcher.log").open("x") as log:
             process = subprocess.Popen(
-                [sys.executable, "-u", str(Path(__file__).resolve()), str(manifest_path),
-                 "--output", str(output)],
+                [
+                    sys.executable,
+                    "-u",
+                    str(Path(__file__).resolve()),
+                    str(manifest_path),
+                    "--output",
+                    str(output),
+                ],
                 cwd=root,
                 stdin=subprocess.DEVNULL,
                 stdout=log,
@@ -44,8 +50,12 @@ def main() -> int:
         raise ValueError(f"Refusing to overwrite launcher status: {status_path}")
     manifest = json.loads(manifest_path.read_text())
     executable = root / ".venv/bin/lassi-x"
-    state = {"pid": os.getpid(), "started_at": datetime.now(UTC).isoformat(),
-             "status": "running", "kernels": []}
+    state = {
+        "pid": os.getpid(),
+        "started_at": datetime.now(UTC).isoformat(),
+        "status": "running",
+        "kernels": [],
+    }
 
     def save() -> None:
         status_path.write_text(json.dumps(state, indent=2) + "\n")
@@ -55,8 +65,11 @@ def main() -> int:
         name = spec["name"]
         run_jsons = sorted((manifest_path.parent / "runs" / name).glob("*/run.json"))
         records = [(path, json.loads(path.read_text())) for path in run_jsons]
-        if any(record.get("status") == "cpu_verified" and
-               record.get("accuracy", {}).get("kernel_solved") for _, record in records):
+        if any(
+            record.get("status") == "cpu_verified"
+            and record.get("accuracy", {}).get("kernel_solved")
+            for _, record in records
+        ):
             continue
         latest_path, latest = records[-1]
         run_dir = latest_path.parent
@@ -70,8 +83,12 @@ def main() -> int:
         if exact_resume:
             command.extend(["--resume", str(run_dir)])
         command.extend(["--until", "cpu-verified"])
-        entry = {"kernel": name, "mode": "resume" if exact_resume else "fresh",
-                 "source_run": str(run_dir), "status": "running"}
+        entry = {
+            "kernel": name,
+            "mode": "resume" if exact_resume else "fresh",
+            "source_run": str(run_dir),
+            "status": "running",
+        }
         state["kernels"].append(entry)
         save()
         print(subprocess.list2cmdline(command), flush=True)
