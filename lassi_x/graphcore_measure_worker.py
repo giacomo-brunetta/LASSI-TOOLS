@@ -75,7 +75,18 @@ def _flatten(output: Any) -> np.ndarray:
     return np.concatenate(flattened) if flattened else np.asarray([], dtype=np.float64)
 
 
-def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float) -> dict[str, Any]:
+def _component_sizes(output: Any) -> list[int]:
+    values = output if isinstance(output, (tuple, list)) else (output,)
+    return [int(_flatten(value).size) for value in values]
+
+
+def _compare(
+    candidate: np.ndarray,
+    oracle: np.ndarray,
+    rtol: float,
+    atol: float,
+    component_sizes: list[int] | None = None,
+) -> dict[str, Any]:
     if candidate.shape != oracle.shape:
         raise ValueError(f"shape mismatch: candidate {candidate.shape}, oracle {oracle.shape}")
     if not np.isfinite(candidate).all() or not np.isfinite(oracle).all():
@@ -84,9 +95,23 @@ def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float
     denominator = np.maximum(np.abs(oracle), max(atol, 1e-30))
     max_abs = float(difference.max()) if difference.size else 0.0
     max_rel = float((difference / denominator).max()) if difference.size else 0.0
-    relative_l2 = float(
+    aggregate_relative_l2 = float(
         np.linalg.norm(candidate - oracle) / max(float(np.linalg.norm(oracle)), 1e-30)
     )
+    component_relative_l2 = [aggregate_relative_l2]
+    if component_sizes and sum(component_sizes) == candidate.size:
+        component_relative_l2 = []
+        offset = 0
+        for size in component_sizes:
+            expected = oracle[offset : offset + size]
+            actual = candidate[offset : offset + size]
+            component_relative_l2.append(
+                float(
+                    np.linalg.norm(actual - expected) / max(float(np.linalg.norm(expected)), 1e-30)
+                )
+            )
+            offset += size
+    relative_l2 = max(component_relative_l2, default=aggregate_relative_l2)
     equivalent = bool(np.allclose(candidate, oracle, rtol=rtol, atol=atol))
     return {
         "equivalent": equivalent,
@@ -102,6 +127,7 @@ def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float
             "max_abs_error": max_abs,
             "max_rel_error": max_rel,
             "relative_l2": relative_l2,
+            "aggregate_relative_l2": aggregate_relative_l2,
         },
     }
 
@@ -245,7 +271,13 @@ def main() -> int:
         if not np.array_equal(candidate, repeated, equal_nan=True):
             raise RuntimeError("IPU output is nondeterministic across identical evaluation inputs")
         phase = "evaluation_comparison"
-        comparison = _compare(candidate, _load_oracle(args.oracle), args.rtol, args.atol)
+        comparison = _compare(
+            candidate,
+            _load_oracle(args.oracle),
+            args.rtol,
+            args.atol,
+            _component_sizes(timed_output),
+        )
         equivalent = bool(comparison["equivalent"])
         valid = equivalent or not args.require_equivalence
         declared = getattr(module, "LASSI_PRECISION", {}) or {}

@@ -56,7 +56,7 @@ def campaign(tmp_path: Path) -> Path:
 
 def test_suite_configs_and_preview(campaign: Path) -> None:
     manifest = json.loads((campaign / "suite.json").read_text())
-    assert len(manifest["entries"]) == 35
+    assert len(manifest["entries"]) == 39
     for entry in manifest["entries"]:
         config = RunConfig.load(campaign / entry["config"])
         assert config.execution.mode == "local"
@@ -67,7 +67,7 @@ def test_suite_configs_and_preview(campaign: Path) -> None:
         assert all(config.resolve_project_path(p).is_file() for p in config.kernel.context)
     preview = cli("run", str(campaign / "suite.json"))
     assert preview.returncode == 0, preview.stderr
-    assert preview.stdout.count("--until cpu-verified") == 35
+    assert preview.stdout.count("--until cpu-verified") == 39
     assert not (campaign / "runs").exists()
     unknown = cli("run", str(campaign / "suite.json"), "--only", "typo")
     assert unknown.returncode != 0
@@ -251,7 +251,7 @@ def test_all_polybench_and_science_oracles(campaign: Path) -> None:
         pytest.skip("C compiler unavailable")
     result = cli("run", str(campaign / "suite.json"), "--check-oracles")
     assert result.returncode == 0, result.stderr
-    assert result.stdout.count("oracle OK") == 35
+    assert result.stdout.count("oracle OK") == 39
     # Independently check the scalar mutual-information fixture analytically.
     config = RunConfig.load(campaign / "configs/mutual-information.yaml")
     oracle = asyncio.run(build_oracle(config, campaign / "mi-independent"))
@@ -297,23 +297,152 @@ def scientific_expected(name: str, n: int, steps: int) -> NDArray[np.float64]:
             k4 = rhs(state + 0.001 * k3)
             state += 0.001 * (k1 + 2 * k2 + 2 * k3 + k4) / 6
         return state.ravel()
-    matrix = 2 * np.eye(n) - np.eye(n, k=1) - np.eye(n, k=-1)
-    x = np.zeros(n)
-    r = 1.0 + np.sin(0.3 * (indices + 1))
-    p = r.copy()
-    rr = r @ r
-    for _ in range(10):
-        ap = matrix @ p
-        alpha = rr / (p @ ap)
-        x += alpha * p
-        r -= alpha * ap
-        next_rr = r @ r
-        p = r + (next_rr / rr) * p
-        rr = next_rr
-    return x
+    if name == "poisson-cg":
+        matrix = 2 * np.eye(n) - np.eye(n, k=1) - np.eye(n, k=-1)
+        x = np.zeros(n)
+        r = 1.0 + np.sin(0.3 * (indices + 1))
+        p = r.copy()
+        rr = r @ r
+        for _ in range(10):
+            ap = matrix @ p
+            alpha = rr / (p @ ap)
+            x += alpha * p
+            r -= alpha * ap
+            next_rr = r @ r
+            p = r + (next_rr / rr) * p
+            rr = next_rr
+        return x
+    if name == "jpeg-dct":
+        rows = indices[:, None]
+        columns = indices[None, :]
+        image = (
+            96
+            + 28 * np.sin(2 * np.pi * rows / n)
+            + 19 * np.cos(4 * np.pi * columns / n)
+            + 0.15 * rows
+            + 0.08 * columns
+            + 7 * np.sin(2 * np.pi * (rows + columns) / n)
+        )
+        coordinate = np.arange(8)
+        basis = np.cos(np.pi * (2 * coordinate[None, :] + 1) * coordinate[:, None] / 16)
+        basis[0] /= np.sqrt(2)
+        quantum = 1 + 0.75 * (coordinate[:, None] + coordinate[None, :])
+        reconstructed = np.empty_like(image)
+        nonzero = 0
+        for row in range(0, n, 8):
+            for column in range(0, n, 8):
+                block = image[row : row + 8, column : column + 8]
+                coefficients = np.round((0.25 * basis @ block @ basis.T) / quantum) * quantum
+                reconstructed[row : row + 8, column : column + 8] = (
+                    0.25 * basis.T @ coefficients @ basis
+                )
+                nonzero += int(np.count_nonzero(coefficients))
+        mse = np.mean((reconstructed - image) ** 2)
+        return np.concatenate([reconstructed.ravel(), [mse, nonzero]])
+    if name == "wavelet-compression":
+        rows = indices[:, None]
+        columns = indices[None, :]
+        image = (
+            64
+            + 18 * np.sin(2 * rows / n)
+            + 11 * np.cos(3 * columns / n)
+            + 0.2 * ((rows // 8 + columns // 8) % 2)
+            + 0.04 * rows * columns / n
+        )
+        coefficients = image.copy()
+        root = np.sqrt(2)
+        width = n
+        for _ in range(3):
+            half = width // 2
+            temporary = np.empty((width, width))
+            temporary[:, :half] = (
+                coefficients[:width, :width:2] + coefficients[:width, 1:width:2]
+            ) / root
+            temporary[:, half:] = (
+                coefficients[:width, :width:2] - coefficients[:width, 1:width:2]
+            ) / root
+            coefficients[:half, :width] = (temporary[::2] + temporary[1::2]) / root
+            coefficients[half:width, :width] = (temporary[::2] - temporary[1::2]) / root
+            width = half
+        detail = np.ones((n, n), dtype=bool)
+        detail[:width, :width] = False
+        coefficients[detail & (np.abs(coefficients) < 0.6)] = 0
+        retained = np.count_nonzero(coefficients)
+        width *= 2
+        for _ in range(3):
+            half = width // 2
+            temporary = np.empty((width, width))
+            temporary[::2] = (coefficients[:half, :width] + coefficients[half:width, :width]) / root
+            temporary[1::2] = (
+                coefficients[:half, :width] - coefficients[half:width, :width]
+            ) / root
+            coefficients[:width, :width:2] = (temporary[:, :half] + temporary[:, half:]) / root
+            coefficients[:width, 1:width:2] = (temporary[:, :half] - temporary[:, half:]) / root
+            width *= 2
+        mse = np.mean((coefficients - image) ** 2)
+        return np.concatenate([coefficients.ravel(), [mse, retained]])
+    if name == "low-rank-compression":
+        rows = indices[:, None] + 1
+        columns = indices[None, :] + 1
+        image = (
+            2 * np.sin(0.07 * rows) * np.cos(0.11 * columns)
+            + 1.3 * np.cos(0.03 * rows) * np.sin(0.05 * columns)
+            + 0.8 * rows * columns / (n * n)
+            + 0.12 * np.sin(0.013 * rows * columns)
+        )
+        residual = image.copy()
+        approximation = np.zeros_like(image)
+        for component in range(4):
+            right = 1 + 0.01 * (indices + component)
+            right /= np.linalg.norm(right)
+            for _ in range(8):
+                left = residual @ right
+                left /= np.linalg.norm(left)
+                right = residual.T @ left
+                right /= np.linalg.norm(right)
+            singular_value = left @ residual @ right
+            contribution = singular_value * np.outer(left, right)
+            approximation += contribution
+            residual -= contribution
+        relative_energy = np.sum(residual * residual) / np.sum(image * image)
+        return np.concatenate([approximation.ravel(), [relative_energy, 4]])
+    if name == "iir-filter-bank":
+        b0 = [0.06745527, 0.20657208, 0.39133577, 0.63894553]
+        b1 = [0.13491055, 0.41314417, 0.0, -1.27789105]
+        b2 = [0.06745527, 0.20657208, -0.39133577, 0.63894553]
+        a1 = [-1.14298050, -0.36952738, -0.36952738, -1.14298050]
+        a2 = [0.41280160, 0.19581571, 0.21767222, 0.41280160]
+        signal = (
+            np.sin(0.09 * indices)
+            + 0.35 * np.cos(0.31 * indices)
+            + 0.12 * np.sin(0.71 * indices)
+            + 0.5 * (indices % 17 == 0)
+        )
+        output = np.empty((4, n))
+        for filter_index in range(4):
+            state_one = state_two = 0.0
+            for sample, value in enumerate(signal):
+                result = b0[filter_index] * value + state_one
+                state_one = b1[filter_index] * value - a1[filter_index] * result + state_two
+                state_two = b2[filter_index] * value - a2[filter_index] * result
+                output[filter_index, sample] = result
+        return output.ravel()
+    raise AssertionError(f"Missing independent oracle for {name}")
 
 
-@pytest.mark.parametrize("name", ["direct-dft", "softened-nbody", "lorenz-rk4", "poisson-cg"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "direct-dft",
+        "softened-nbody",
+        "lorenz-rk4",
+        "poisson-cg",
+        "jpeg-dct",
+        "wavelet-compression",
+        "low-rank-compression",
+        "iir-filter-bank",
+    ],
+)
 @pytest.mark.parametrize(
     "profile,n,steps", [("mini", 32, 20), ("small", 64, 50), ("medium", 128, 100)]
 )

@@ -196,6 +196,7 @@ def compare_outputs(
     rtol: float,
     atol: float,
     max_mismatches: int,
+    component_sizes: list[int] | None = None,
 ) -> tuple[bool, Diagnostic | None, dict[str, float]]:
     candidate = np.asarray(candidate, dtype=np.float64).reshape(-1)
     reference = np.asarray(reference, dtype=np.float64).reshape(-1)
@@ -216,10 +217,27 @@ def compare_outputs(
     denominator = np.maximum(np.abs(reference), max(atol, 1e-30))
     relative = delta / denominator
     reference_norm = max(float(np.linalg.norm(reference)), 1e-30)
+    aggregate_relative_l2 = float(np.linalg.norm(candidate - reference) / reference_norm)
+    component_relative_l2 = [aggregate_relative_l2]
+    if component_sizes and sum(component_sizes) == candidate.size:
+        component_relative_l2 = []
+        offset = 0
+        for size in component_sizes:
+            candidate_component = candidate[offset : offset + size]
+            reference_component = reference[offset : offset + size]
+            component_norm = max(float(np.linalg.norm(reference_component)), 1e-30)
+            component_relative_l2.append(
+                float(np.linalg.norm(candidate_component - reference_component) / component_norm)
+            )
+            offset += size
     metrics = {
         "max_abs_error": float(delta.max(initial=0.0)),
         "max_rel_error": float(relative.max(initial=0.0)),
-        "relative_l2": float(np.linalg.norm(candidate - reference) / reference_norm),
+        # The worst top-level output prevents a large tensor from hiding the
+        # failure of a smaller returned output. Single-output candidates reduce
+        # to the conventional aggregate relative L2 metric.
+        "relative_l2": max(component_relative_l2, default=aggregate_relative_l2),
+        "aggregate_relative_l2": aggregate_relative_l2,
     }
     close = np.isclose(candidate, reference, rtol=rtol, atol=atol)
     if bool(close.all()):

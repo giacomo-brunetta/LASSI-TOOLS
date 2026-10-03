@@ -482,8 +482,12 @@ Torch computes error from the final timed iteration's device output. Groq's benc
 return an output, so the worker evaluates the exact same compiled model and static input mapping on
 the LPU and compares that result; both values remain part of one measurement transaction.
 
-Every successful latency therefore carries `max_abs_error`, `max_rel_error`, `relative_l2`, and an
-optional invariant from the same workload. Missing, non-finite, nondeterministic, or unverified
+Every successful latency therefore carries `max_abs_error`, `max_rel_error`, worst-output
+`relative_l2`, aggregate `aggregate_relative_l2`, and an optional invariant from the same workload.
+The default accuracy policy retains results below 10% relative L2 error, marks results above 1%
+and below 10% as concerning and repairable, and preserves but excludes results at or above 10% as
+catastrophic. See the [numerical accuracy policy](docs/experiments/numerical-accuracy-policy.md).
+Missing, non-finite, nondeterministic, or unverified
 device output changes the cell to `diverged` with `failure_kind: missing_accuracy_latency_pair`.
 If accelerator evaluation uses the CPU-validation dataset, it reuses the main oracle. Otherwise,
 provide the matching evaluation oracle explicitly:
@@ -627,6 +631,6 @@ original C FP64 oracle, and measures CPU and CUDA low-precision error.
 
 For broader model comparisons through CPU verification, see the
 [`CPU ablation suite`](examples/cpu-ablation-suite/README.md): 24 representative
-PolyBench kernels plus five scientific kernels, optionally all 30 PolyBench kernels.
+PolyBench kernels plus nine scientific kernels, optionally all 30 PolyBench kernels.
 It provides campaign configuration generation, C-only oracle checks, CPU-only batch
 launching, outcome CSVs and frozen-baseline accelerator follow-up instructions.

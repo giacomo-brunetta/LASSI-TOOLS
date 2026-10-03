@@ -1,5 +1,18 @@
 # Experiment result status
 
+The replacement campaigns use the [numerical accuracy policy](numerical-accuracy-policy.md) for
+error bands, catastrophic exclusion, repair eligibility, and error/latency frontiers.
+
+## Current clean results
+
+The Luna and Terra MINI C-to-Torch CPU-verification campaigns completed under
+`bounded-tool-output-v1`. The results are recorded in
+[the medium-effort model comparison](c-to-torch-model-comparison-medium-20261002.md).
+This is phase 1 only; accelerator and numerical-correction phases have not been run
+for these campaigns. The raw run corpus and hashed manifests remain in ignored
+`runs/cpu-luna-medium-20261002-retry2/` and
+`runs/cpu-terra-medium-20261002-retry2/` directories in the originating workspace.
+
 > **Legacy-results notice (September 29, 2026):** Every result generated before
 > `2026-09-29T19:12:44Z`, and every report or figure in this directory derived
 > from those results, is legacy. These artifacts are retained for provenance and
@@ -27,12 +40,12 @@ version. The ignored raw corpus is marked recursively by `runs/LEGACY.md` and
 
 ## Legacy published artifacts
 
-- `a100-terra-cpu-baseline-ablation-20260926-compensation.md`
-- `a100-terra-cpu-baseline-ablation-20260926-compensation.csv`
-- `figures/cpu-model-success-rates.json`
-- `figures/cpu-model-success-rates.svg`
-- `figures/precision-error-before-after.png`
-- `figures/precision-error-before-after.prompt.txt`
+- `legacy/a100-terra-cpu-baseline-ablation-20260926-compensation.md`
+- `legacy/a100-terra-cpu-baseline-ablation-20260926-compensation.csv`
+- `legacy/figures/cpu-model-success-rates.json`
+- `legacy/figures/cpu-model-success-rates.svg`
+- `legacy/figures/precision-error-before-after.png`
+- `legacy/figures/precision-error-before-after.prompt.txt`
 
 This list is a status declaration, not a deletion: the historical values remain
 available to explain prior decisions and diagnose the quota failure.

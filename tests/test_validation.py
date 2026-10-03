@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
+import numpy as np
+import pytest
 import yaml
 
 from lassi_x.config import RunConfig
@@ -10,6 +12,7 @@ from lassi_x.execution import LocalExecutionBackend
 from lassi_x.protocol import ExecRequest, ExecResult
 from lassi_x.validation import (
     build_oracle,
+    compare_outputs,
     scrape_polybench_dump,
     validate_candidate,
     validate_fp32_collapse,
@@ -19,8 +22,6 @@ from .test_config import minimal_config
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
 C_REFERENCE = r"""
 #include <stdio.h>
@@ -116,6 +117,21 @@ def test_polybench_dump_parser_ignores_labels() -> None:
         "end   dump: G\n==END   DUMP_ARRAYS==\n"
     )
     assert values.tolist() == [1.0, 2.5]
+
+
+def test_relative_l2_uses_worst_top_level_output() -> None:
+    reference = np.asarray([100.0, 100.0, 1.0])
+    candidate = np.asarray([100.0, 100.0, 1.2])
+    _, _, metrics = compare_outputs(
+        candidate,
+        reference,
+        rtol=0.0,
+        atol=0.0,
+        max_mismatches=3,
+        component_sizes=[2, 1],
+    )
+    assert metrics["relative_l2"] == pytest.approx(0.2)
+    assert metrics["aggregate_relative_l2"] < 0.002
 
 
 def test_compile_timeout_is_a_structured_diagnostic(

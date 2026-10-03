@@ -263,7 +263,9 @@ def _default_precisions() -> list[Precision]:
 
 
 def _default_strict_precisions() -> list[Precision]:
-    return ["fp64", "fp32"]
+    # Legacy configuration field. Accelerator acceptance is now governed by
+    # AccuracyPolicyConfig for every precision.
+    return []
 
 
 class MeasureConfig(StrictModel):
@@ -281,6 +283,26 @@ class MeasureConfig(StrictModel):
     performance_dataset: str = "default"
     performance_oracle: Path | None = None
     verify_performance_output: bool = True
+
+
+class AccuracyPolicyConfig(StrictModel):
+    """Accuracy bands for accelerator measurements.
+
+    CPU translation continues to use ``arena.equivalence``. Accelerator results
+    are observations for an error/latency comparison and are rejected only when
+    their worst-output relative L2 error is catastrophic.
+    """
+
+    concerning_relative_l2: float = Field(default=1e-2, ge=0.0)
+    catastrophic_relative_l2: float = Field(default=1e-1, gt=0.0)
+
+    @model_validator(mode="after")
+    def ordered_thresholds(self) -> AccuracyPolicyConfig:
+        if self.concerning_relative_l2 >= self.catastrophic_relative_l2:
+            raise ValueError(
+                "accuracy.concerning_relative_l2 must be below accuracy.catastrophic_relative_l2"
+            )
+        return self
 
 
 def _default_repair_statuses() -> list[Literal["crashed", "no_fit"]]:
@@ -510,7 +532,7 @@ class CompensationConfig(StrictModel):
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
     error_threshold: float | None = Field(default=1e-2, ge=0.0)
-    error_metric: ErrorMetric = "max_rel_error"
+    error_metric: ErrorMetric = "relative_l2"
     comparison_scope: Literal["same_candidate", "cross_candidate"] = "same_candidate"
     # Kept for configuration compatibility. Portable numerical variants are always
     # broadcast across all cells; "target" now only describes the motivating evidence.
@@ -546,6 +568,7 @@ class RunConfig(StrictModel):
     models: ModelsConfig
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     measure: MeasureConfig
+    accuracy: AccuracyPolicyConfig = Field(default_factory=AccuracyPolicyConfig)
     compatibility: CompatibilityConfig = Field(default_factory=CompatibilityConfig)
     compensation: CompensationConfig = Field(default_factory=CompensationConfig)
     pareto: ParetoConfig = Field(default_factory=ParetoConfig)

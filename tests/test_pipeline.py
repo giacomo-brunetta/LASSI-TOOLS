@@ -50,6 +50,7 @@ def measured(
         output_precision="fp16",
         latency_s=1.0,
         max_rel_error=error,
+        relative_l2=error,
         evaluation_output_checked=True,
         evaluation_output_finite=True,
         evaluation_semantic_verified=True,
@@ -62,7 +63,7 @@ def measured(
 def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeypatch: Any) -> None:
     data = minimal_config(tmp_path)
     data["runs_dir"] = str(tmp_path / "runs")
-    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "all"}
+    data["compensation"] = {"error_threshold": 0.01, "measurement_scope": "all"}
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(data))
     module = tmp_path / "candidate.py"
@@ -70,7 +71,7 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
     oracle_path = tmp_path / "oracle.npy"
     np.save(oracle_path, np.asarray([1.0, 2.0, 3.0]))
     candidate = Candidate("c1", "model", None, "direct", module, status=Status.OK)
-    base_point = measured(module, variant_id="c1-base", compensation="none", error=0.5)
+    base_point = measured(module, variant_id="c1-base", compensation="none", error=0.05)
     captured_specs: list[tuple[str, str, Path, str, str, str]] = []
 
     async def fake_oracle(config: object, run_dir: object) -> OracleResult:
@@ -131,7 +132,7 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
             specs[0][2],
             variant_id=specs[0][1],
             compensation=specs[0][3],
-            error=0.01,
+            error=0.005,
         )
         callback = kwargs.get("on_result")
         if callable(callback):
@@ -192,7 +193,7 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
 ) -> None:
     data = minimal_config(tmp_path)
     data["runs_dir"] = str(tmp_path / "runs")
-    data["compensation"] = {"error_threshold": 0.1, "measurement_scope": "all"}
+    data["compensation"] = {"error_threshold": 0.01, "measurement_scope": "all"}
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(data))
     module = tmp_path / "candidate.py"
@@ -200,7 +201,7 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
     oracle_path = tmp_path / "oracle.npy"
     np.save(oracle_path, np.asarray([1.0, 2.0, 3.0]))
     candidate = Candidate("c1", "model", None, "direct", module, status=Status.OK)
-    base_point = measured(module, variant_id="c1-base", compensation="none", error=0.01)
+    base_point = measured(module, variant_id="c1-base", compensation="none", error=0.005)
 
     async def fake_oracle(config: object, run_dir: object) -> OracleResult:
         del config, run_dir
@@ -305,7 +306,7 @@ def test_gpu_screening_promotes_repair_before_target_builds(
         "smoke_precision": "fp32",
         "audit_fraction": audit_fraction,
     }
-    data["compensation"] = {"error_threshold": 0.1}
+    data["compensation"] = {"error_threshold": 0.01}
     config = RunConfig.model_validate(data)
     module = tmp_path / "candidate.py"
     module.write_text(GOOD_MODULE)
@@ -364,7 +365,7 @@ def test_gpu_screening_promotes_repair_before_target_builds(
         calls.append((path, cells))
         results = []
         for backend, precision in cells:
-            error = 0.5 if backend == "cuda" and precision == "fp16" else 0.01
+            error = 0.05 if backend == "cuda" and precision == "fp16" else 0.005
             result = point(path, backend, precision, variant_id, compensation, error)
             results.append(result)
             on_result(result)
@@ -385,7 +386,7 @@ def test_gpu_screening_promotes_repair_before_target_builds(
             target_backends=["cuda"],
         )
         variant.target_measurements = [
-            point(repaired_module, "cuda", "fp16", variant.variant_id, "kahan", 0.01)
+            point(repaired_module, "cuda", "fp16", variant.variant_id, "kahan", 0.005)
         ]
         return variant
 

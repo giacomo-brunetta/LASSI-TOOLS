@@ -1,6 +1,6 @@
 # CPU-verification ablation suite
 
-The default campaign covers **24 of the 30 PolyBench/C 4.2.1 kernels plus five
+The default campaign covers **24 of the 30 PolyBench/C 4.2.1 kernels plus nine
 scientific kernels**. It stops at local FP64 CPU verification and publishes an
 immutable CPU baseline for each successful run. No accelerator endpoint is needed.
 
@@ -12,16 +12,17 @@ immutable CPU baseline for each successful run. No accelerator endpoint is neede
 | Factorizations / recurrences | cholesky, durbin, gramschmidt, lu |
 | Filters / dynamic programming | deriche, floyd-warshall, nussinov |
 | Stencils / PDEs | adi, fdtd-2d, heat-3d, jacobi-2d, seidel-2d |
-| Scientific additions | direct-dft, softened-nbody, lorenz-rk4, poisson-cg, mutual-information |
+| Scientific additions | direct-dft, softened-nbody, lorenz-rk4, poisson-cg, mutual-information, jpeg-dct, wavelet-compression, low-rank-compression, iir-filter-bank |
 
 `--full-polybench` adds 2mm, symm, syrk, ludcmp, trisolv and jacobi-1d for a
-35-kernel campaign. The core prioritizes distinct computational patterns over
+39-kernel campaign. The core prioritizes distinct computational patterns over
 near-duplicate BLAS operations. It retains dependency-heavy kernels that may
 be difficult to accelerate: correctness or compilation failures are useful results.
 
 The scientific additions exercise transcendental reductions, all-pairs forces,
 batched nonlinear ODE integration, fixed-iteration sparse conjugate gradient and
-information-theoretic reductions. The four standalone C fixtures are deliberately
+information-theoretic reductions, lossy image transforms, low-rank approximation
+and recurrent digital filtering. The eight standalone C fixtures are deliberately
 small, deterministic validation problems, not established benchmark-suite results.
 Mutual information uses the existing scientific reference in this repository.
 
@@ -80,7 +81,7 @@ python examples/cpu-ablation-suite/suite.py run \
 python examples/cpu-ablation-suite/suite.py summary runs/cpu-suite-mini-luna/suite.json
 ```
 
-A core run requests 87 candidates, plus 29 planner calls and up to two correction
+A core run requests 99 candidates, plus 33 planner calls and up to two correction
 rounds per candidate. This can consume substantial time and model quota. Execution
 continues after an individual benchmark fails and returns nonzero if any failed.
 Repeating `--execute` creates fresh attempts; it does not silently resume or skip
@@ -111,7 +112,7 @@ After the pilot, repeat with `--dataset small` in a new directory to expose more
 reduction and recurrence stress; optionally use MEDIUM. These are **different
 CPU baselines**, not larger accelerator inputs interchangeable with MINI. A
 small correctness fixture alone says little about accelerator throughput.
-The four standalone fixtures use sizes 32/64/128 and ODE step counts 20/50/100;
+The eight standalone fixtures use sizes 32/64/128 and ODE step counts 20/50/100;
 CG always performs ten iterations. PolyBench and mutual-information sizes come
 from their original headers.
 

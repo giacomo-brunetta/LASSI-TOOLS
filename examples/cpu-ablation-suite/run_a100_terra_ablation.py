@@ -96,7 +96,7 @@ def build_config(kernel: str, cpu_run: Path, baseline: Path, model: str) -> Path
     ]
     config["measure"]["warmup"] = 3
     config["measure"]["iterations"] = 20
-    config["measure"]["strict_precisions"] = ["fp64", "fp32"]
+    config["measure"]["strict_precisions"] = []
     config["success"] = {
         "required_backends": ["a100-cuda"],
         "required_precisions": {"a100-cuda": precisions},

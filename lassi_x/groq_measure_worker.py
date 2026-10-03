@@ -127,7 +127,18 @@ def _flatten(output: Any) -> np.ndarray:
     return np.concatenate(flattened) if flattened else np.asarray([], dtype=np.float64)
 
 
-def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float) -> dict[str, Any]:
+def _component_sizes(output: Any) -> list[int]:
+    values = output if isinstance(output, (tuple, list)) else (output,)
+    return [int(_flatten(value).size) for value in values]
+
+
+def _compare(
+    candidate: np.ndarray,
+    oracle: np.ndarray,
+    rtol: float,
+    atol: float,
+    component_sizes: list[int] | None = None,
+) -> dict[str, Any]:
     """Compute LASSI-X numeric metrics against the external oracle.
 
     Args:
@@ -154,7 +165,21 @@ def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float
     max_abs = float(difference.max()) if difference.size else 0.0
     max_rel = float((difference / denominator).max()) if difference.size else 0.0
     oracle_norm = float(np.linalg.norm(oracle))
-    relative_l2 = float(np.linalg.norm(candidate - oracle) / max(oracle_norm, 1e-30))
+    aggregate_relative_l2 = float(np.linalg.norm(candidate - oracle) / max(oracle_norm, 1e-30))
+    component_relative_l2 = [aggregate_relative_l2]
+    if component_sizes and sum(component_sizes) == candidate.size:
+        component_relative_l2 = []
+        offset = 0
+        for size in component_sizes:
+            expected = oracle[offset : offset + size]
+            actual = candidate[offset : offset + size]
+            component_relative_l2.append(
+                float(
+                    np.linalg.norm(actual - expected) / max(float(np.linalg.norm(expected)), 1e-30)
+                )
+            )
+            offset += size
+    relative_l2 = max(component_relative_l2, default=aggregate_relative_l2)
     equivalent = bool(np.allclose(candidate, oracle, rtol=rtol, atol=atol))
     return {
         "equivalent": equivalent,
@@ -170,6 +195,7 @@ def _compare(candidate: np.ndarray, oracle: np.ndarray, rtol: float, atol: float
             "max_abs_error": max_abs,
             "max_rel_error": max_rel,
             "relative_l2": relative_l2,
+            "aggregate_relative_l2": aggregate_relative_l2,
         },
     }
 
@@ -318,12 +344,19 @@ def main() -> int:
             samples.append(latency)
 
         phase = "evaluation_execution"
-        candidate = _flatten(_invoke(evaluation_model, evaluation_inputs))
+        evaluation_output = _invoke(evaluation_model, evaluation_inputs)
+        candidate = _flatten(evaluation_output)
         repeated = _flatten(_invoke(evaluation_model, evaluation_inputs))
         if not np.array_equal(candidate, repeated, equal_nan=True):
             raise RuntimeError("Groq output is nondeterministic across identical evaluation inputs")
         phase = "evaluation_comparison"
-        comparison = _compare(candidate, _load_oracle(args.oracle), args.rtol, args.atol)
+        comparison = _compare(
+            candidate,
+            _load_oracle(args.oracle),
+            args.rtol,
+            args.atol,
+            _component_sizes(evaluation_output),
+        )
         payload = {
             "ok": True,
             "valid": True,

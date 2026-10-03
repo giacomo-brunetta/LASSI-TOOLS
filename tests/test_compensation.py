@@ -53,6 +53,7 @@ def point(
         output_precision="fp16",
         latency_s=latency,
         max_rel_error=error,
+        relative_l2=error,
     )
 
 
@@ -96,6 +97,13 @@ def test_numerical_divergence_is_selected_but_execution_failures_are_not() -> No
     timeout = point("c2", error=0.0, status=Status.TIMEOUT)
     diverged = point("c3", error=0.0, status=Status.DIVERGED)
     assert compensation.select_weak_points([crashed, timeout, diverged]) == [diverged]
+
+
+def test_catastrophic_measurement_is_preserved_but_not_repaired() -> None:
+    catastrophic = point("c1", error=0.5, status=Status.DIVERGED)
+    catastrophic.numerically_catastrophic = True
+    catastrophic.accuracy_band = "catastrophic"
+    assert compensation.select_weak_points([catastrophic], error_threshold=0.01) == []
 
 
 def test_weak_points_share_one_portable_group_per_candidate_and_precision() -> None:
@@ -199,6 +207,7 @@ class ImprovingBackend(Backend[Any]):
         seed: int = 0,
     ) -> Measurement:
         del config, oracle, module_path, seed
+        error = next(self.errors)
         return Measurement(
             kernel="tiny",
             candidate_id=candidate_id,
@@ -213,7 +222,8 @@ class ImprovingBackend(Backend[Any]):
             accumulator_precision=precision,
             output_precision=precision,
             latency_s=1.0,
-            max_rel_error=next(self.errors),
+            max_rel_error=error,
+            relative_l2=error,
             evaluation_output_checked=True,
             evaluation_output_finite=True,
             evaluation_semantic_verified=True,

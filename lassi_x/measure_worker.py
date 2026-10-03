@@ -149,6 +149,7 @@ def main() -> int:
             rtol=args.rtol,
             atol=args.atol,
             max_mismatches=20,
+            component_sizes=[tensor.numel() for tensor in tensors],
         )
         valid = ok or (
             not args.require_equivalence

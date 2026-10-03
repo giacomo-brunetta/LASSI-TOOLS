@@ -107,9 +107,9 @@ def test_base_and_portable_numerical_sources_get_independent_platform_leaves(
 def test_compatibility_accuracy_gate_rejects_parent_regression(tmp_path: Path) -> None:
     config = RunConfig.model_validate(minimal_config(tmp_path))
     parent = _point("cpu", "fp16", Status.OK)
-    parent.max_rel_error = 0.01
+    parent.relative_l2 = 0.01
     patched = _point("cpu", "fp16", Status.OK)
-    patched.max_rel_error = 0.02
+    patched.relative_l2 = 0.02
     diagnostic = compatibility_accuracy_diagnostic(config, parent, patched)
     assert diagnostic is not None
     assert diagnostic.gate == "compatibility-accuracy"
@@ -120,10 +120,18 @@ def test_newly_executable_compatibility_leaf_must_meet_threshold(tmp_path: Path)
     config = RunConfig.model_validate(minimal_config(tmp_path))
     parent = _point("cpu", "fp16", Status.CRASHED)
     patched = _point("cpu", "fp16", Status.OK)
-    patched.max_rel_error = 0.02
+    patched.relative_l2 = 0.1
     diagnostic = compatibility_accuracy_diagnostic(config, parent, patched)
     assert diagnostic is not None
-    assert "exceeds the acceptance threshold" in diagnostic.message
+    assert "reaches the catastrophic threshold" in diagnostic.message
+
+
+def test_newly_executable_concerning_compatibility_leaf_is_retained(tmp_path: Path) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    parent = _point("cpu", "fp16", Status.CRASHED)
+    patched = _point("cpu", "fp16", Status.OK)
+    patched.relative_l2 = 0.05
+    assert compatibility_accuracy_diagnostic(config, parent, patched) is None
 
 
 class CompatibilitySession:
@@ -174,7 +182,7 @@ class EventuallyCompatibleBackend(Backend[Any]):
             accumulator_precision=precision,
             output_precision=precision,
             latency_s=None if self.calls == 1 else 1.0,
-            max_rel_error=None if self.calls == 1 else 0.1,
+            relative_l2=None if self.calls == 1 else 0.01,
             evaluation_output_checked=self.calls != 1,
             evaluation_output_finite=True if self.calls != 1 else None,
             evaluation_semantic_verified=self.calls != 1,
@@ -211,7 +219,7 @@ class DivergedBackend(Backend[Any]):
             accumulator_precision=precision,
             output_precision=precision,
             latency_s=1.0,
-            max_rel_error=0.1,
+            relative_l2=0.01,
             notes="strict precision mismatch",
         )
 

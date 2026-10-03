@@ -231,3 +231,31 @@ def _enforce_accuracy_latency_pair(measurement: Measurement) -> Measurement:
         "produce a finite device accuracy measurement against its oracle"
     ).strip("; ")
     return measurement
+
+
+def _enforce_numerical_accuracy_policy(config: RunConfig, measurement: Measurement) -> Measurement:
+    """Classify finite accelerator output without imposing FP64 equivalence on it."""
+
+    if measurement.status != Status.OK:
+        return measurement
+    error = measurement.relative_l2
+    if error is None or not math.isfinite(error):
+        return measurement
+    if error >= config.accuracy.catastrophic_relative_l2:
+        measurement.status = Status.DIVERGED
+        measurement.failure_kind = "numerical_catastrophe"
+        measurement.accuracy_band = "catastrophic"
+        measurement.numerically_catastrophic = True
+        measurement.catastrophic_reason = (
+            "worst-output relative_l2 "
+            f"{error:.8e} >= {config.accuracy.catastrophic_relative_l2:.8e}"
+        )
+        measurement.notes = (
+            f"{measurement.notes}; excluded from repair and frontier: "
+            f"{measurement.catastrophic_reason}"
+        ).strip("; ")
+    elif error > config.accuracy.concerning_relative_l2:
+        measurement.accuracy_band = "concerning"
+    else:
+        measurement.accuracy_band = "acceptable"
+    return measurement

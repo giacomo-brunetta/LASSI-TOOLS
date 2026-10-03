@@ -160,7 +160,9 @@ def test_success_defaults_to_all_configured_accelerators(tmp_path: Path) -> None
     )
     config = RunConfig.model_validate(data)
     assert config.required_backends == ["cuda"]
-    assert config.pareto_error_metric == "max_rel_error"
+    assert config.pareto_error_metric == "relative_l2"
+    assert config.accuracy.concerning_relative_l2 == 0.01
+    assert config.accuracy.catastrophic_relative_l2 == 0.1
     assert config.compensation.measurement_scope == "all"
 
 

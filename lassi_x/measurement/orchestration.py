@@ -158,15 +158,32 @@ async def _measure_compensated_cell(
                 "latency_s": sample.latency_s,
                 "max_rel_error": sample.max_rel_error,
                 "relative_l2": sample.relative_l2,
+                "aggregate_relative_l2": sample.aggregate_relative_l2,
             }
             for seed, sample in zip(seeds, samples, strict=False)
         ]
         valid_latencies = [sample.latency_s for sample in samples if sample.latency_s is not None]
         valid_rel = [sample.max_rel_error for sample in samples if sample.max_rel_error is not None]
+        valid_l2 = [sample.relative_l2 for sample in samples if sample.relative_l2 is not None]
+        valid_aggregate_l2 = [
+            sample.aggregate_relative_l2
+            for sample in samples
+            if sample.aggregate_relative_l2 is not None
+        ]
         if valid_latencies:
             primary.latency_s = statistics.median(valid_latencies)
         if valid_rel:
             primary.max_rel_error = statistics.mean(valid_rel)
+        if valid_l2:
+            primary.relative_l2 = max(valid_l2)
+        if valid_aggregate_l2:
+            primary.aggregate_relative_l2 = max(valid_aggregate_l2)
+        catastrophic = next((sample for sample in samples if sample.numerically_catastrophic), None)
+        if catastrophic is not None:
+            primary.numerically_catastrophic = True
+            primary.accuracy_band = "catastrophic"
+            primary.catastrophic_reason = catastrophic.catastrophic_reason
+            primary.failure_kind = "numerical_catastrophe"
         if any(sample.status != Status.OK for sample in samples):
             primary.status = Status.DIVERGED
     return primary

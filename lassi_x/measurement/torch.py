@@ -15,6 +15,7 @@ from .common import (
     _base_measurement,
     _enforce_accuracy_latency_pair,
     _enforce_architectural_timing,
+    _enforce_numerical_accuracy_policy,
     _evaluation_oracle_path,
     _timing_fields,
 )
@@ -225,8 +226,6 @@ class TorchBackend(Backend[TorchBackendConfig]):
                 "--invariant-threshold",
                 str(config.kernel.invariant_threshold),
             ]
-        if precision in config.measure.strict_precisions:
-            command.append("--require-equivalence")
         async with self.semaphore:
             result = await self.execution.execute(
                 ExecRequest(workspace=workspace, argv=command, timeout_s=self.spec.timeout_s)
@@ -299,6 +298,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),
+            aggregate_relative_l2=metrics.get("aggregate_relative_l2"),
             invariant_error=payload.get("invariant_error"),
             invariant_candidate=payload.get("invariant_candidate") or {},
             failure_kind=(
@@ -327,6 +327,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
             precision_meta.get("metadata_source", "candidate_declared")
         )
         measurement = _enforce_accuracy_latency_pair(measurement)
+        measurement = _enforce_numerical_accuracy_policy(config, measurement)
         if str(self.spec.device).startswith("cuda"):
             measurement = _enforce_architectural_timing(measurement)
         return measurement

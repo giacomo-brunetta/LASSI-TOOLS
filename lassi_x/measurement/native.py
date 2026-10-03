@@ -17,6 +17,7 @@ from .common import (
     _base_measurement,
     _enforce_accuracy_latency_pair,
     _enforce_architectural_timing,
+    _enforce_numerical_accuracy_policy,
     _evaluation_oracle_path,
     _timing_fields,
 )
@@ -144,8 +145,6 @@ class NativeBackend(Backend[NativeBackendConfig]):
         fixture = fixture_relative_path(config)
         if fixture is not None:
             command += ["--fixture", fixture]
-        if precision in config.measure.strict_precisions:
-            command.append("--require-equivalence")
         if worker.clock_hz is not None:
             command += ["--clock-hz", str(worker.clock_hz)]
         async with self.semaphore:
@@ -281,6 +280,7 @@ class NativeBackend(Backend[NativeBackendConfig]):
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),
+            aggregate_relative_l2=metrics.get("aggregate_relative_l2"),
             failure_kind="" if valid else "numerical_divergence",
             evaluation_output_checked=bool(evaluation.get("checked", False)),
             evaluation_output_finite=evaluation.get("finite"),
@@ -304,4 +304,5 @@ class NativeBackend(Backend[NativeBackendConfig]):
             precision_meta.get("metadata_source", "candidate_declared")
         )
         measurement = _enforce_accuracy_latency_pair(measurement)
+        measurement = _enforce_numerical_accuracy_policy(config, measurement)
         return _enforce_architectural_timing(measurement)

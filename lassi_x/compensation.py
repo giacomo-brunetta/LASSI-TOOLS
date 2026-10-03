@@ -173,6 +173,8 @@ def select_weak_points(
     low = [point for point in measurements if point.precision in {"fp16", "bf16"}]
     weak: list[Measurement] = []
     for point in low:
+        if point.numerically_catastrophic:
+            continue
         if point.status in {
             Status.CRASHED,
             Status.UNSUPPORTED,

@@ -80,6 +80,7 @@ def select_compatibility_failures(
             point
             for point in measurements
             if "compatibility" not in point.compensation
+            and not point.numerically_catastrophic
             and point.backend in accelerator_names
             and (
                 point.status in repair_statuses
@@ -146,18 +147,18 @@ def compatibility_accuracy_diagnostic(
                 f"parent={parent_error:.8e}, patched={patched_error:.8e}"
             ),
         )
-    threshold = config.compensation.error_threshold
+    threshold = config.accuracy.catastrophic_relative_l2
     if (
         parent_error is None
         and patched.precision in {"fp16", "bf16"}
         and threshold is not None
-        and patched_error > threshold
+        and patched_error >= threshold
     ):
         return Diagnostic(
             gate="compatibility-accuracy",
             message=(
                 f"compatibility patch became executable but device {metric}={patched_error:.8e} "
-                f"exceeds the acceptance threshold {threshold:.8e}"
+                f"reaches the catastrophic threshold {threshold:.8e}"
             ),
         )
     return None

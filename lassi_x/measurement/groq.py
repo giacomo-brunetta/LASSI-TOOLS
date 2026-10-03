@@ -21,6 +21,7 @@ from .common import (
     _base_measurement,
     _enforce_accuracy_latency_pair,
     _enforce_architectural_timing,
+    _enforce_numerical_accuracy_policy,
     _evaluation_oracle_path,
     _SubmitTimeoutError,
     _timing_fields,
@@ -328,6 +329,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                     max_abs_error=payload.get("max_abs_error"),
                     max_rel_error=payload.get("max_rel_error"),
                     relative_l2=payload.get("relative_l2"),
+                    aggregate_relative_l2=payload.get("aggregate_relative_l2"),
                     invariant_error=payload.get("invariant_error"),
                     evaluation_output_checked=bool(payload.get("accuracy_checked", False)),
                     evaluation_output_finite=payload.get("accuracy_finite"),
@@ -340,6 +342,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                     notes=str(payload.get("notes") or ""),
                 )
                 measurement = _enforce_accuracy_latency_pair(measurement)
+                measurement = _enforce_numerical_accuracy_policy(config, measurement)
                 return _enforce_architectural_timing(measurement)
             await asyncio.sleep(0.5)
         destination.unlink(missing_ok=True)
@@ -912,6 +915,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
             max_abs_error=metrics.get("max_abs_error"),
             max_rel_error=metrics.get("max_rel_error"),
             relative_l2=metrics.get("relative_l2"),
+            aggregate_relative_l2=metrics.get("aggregate_relative_l2"),
             evaluation_output_checked=bool(evaluation_meta.get("checked", False)),
             evaluation_output_finite=evaluation_meta.get("finite"),
             evaluation_output_numel=evaluation_meta.get("numel"),
@@ -937,6 +941,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
             precision_meta.get("metadata_source", "backend_contract")
         )
         measurement = _enforce_accuracy_latency_pair(measurement)
+        measurement = _enforce_numerical_accuracy_policy(config, measurement)
         return _enforce_architectural_timing(measurement)
 
 

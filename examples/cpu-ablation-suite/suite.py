@@ -40,6 +40,10 @@ SCIENCE = {
     "softened-nbody": "particle physics: all-pairs gravitational acceleration",
     "lorenz-rk4": "ODE integration: fixed-step fourth-order Runge-Kutta",
     "poisson-cg": "iterative sparse solve: fixed-iteration conjugate gradient",
+    "jpeg-dct": "lossy image compression: block DCT, quantization and reconstruction",
+    "wavelet-compression": "lossy image compression: multilevel Haar thresholding",
+    "low-rank-compression": "lossy image compression: fixed-iteration power deflation",
+    "iir-filter-bank": "signal processing: recurrent biquad filter bank",
 }
 
 

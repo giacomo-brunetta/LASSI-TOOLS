@@ -62,3 +62,10 @@ def test_host_latency_cannot_dominate_architectural_accelerator_frontier() -> No
     accelerator.backend = "a100"
     accelerator.timing_protocol = "architectural-single-call-v1"
     assert frontier_indices([host, accelerator]) == [1]
+
+
+def test_frontier_excludes_preserved_catastrophic_measurement() -> None:
+    catastrophic = point(1.0, 0.2)
+    catastrophic.numerically_catastrophic = True
+    catastrophic.accuracy_band = "catastrophic"
+    assert frontier_indices([catastrophic]) == []

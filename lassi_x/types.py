@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -157,6 +158,7 @@ class Measurement:
     max_abs_error: float | None = None
     max_rel_error: float | None = None
     relative_l2: float | None = None
+    aggregate_relative_l2: float | None = None
     invariant_error: float | None = None
     invariant_candidate: dict[str, Any] = field(default_factory=dict)
     invariant_oracle: dict[str, Any] = field(default_factory=dict)
@@ -164,22 +166,47 @@ class Measurement:
     notes: str = ""
     source_hash: str = ""
     source_integrity_verified: bool = False
+    accuracy_band: str = "unclassified"
+    numerically_catastrophic: bool = False
+    catastrophic_reason: str = ""
 
     @property
     def y_error(self) -> float | None:
         value = getattr(self, self.error_metric, None)
         return float(value) if value is not None else None
 
+    @property
+    def frontier_eligible(self) -> bool:
+        """Whether this record may participate in an error/latency frontier."""
+
+        return (
+            self.status == Status.OK
+            and not self.numerically_catastrophic
+            and self.latency_s is not None
+            and self.y_error is not None
+            and math.isfinite(self.latency_s)
+            and math.isfinite(self.y_error)
+            and self.latency_s > 0
+            and self.y_error >= 0
+            and self.evaluation_output_checked
+            and self.evaluation_output_finite is True
+            and self.evaluation_semantic_verified
+            and bool(self.accuracy_source)
+            and self.timing_protocol == "architectural-single-call-v1"
+        )
+
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["status"] = self.status.value
         data["y_error"] = self.y_error
+        data["frontier_eligible"] = self.frontier_eligible
         return data
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> Measurement:
         data = dict(value)
         data.pop("y_error", None)
+        data.pop("frontier_eligible", None)
         data["status"] = Status(data["status"])
         return cls(**data)
 

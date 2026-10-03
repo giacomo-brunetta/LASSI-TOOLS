@@ -26,6 +26,7 @@ from lassi_x.config import (
 )
 from lassi_x.execution import LocalExecutionBackend
 from lassi_x.measurement import Backend, GroqBackend, NativeBackend, TorchBackend
+from lassi_x.measurement.common import _enforce_numerical_accuracy_policy
 from lassi_x.protocol import ExecRequest, ExecResult
 from lassi_x.types import Measurement, Status
 from lassi_x.validation import OracleResult, build_oracle, compare_outputs
@@ -73,6 +74,32 @@ def setup_run(tmp_path: Path) -> tuple[RunConfig, Path, OracleResult]:
     oracle_path = tmp_path / "oracle.npy"
     np.save(oracle_path, np.asarray([1.0]))
     return config, module, OracleResult(oracle_path, np.asarray([1.0]))
+
+
+def test_ten_percent_relative_l2_is_catastrophic(tmp_path: Path) -> None:
+    config, module, _ = setup_run(tmp_path)
+    result = _enforce_numerical_accuracy_policy(
+        config,
+        Measurement(
+            kernel="tiny",
+            candidate_id="c1",
+            variant_id="c1-base",
+            backend="cuda",
+            precision="fp16",
+            compensation="none",
+            status=Status.OK,
+            module_path=str(module),
+            storage_precision="fp16",
+            operator_precision="fp16",
+            accumulator_precision="fp16",
+            output_precision="fp16",
+            relative_l2=0.1,
+        ),
+    )
+    assert result.status == Status.DIVERGED
+    assert result.numerically_catastrophic
+    assert result.accuracy_band == "catastrophic"
+    assert "relative_l2" in result.catastrophic_reason
 
 
 def test_groq_relative_error_uses_the_same_near_zero_scale_as_torch(
@@ -153,6 +180,8 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
                 "latency_s": 0.001,
                 "min_s": 0.001,
                 "max_rel_error": 0.02,
+                "relative_l2": 0.02,
+                "aggregate_relative_l2": 0.02,
                 "accuracy_checked": True,
                 "accuracy_finite": True,
                 "accuracy_numel": 1,
@@ -178,6 +207,9 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
     assert result.status == Status.OK
     assert result.latency_s == 0.001
     assert result.max_rel_error == 0.02
+    assert result.relative_l2 == 0.02
+    assert result.accuracy_band == "concerning"
+    assert result.frontier_eligible
 
 
 class FakePBSExecutionBackend(LocalExecutionBackend):
