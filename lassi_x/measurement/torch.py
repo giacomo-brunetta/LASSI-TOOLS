@@ -218,7 +218,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
             config.evaluation_dataset,
         ]
         audit_required = self.spec.precision_audit != "off" or (
-                precision in {"fp32", "fp16", "bf16"}
+            precision in {"fp32", "fp16", "bf16"}
             and config.compensation.arithmetic_policy == "target_format_only"
         )
         if audit_required:

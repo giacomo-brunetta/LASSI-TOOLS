@@ -2,6 +2,7 @@
 
 This does not establish GPU compiler behavior, LARGE accuracy, or performance.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -37,19 +38,25 @@ def main():
                         continue
                     precisions = (
                         [candidate.get("target_precision")]
-                        if group == "compatibility_candidates" else ["fp16", "bf16"]
+                        if group == "compatibility_candidates"
+                        else ["fp16", "bf16"]
                     )
                     for precision in precisions:
                         if precision not in {"fp16", "bf16"}:
                             continue
                         result = {
-                            "campaign": campaign, "kernel": saved["kernel"],
-                            "candidate": candidate["candidate_id"], "precision": precision,
-                            "group": group, "module": candidate["module_path"],
+                            "campaign": campaign,
+                            "kernel": saved["kernel"],
+                            "candidate": candidate["candidate_id"],
+                            "precision": precision,
+                            "group": group,
+                            "module": candidate["module_path"],
                         }
                         try:
                             signal.alarm(5)
-                            spec = importlib.util.spec_from_file_location("saved_audit", candidate["module_path"])
+                            spec = importlib.util.spec_from_file_location(
+                                "saved_audit", candidate["module_path"]
+                            )
                             module = importlib.util.module_from_spec(spec)
                             spec.loader.exec_module(module)
                             dtype = torch.float16 if precision == "fp16" else torch.bfloat16
@@ -60,16 +67,25 @@ def main():
                             report = audit_forward(module.make_model().eval(), inputs, dtype)
                             report["violation_count"] = len(report["violations"])
                             report["violations"] = report["violations"][:3]
-                            result.update(status="passed" if report["passed"] else "violation", audit=report)
+                            result.update(
+                                status="passed" if report["passed"] else "violation", audit=report
+                            )
                         except Exception as exc:
                             result.update(status="unresolved", error=f"{type(exc).__name__}: {exc}")
                         finally:
                             signal.alarm(0)
                         records.append(result)
-    print(json.dumps({
-        "scope": "Actual MINI CPU forward dtype audit, not GPU/LARGE certification. Unresolved cases are not passes.",
-        "records": records,
-    }))
+    print(
+        json.dumps(
+            {
+                "scope": (
+                    "Actual MINI CPU forward dtype audit, not GPU/LARGE certification. "
+                    "Unresolved cases are not passes."
+                ),
+                "records": records,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 Does not run LARGE validation, collect timings, or certify accelerator internals.
 Original campaign seeds and measurements are never modified.
 """
+
 from __future__ import annotations
 
 import ast
@@ -48,10 +49,11 @@ def main() -> None:
                         if (
                             attr in {"float", "double", "item", "tolist", "numpy", "type"}
                             or any(x in text for x in ("torch.float32", "torch.float64"))
-                        ):
+                        ) and attr in {"float", "double", "item", "tolist", "numpy", "type", "to"}:
                             # Keep the innermost relevant call as review evidence.
-                            if attr in {"float", "double", "item", "tolist", "numpy", "type", "to"}:
-                                review.append({"function": fn.name, "line": node.lineno, "expression": text})
+                            review.append(
+                                {"function": fn.name, "line": node.lineno, "expression": text}
+                            )
             cid, precision = cell["candidate_id"], cell["precision"]
             invalid = (
                 (kernel == "direct-dft" and cid == "c3" and precision == "bf16")
@@ -77,21 +79,46 @@ def main() -> None:
                 report = audit_forward(module.make_model().eval(), inputs, dtype)
                 if report["passed"]:
                     raise AssertionError(f"Expected promotion not observed: {path}")
-            entries.append({
-                "kernel": kernel, "candidate": cid, "precision": precision,
-                "module": str(path), "sha256": digest,
-                "classification": "invalid_precision_promotion" if invalid else "no_explicit_violation_found_in_source_review",
-                "source_review_findings": review,
-                "small_cpu_runtime_confirmation": report,
-            })
-    print(json.dumps({
-        "policy": "observed-eager-dtype-v2; wide setup constants and unused buffers allowed; target-format forward arithmetic required",
-        "scope": "All 192 frozen Terra baseline precision cells, 33 kernels; source inspection plus small CPU forward confirmation of eight promotions. Not a full runtime audit of the other 184 cases, nor LARGE accuracy/performance validation.",
-        "source_review_notes": "ADI CPU-FP64-only fallback is outside low-precision GPU path. Wider input initialization and setup constants are allowed. Unused dtype-specific buffers are allowed.",
-        "total_cells": len(entries),
-        "invalid_precision_cells": sum(e["classification"] == "invalid_precision_promotion" for e in entries),
-        "entries": entries,
-    }, indent=2))
+            entries.append(
+                {
+                    "kernel": kernel,
+                    "candidate": cid,
+                    "precision": precision,
+                    "module": str(path),
+                    "sha256": digest,
+                    "classification": "invalid_precision_promotion"
+                    if invalid
+                    else "no_explicit_violation_found_in_source_review",
+                    "source_review_findings": review,
+                    "small_cpu_runtime_confirmation": report,
+                }
+            )
+    print(
+        json.dumps(
+            {
+                "policy": (
+                    "observed-eager-dtype-v2; wide setup constants and unused buffers allowed; "
+                    "target-format forward arithmetic required"
+                ),
+                "scope": (
+                    "All 192 frozen Terra baseline precision cells, 33 kernels; source inspection "
+                    "plus small CPU forward confirmation of eight promotions. Not a full runtime "
+                    "audit of the other 184 cases, nor LARGE accuracy/performance validation."
+                ),
+                "source_review_notes": (
+                    "ADI CPU-FP64-only fallback is outside low-precision GPU path. Wider input "
+                    "initialization and setup constants are allowed. Unused dtype-specific "
+                    "buffers are allowed."
+                ),
+                "total_cells": len(entries),
+                "invalid_precision_cells": sum(
+                    e["classification"] == "invalid_precision_promotion" for e in entries
+                ),
+                "entries": entries,
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -279,7 +279,8 @@ async def execute(plan: Path) -> int:
             return 1
         record.update(status="complete", finished_at=datetime.now(UTC).isoformat())
         record["numerically_stable_precisions"] = [
-            measurement["precision"] for measurement in record["measurements"]
+            measurement["precision"]
+            for measurement in record["measurements"]
             if measurement["status"] == "ok"
             and measurement.get("relative_l2") is not None
             and measurement["relative_l2"] <= config.accuracy.concerning_relative_l2
