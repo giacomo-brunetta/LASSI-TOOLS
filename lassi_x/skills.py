@@ -172,6 +172,7 @@ def automation_skill_prompt(role: str) -> str:
     Other installed skills remain available through the skill tool. Required numerical
     technique guidance is inline too; executable templates remain tool-accessible files.
     """
+    names: tuple[str, ...]
     if role.startswith("compensation-"):
         names = (
             "lassi-x-fp-error-diagnose",
