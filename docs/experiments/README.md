@@ -5,6 +5,11 @@ error bands, catastrophic exclusion, repair eligibility, and error/latency front
 
 ## Current clean results
 
+The [frozen CPU results](cpu-results-frozen-20261016.md) report the original
+33-kernel Luna, Terra, and GPT-OSS campaigns, with a hashed evidence index.
+The later five-kernel policy refresh is frozen separately, not pooled into the
+original full-suite success rates. These are CPU FP64 translation outcomes only.
+
 The Luna and Terra MINI C-to-Torch CPU-verification campaigns completed under
 `bounded-tool-output-v1`. The results are recorded in
 [the medium-effort model comparison](c-to-torch-model-comparison-medium-20261002.md).
