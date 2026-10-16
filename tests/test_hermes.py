@@ -114,10 +114,12 @@ def test_worker_discovers_mcp_tools_before_constructing_agent(
         role="candidate",
         toolsets=["lassi-x-c1"],
         reasoning_effort="xhigh",
+        providers_allowed=["groq"],
     )
     assert isinstance(create_agent(request, None), FakeAgent)
     assert events == ["discover", "construct"]
     assert agent_kwargs["reasoning_config"] == {"enabled": True, "effort": "xhigh"}
+    assert agent_kwargs["providers_allowed"] == ["groq"]
 
 
 def test_worker_rejects_missing_workspace_tools(monkeypatch: pytest.MonkeyPatch) -> None:

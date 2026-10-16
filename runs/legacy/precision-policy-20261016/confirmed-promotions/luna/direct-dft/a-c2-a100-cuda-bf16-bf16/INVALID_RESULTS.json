@@ -1,0 +1,28 @@
+{
+  "model": "luna",
+  "kernel": "direct-dft",
+  "candidate": "a-c2-a100-cuda-bf16",
+  "precision": "bf16",
+  "module": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-luna-from-terra-20261013/runs/direct-dft/20261014T031930.001648Z-direct-dft-mini/workspaces/a-c2-a100-cuda-bf16/candidate.py",
+  "reason": "Confirmed wider computation or wrong-format supplied input",
+  "evidence": {
+    "protocol": "observed-eager-dtype-v2",
+    "operations": 14,
+    "passed": false,
+    "violations": [
+      "aten._to_copy.default output: torch.float32, required torch.bfloat16",
+      "aten.arange.default output: torch.float32, required torch.bfloat16",
+      "aten.unsqueeze.default input: torch.float32, required torch.bfloat16"
+    ],
+    "scope": "explicit tensor arithmetic; implicit hardware accumulation not certified",
+    "constant_policy": "wide stored constants and unused buffers allowed; cast before arithmetic",
+    "violation_count": 20
+  },
+  "original_campaign": "a100-luna-from-terra-20261013",
+  "valid_results": false,
+  "publishable": false,
+  "resume_allowed": false,
+  "source_sha256": "ad05d1b13d89008e18652b9bdc44d5c841f6c01948b9b669696d7cd189b18375",
+  "actual_source_location": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-luna-from-terra-20261013/runs/direct-dft/20261014T031930.001648Z-direct-dft-mini/workspaces/a-c2-a100-cuda-bf16/candidate.py",
+  "scope": "Requested bf16 only; valid FP64 CPU evidence is retained"
+}

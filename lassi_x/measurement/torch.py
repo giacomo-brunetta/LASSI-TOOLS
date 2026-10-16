@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..config import TorchBackendConfig
@@ -12,6 +13,7 @@ from ..types import Measurement, Status
 from ..validation import fixture_relative_path
 from .common import (
     Backend,
+    _attach_precision_evidence,
     _base_measurement,
     _enforce_accuracy_latency_pair,
     _enforce_architectural_timing,
@@ -22,7 +24,6 @@ from .common import (
 
 if TYPE_CHECKING:
     import asyncio
-    from pathlib import Path
 
     from ..config import RunConfig
     from ..execution import ExecutionBackend
@@ -216,6 +217,53 @@ class TorchBackend(Backend[TorchBackendConfig]):
             "--dataset",
             config.evaluation_dataset,
         ]
+        audit_required = self.spec.precision_audit != "off" or (
+                precision in {"fp32", "fp16", "bf16"}
+            and config.compensation.arithmetic_policy == "target_format_only"
+        )
+        if audit_required:
+            audit_source = Path(__file__).resolve().parents[1] / "precision_audit_worker.py"
+            await put_bytes(
+                self.execution, workspace, ".lassi-precision-audit.py", audit_source.read_bytes()
+            )
+            if self.spec.precision_audit_reference is not None:
+                await put_bytes(
+                    self.execution,
+                    workspace,
+                    ".lassi-audit-base.py",
+                    self.spec.precision_audit_reference.read_bytes(),
+                )
+                command += ["--audit-baseline", ".lassi-audit-base.py"]
+            bootstrap = (
+                "import os,runpy,sys; "
+                f"os.environ['LASSI_DTYPE_AUDIT_MODE']={self.spec.precision_audit!r}; "
+                "sys.argv=['.lassi-precision-audit.py',*sys.argv[1:]]; "
+            )
+            if self.spec.cuda_memory_limit_mb is not None:
+                bootstrap += (
+                    "import torch; "
+                    f"device=torch.device({str(self.spec.device)!r}); "
+                    "total=torch.cuda.get_device_properties(device).total_memory; "
+                    "torch.cuda.set_per_process_memory_fraction("
+                    f"min(1.0,{self.spec.cuda_memory_limit_mb}*1024**2/total)); "
+                )
+            bootstrap += "runpy.run_path('.lassi-precision-audit.py',run_name='__main__')"
+            command[1:3] = ["-c", bootstrap]
+        elif self.spec.cuda_memory_limit_mb is not None:
+            if not str(self.spec.device).startswith("cuda"):
+                raise ValueError("cuda_memory_limit_mb requires a CUDA device")
+            # Bootstrap on the worker without requiring a remote package upgrade.
+            bootstrap = (
+                "import runpy,sys,torch; "
+                f"device=torch.device({str(self.spec.device)!r}); "
+                "device=torch.cuda.current_device() if device.index is None else device.index; "
+                "total=torch.cuda.get_device_properties(device).total_memory; "
+                "torch.cuda.set_per_process_memory_fraction("
+                f"min(1.0,{self.spec.cuda_memory_limit_mb}*1024**2/total),device); "
+                "sys.argv=['lassi_x.measure_worker',*sys.argv[1:]]; "
+                "runpy.run_module('lassi_x.measure_worker',run_name='__main__')"
+            )
+            command[1:3] = ["-c", bootstrap]
         fixture = fixture_relative_path(config)
         if fixture is not None:
             command += ["--fixture", fixture]
@@ -248,8 +296,11 @@ class TorchBackend(Backend[TorchBackendConfig]):
             payload = json.loads(result.stdout.strip().splitlines()[-1])
         except (json.JSONDecodeError, IndexError):
             payload = {"ok": False, "error": (result.stderr or result.stdout)[-2000:]}
+        if audit_required:
+            audit_path = module_path.parent / f"{variant_id}-{precision}-dtype-audit.json"
+            audit_path.write_text(json.dumps(payload.get("dtype_audit", {}), indent=2) + "\n")
         if result.exit_code != 0 or not payload.get("ok"):
-            return _base_measurement(
+            failed = _base_measurement(
                 config,
                 self.spec,
                 module_path,
@@ -262,6 +313,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
                 failure_kind=str(payload.get("phase") or "worker_execution"),
                 notes=str(payload.get("error") or "measurement worker failed"),
             )
+            return _attach_precision_evidence(failed, payload)
         expected_source_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
         reported_source_hash = str(payload.get("source_hash") or "")
         if reported_source_hash and reported_source_hash != expected_source_hash:
@@ -326,6 +378,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
         measurement.precision_metadata_source = str(
             precision_meta.get("metadata_source", "candidate_declared")
         )
+        measurement = _attach_precision_evidence(measurement, payload)
         measurement = _enforce_accuracy_latency_pair(measurement)
         measurement = _enforce_numerical_accuracy_policy(config, measurement)
         if str(self.spec.device).startswith("cuda"):

@@ -1,0 +1,42 @@
+{
+  "model": "oss",
+  "kernel": "direct-dft",
+  "candidate": "c3",
+  "precision": "fp32",
+  "module": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-gpt-oss-120b-openrouter-groq-medium-20261015/runs/direct-dft/20261016T075021.169489Z-direct-dft-mini/workspaces/c3/candidate.py",
+  "source_hash": "e1b2af68740235a079011e83ced2ae91661a9b755a90ae2448c0cb71dcfda3cd",
+  "status": "policy_violation",
+  "error": "RuntimeError: precision policy: aten._to_copy.default output: torch.float64, required torch.float32; aten.zeros_like.default input: torch.float64, required torch.float32; aten.zeros_like.default output: torch.float64, required torch.float32; aten.complex.default input: torch.float64, required torch.float32; aten.complex.default output: torch.complex128, required torch.float32; aten._fft_c2c.default input: torch.complex128, required torch.float32; aten._fft_c2c.default output: torch.complex128, required torch.float32; aten.empty.memory_format output: torch.float64, required torch.float32; aten.view_as_real.default input: torch.complex128, required torch.float32; aten.view_as_real.default output: torch.float64, required torch.float32; aten.select.int input: torch.float64, required torch.float32; aten.select.int output: torch.float64, required torch.float32; aten.slice.Tensor input: torch.float64, required torch.float32; aten.slice.Tensor output: torch.float64, required torch.float32; aten.copy_.default input: torch.float64, required torch.float32; aten.copy_.default output: torch.float64, required torch.float32; forward output: torch.float64, required torch.float32",
+  "audit": {
+    "forward_calls": 1,
+    "operations": 13,
+    "violations": [
+      "aten._to_copy.default output: torch.float64, required torch.float32",
+      "aten.zeros_like.default input: torch.float64, required torch.float32",
+      "aten.zeros_like.default output: torch.float64, required torch.float32",
+      "aten.complex.default input: torch.float64, required torch.float32",
+      "aten.complex.default output: torch.complex128, required torch.float32",
+      "aten._fft_c2c.default input: torch.complex128, required torch.float32",
+      "aten._fft_c2c.default output: torch.complex128, required torch.float32",
+      "aten.empty.memory_format output: torch.float64, required torch.float32",
+      "aten.view_as_real.default input: torch.complex128, required torch.float32",
+      "aten.view_as_real.default output: torch.float64, required torch.float32",
+      "aten.select.int input: torch.float64, required torch.float32",
+      "aten.select.int output: torch.float64, required torch.float32",
+      "aten.slice.Tensor input: torch.float64, required torch.float32",
+      "aten.slice.Tensor output: torch.float64, required torch.float32",
+      "aten.copy_.default input: torch.float64, required torch.float32",
+      "aten.copy_.default output: torch.float64, required torch.float32",
+      "forward output: torch.float64, required torch.float32"
+    ]
+  },
+  "reason": "Explicit whole-data FP64 promotion; invalid for this requested format",
+  "fp64_translation_validity": "unchanged",
+  "original_campaign": "cpu-gpt-oss-120b-openrouter-groq-medium-20261015",
+  "valid_results": false,
+  "publishable": false,
+  "resume_allowed": false,
+  "source_sha256": "e1b2af68740235a079011e83ced2ae91661a9b755a90ae2448c0cb71dcfda3cd",
+  "actual_source_location": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-gpt-oss-120b-openrouter-groq-medium-20261015/runs/direct-dft/20261016T075021.169489Z-direct-dft-mini/workspaces/c3/candidate.py",
+  "scope": "Requested fp32 only; valid FP64 CPU evidence is retained"
+}

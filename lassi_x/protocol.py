@@ -115,6 +115,7 @@ class WorkerInit(WireModel):
     model: str
     provider: str | None = None
     base_url: str | None = None
+    providers_allowed: list[str] | None = None
     api_mode: Literal["chat_completions", "responses", "anthropic_messages"] | None = None
     reasoning_effort: (
         Literal["minimal", "low", "medium", "high", "xhigh", "max", "ultra"] | None

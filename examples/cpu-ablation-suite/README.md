@@ -133,3 +133,34 @@ candidates (no compensation or model repair). Each receives independent copies o
 the same passing modules and oracle. For cross-model accelerator comparisons, use
 the **same chosen CPU run** for every accelerator, not each model's own candidates.
 Selection of that baseline should be recorded explicitly to avoid selection bias.
+# Frozen LARGE A100 repair comparison
+
+`run_a100_large_repair.py --detach` prepares a new campaign and gates model calls
+on deterministic, finite C oracles for all 33 kernels and a fresh CUDA endpoint
+handshake. Existing campaign directories are never overwritten. A prepared but
+not yet started campaign can use `--launch-prepared --detach`.
+
+PolyBench uses its standard LARGE profile, not EXTRALARGE. Scientific LARGE is
+explicitly frozen in the script: DFT 4096 samples; N-body 2048 bodies; Lorenz
+1024 trajectories and 200 steps; Poisson 16384 unknowns and 10 CG iterations;
+JPEG/wavelet/low-rank images 1024 square (8-square JPEG blocks, 3 wavelet levels,
+rank 4 and 8 power steps); IIR 16384 samples and 4 filters; mutual information
+256-square joint probabilities. Initializers, physical parameters, and output
+coverage remain those of the C references. Large image arrays have static
+storage to prevent host stack failures.
+
+Luna, Terra, and SOL 5.6 use medium effort, identical immutable starting sources,
+and identical prior failure hints. All CPU-verified Terra baseline candidates
+are retained (three except IIR, Durbin, and Deriche, which have two). Size-only
+adaptations are unverified seeds, not imported passing LARGE CPU baselines.
+Each model gets one initial seed-adaptation turn and two validation correction
+rounds, followed by enabled compatibility and numerical repair stages. Tokens
+from adaptation and repairs count; historical baseline-generation tokens do not.
+
+Measurement runs are serialized, with a 900-second worker timeout, 3 warmups,
+20 samples, and an 8192 MiB PyTorch CUDA allocator ceiling. This ceiling does not
+bound non-PyTorch memory, model-issued diagnostic commands, or certify Groq fit.
+The existing 1% relative-L2 numerical-repair target is distinct from the looser
+measurement acceptance gate; report these separately. All intermediate journals,
+token usage, and measurement attempts remain available. Model/service errors
+stop the launcher rather than being treated as scientific failures.

@@ -1,0 +1,92 @@
+# Precision integrity and preserving existing experiments
+
+## Acceptance
+
+Requesting a dtype is not evidence that the kernel used it. FP16, BF16 and FP32
+measurements need a current, source-bound precision verdict before they can enter
+the certified frontier or count as an accepted repair. FP64 is the separate semantic
+reference/control. This does not certify implicit device accumulation or TF32 modes.
+
+The measurement schema now retains `precision_verdict`, audit protocol/scope, source
+hash and violations alongside the existing execution status and numerical errors.
+Historical records load as `unverified`, not failed. `stable_success` additionally
+requires semantic verification and relative L2 <= 1%; an accepted improvement need
+not be stable. Compensation records also expose `target_precision_verified` and
+`stable_success`, so FP64/FP32 validation alone cannot masquerade as target recovery.
+
+Old raw JSON, source modules, traces, candidate IDs and token usage are not rewritten.
+Old frontiers in saved files remain historical artifacts; current CLI reports,
+Pareto generation and acceptance recompute eligibility instead of trusting old flags.
+
+## Runtime policy
+
+- The Torch adapter stages the audit wrapper even when an old strict configuration
+  says `precision_audit: off`. Direct measurement-worker calls also use the guard.
+- The guard wraps the model actually used for warmup, measured forwards, repeatability
+  checks and CUDA graph capture. It is not a separate one-forward preflight model.
+- Floating parameters/buffers are converted once to the requested dtype before
+  execution, outside timing. This is mechanical constant normalization, not an agent
+  repair, and is recorded in the audit. Integer state is left unchanged. This keeps
+  precomputed constants, unused buffers and zero-dimensional scalar constants from
+  unnecessarily invalidating implementations. Source files remain immutable.
+- Supplied floating inputs are never silently normalized: ignoring the requested
+  dtype is a violation. Every floating output and observed intermediate is checked.
+  Casting a wide answer back does not pass.
+- Higher-order operators the audit cannot inspect remain **unverified/audit errors**,
+  not successful proofs or automatically scientific failures. Explicit operator
+  failures, numerical divergence and precision violations remain distinct.
+- Native/Groq worker metadata alone is not a precision certificate. Such observations
+  are retained as unverified until a source/profile-bound `compiled-dtype-v1` certificate
+  is provided by the trusted worker. There is no automatic claim of compiler or hardware
+  precision based solely on tracing dtype, output dtype or `LASSI_PRECISION`.
+
+The source policy targets explicit tensor arithmetic. It is not an adversarial-code
+sandbox or a proof of internal hardware accumulation. CPU probing is not substituted
+for a CUDA/accelerator evaluation certificate.
+
+## Reuse rather than regenerate
+
+Create an evaluation-only plan for a saved run or campaign:
+
+```sh
+lassi-x precision plan-revalidation \
+  --campaign runs/a100-terra-medium-20261010 \
+  --output runs/my-terra-revalidation-plan.json
+```
+
+The command never calls models or modifies old results. It deduplicates identical
+evaluation requests, preserves links to original observations, skips quarantined
+legacy/history files and refuses to overwrite an existing plan. Each entry contains
+the original source hash and a measurement-only command. Verify that hash before
+executing an entry, and retain new measurements separately. Original failures are
+not erased or counted as new model attempts merely because they are re-evaluated.
+
+Plans already prepared for Terra and Luna are in
+`runs/a100-clean-gpu-repairs-20261016/{terra,luna}-revalidation-plan-v3.json`.
+
+For the frozen clean LARGE campaign, evaluation-only resume is available:
+
+```sh
+python examples/cpu-ablation-suite/run_clean_gpu_repairs.py \
+  --output runs/a100-clean-gpu-repairs-20261016 \
+  --resume --execute --baseline-only --detach
+```
+
+This command is **not** started automatically. It writes under `baseline-policy-v3/`,
+leaving the original `baseline/` untouched. Matching source/profile FP64 controls are
+reused; old uncertified FP32/low-format measurements are rechecked, not regenerated.
+Known promotion exclusions are source-hash-bound and apply only to the affected
+implementation/precision, not an entire kernel or other model. All original sources
+remain available, including pre-compatibility alternatives.
+
+Only newly certified numerical failures become numerical-repair targets. Unknown
+precision, semantic/size errors, execution failures and confirmed promotion sources
+do not silently enter numerical repairs. The measured baseline error is retained:
+storage normalization no longer clears the numerical improvement requirement.
+Existing old-policy repair results require explicit evaluation-only revalidation;
+they are never deleted or automatically regenerated by resume.
+
+The corrected `double-word` helper now recombines in the target dtype. Skill guidance
+distinguishes strict helpers from mixed-precision templates; installed skill hashes
+were synchronized. Wider-arithmetic historical experiments remain preserved, but must
+not be presented as strict-format repairs without revalidation.

@@ -21,6 +21,19 @@ from .test_config import minimal_config
 from .test_validation import BAD_MODULE, C_REFERENCE, GOOD_MODULE
 
 
+def test_frozen_seeds_bypass_planner_and_are_not_claimed_verified(tmp_path: Path) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    config.arena.candidates = 1
+    config.arena.seed_sources = [tmp_path / "seed.py"]
+    strategies, record = asyncio.run(arena.plan_strategies(config, tmp_path))
+    assert len(strategies) == 1
+    assert "not verified" in strategies[0]
+    assert record["model_calls"] == 0
+    config.arena.candidates = 2
+    with pytest.raises(ValueError, match="exactly"):
+        asyncio.run(arena.plan_strategies(config, tmp_path))
+
+
 def test_parse_json_extracts_array_from_model_commentary() -> None:
     text = (
         'I considered ["initial"] approaches.\n'
@@ -271,6 +284,45 @@ def test_arena_generates_three_and_repairs_failures(
     )
     staged = run_dir / "workspaces" / "c1" / "reference" / "tiny.c"
     assert staged.read_text() == C_REFERENCE
+
+
+def test_seed_is_staged_before_first_scored_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    seed = tmp_path / "seed.py"
+    seed.write_text(BAD_MODULE)
+    data = minimal_config(tmp_path)
+    data.setdefault("arena", {}).update(candidates=1, seed_sources=[str(seed)])
+    data["models"]["candidates"] = data["models"]["candidates"][:1]
+    config = RunConfig.model_validate(data)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    class SeedRepairSession(FakeHermesSession):
+        async def send(self, prompt: str) -> HermesTurn:
+            assert (self.cwd / "candidate.py").read_text() == BAD_MODULE
+            assert "unverified starting implementation" in prompt
+            (self.cwd / "candidate.py").write_text(GOOD_MODULE)
+            return HermesTurn("repaired", Usage(input_tokens=7, output_tokens=3))
+
+    monkeypatch.setattr(arena, "HermesSession", SeedRepairSession)
+
+    async def run() -> Candidate:
+        oracle = await build_oracle(config, run_dir)
+        async with await ExecutionContext.start(
+            config, run_dir, hermes_home=tmp_path / "hermes"
+        ) as execution:
+            strategies, _ = await arena.plan_strategies(config, run_dir)
+            return await arena.generate_candidate(
+                config, oracle, run_dir, execution, 1, strategies[0]
+            )
+
+    candidate = asyncio.run(run())
+    assert candidate.status == Status.OK
+    assert candidate.usage.input_tokens == 7
+    assert candidate.usage.output_tokens == 3
+    assert seed.read_text() == BAD_MODULE
 
 
 def _health_context(

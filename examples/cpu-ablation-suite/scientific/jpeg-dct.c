@@ -4,7 +4,7 @@
 #define BLOCK 8
 
 int main(void) {
-  double image[SIZE][SIZE], coefficients[SIZE][SIZE], reconstructed[SIZE][SIZE];
+  static double image[SIZE][SIZE], coefficients[SIZE][SIZE], reconstructed[SIZE][SIZE];
   const double pi = acos(-1.0);
   int nonzero = 0;
 

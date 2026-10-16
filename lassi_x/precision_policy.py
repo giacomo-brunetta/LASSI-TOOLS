@@ -17,6 +17,9 @@ helper implementations in the low-precision execution path. Casting the answer b
 does not make a wider computation compliant. A wider hardware accumulator is allowed
 only when the destination contract explicitly permits it; GPU availability is not permission.
 FP32/FP64 branches remain available solely for the separate reference/control evaluations.
+Wider constants may be prepared during initialization and stored in wider buffers, provided
+they are converted to the target dtype before arithmetic. Unused wider buffers are allowed.
+This exception never permits promoting supplied inputs, intermediates, reductions or outputs.
 Input initialization may construct the reference fixture at its documented source precision
 before one target-storage cast; do not move kernel computation into build_inputs or cache
 answers there. forward must consume the actual supplied input values: never regenerate the

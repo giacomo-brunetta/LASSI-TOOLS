@@ -191,6 +191,7 @@ def _base_measurement(
         operator_precision=precision,
         accumulator_precision=precision,
         output_precision=precision,
+        arithmetic_policy=config.compensation.arithmetic_policy,
         error_metric=config.pareto_error_metric,
         evaluation_dataset=evaluation_dataset,
         source_hash=(
@@ -198,6 +199,40 @@ def _base_measurement(
         ),
         **kwargs,
     )
+
+
+def _attach_precision_evidence(measurement: Measurement, payload: dict[str, Any]) -> Measurement:
+    """Bind observed evidence to this source; declarations are never certificates.
+
+    Missing/old evidence is unknown, not a retroactive scientific failure. Keep
+    timing and error observations even when they are ineligible for strict claims.
+    """
+    if measurement.precision == "fp64":
+        measurement.precision_verdict = "not_required"
+        return measurement
+    audit = payload.get("dtype_audit") or {}
+    measurement.precision_audit_protocol = str(audit.get("protocol") or "")
+    measurement.precision_audit_scope = str(audit.get("scope") or "")
+    measurement.precision_audit_source_hash = str(audit.get("source_hash") or "")
+    measurement.precision_violations = list(audit.get("violations") or [])
+    bound = (
+        bool(measurement.source_hash)
+        and measurement.precision_audit_source_hash == measurement.source_hash
+        and str(payload.get("source_hash") or "") == measurement.source_hash
+        and audit.get("requested_precision") == measurement.precision
+        and audit.get("dataset") == measurement.evaluation_dataset
+    )
+    current = measurement.precision_audit_protocol in {"executed-dtype-v3", "compiled-dtype-v1"}
+    if current and bound and audit.get("passed") is False:
+        measurement.precision_verdict = "failed"
+        measurement.failure_kind = "precision_policy"
+    elif current and bound and audit.get("passed") is True and audit.get("complete") is True:
+        measurement.precision_verdict = "passed"
+    else:
+        measurement.precision_verdict = "unverified"
+        if not measurement.failure_kind:
+            measurement.failure_kind = "precision_unverified"
+    return measurement
 
 
 def _evaluation_oracle_path(config: RunConfig, oracle: OracleResult) -> Path:

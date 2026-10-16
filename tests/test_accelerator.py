@@ -34,6 +34,21 @@ def test_compatibility_prompt_bounds_graph_and_tool_output() -> None:
     assert "Never print complete compiler" in accelerator.COMPATIBILITY_SYSTEM
 
 
+def test_explicit_timeout_repair_never_includes_infrastructure(tmp_path: Path) -> None:
+    data = minimal_config(tmp_path)
+    data["measure"]["backends"].append(
+        {"type": "torch", "name": "cuda", "device": "cuda", "precisions": ["fp16"]}
+    )
+    config = RunConfig.model_validate(data)
+    worker = _point("cuda", "fp16", Status.TIMEOUT)
+    worker.failure_kind = "execution_timeout"
+    infrastructure = _point("cuda", "fp16", Status.TIMEOUT)
+    infrastructure.failure_kind = "infrastructure_timeout"
+    assert select_compatibility_failures(config, [worker]) == []
+    config.compatibility.repair_statuses = ["crashed", "no_fit", "timeout"]
+    assert select_compatibility_failures(config, [worker, infrastructure]) == [worker]
+
+
 def _point(backend: str, precision: str, status: Status) -> Measurement:
     return Measurement(
         kernel="tiny",
@@ -48,6 +63,10 @@ def _point(backend: str, precision: str, status: Status) -> Measurement:
         operator_precision=precision,
         accumulator_precision=precision,
         output_precision=precision,
+        source_hash="fixture-source",
+        precision_verdict="passed",
+        precision_audit_protocol="executed-dtype-v3",
+        precision_audit_source_hash="fixture-source",
         evaluation_output_checked=status == Status.OK,
         evaluation_output_finite=True if status == Status.OK else None,
         evaluation_semantic_verified=status == Status.OK,
@@ -182,6 +201,10 @@ class EventuallyCompatibleBackend(Backend[Any]):
             accumulator_precision=precision,
             output_precision=precision,
             latency_s=None if self.calls == 1 else 1.0,
+            source_hash="fixture-source",
+            precision_verdict="passed",
+            precision_audit_protocol="executed-dtype-v3",
+            precision_audit_source_hash="fixture-source",
             relative_l2=None if self.calls == 1 else 0.01,
             evaluation_output_checked=self.calls != 1,
             evaluation_output_finite=True if self.calls != 1 else None,

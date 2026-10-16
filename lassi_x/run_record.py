@@ -69,6 +69,9 @@ def skill_records() -> list[dict[str, str]]:
 def render_summary(record: RunRecord) -> str:
     """Render the concise Markdown summary paired with ``run.json``."""
 
+    low = [p for p in record.measurements if p["precision"] != "fp64"]
+    verified = sum(p.get("precision_verdict") == "passed" for p in low)
+    unknown = sum(p.get("precision_verdict", "unverified") == "unverified" for p in low)
     lines = [
         f"# LASSI-X run: {record.kernel}",
         "",
@@ -86,6 +89,7 @@ def render_summary(record: RunRecord) -> str:
         f"- Portable numerical attempts: {len(record.compensation_variants)}",
         f"- Promoted numerical trunks: {len(record.numerical_candidates)}",
         f"- Measurements: {len(record.measurements)}",
+        f"- FP32/FP16/BF16 precision evidence: {verified} passed; {unknown} unverified",
         f"- Frontier points: {len(record.frontier)}",
         "- Required accelerator backends satisfied: "
         f"{record.acceptance['satisfied']}/{record.acceptance['required']}",

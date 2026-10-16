@@ -4,7 +4,7 @@
 #define LEVELS 3
 
 int main(void) {
-  double image[SIZE][SIZE], coefficients[SIZE][SIZE], temporary[SIZE][SIZE];
+  static double image[SIZE][SIZE], coefficients[SIZE][SIZE], temporary[SIZE][SIZE];
   const double inverse_sqrt_two = 1.0/sqrt(2.0);
 
   for (int row = 0; row < SIZE; ++row)

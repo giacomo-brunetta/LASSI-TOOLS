@@ -1,0 +1,28 @@
+{
+  "model": "terra",
+  "kernel": "polybench-deriche",
+  "candidate": "c1",
+  "precision": "bf16",
+  "module": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-terra-medium-20261010/runs/polybench-deriche/20261010T214307.655716Z-polybench-deriche-mini/baseline-inputs/c2.py",
+  "reason": "Confirmed wider computation or wrong-format supplied input",
+  "evidence": {
+    "protocol": "observed-eager-dtype-v2",
+    "operations": 2228,
+    "passed": false,
+    "violations": [
+      "aten._to_copy.default output: torch.float32, required torch.bfloat16",
+      "aten.ones.default output: torch.float32, required torch.bfloat16",
+      "aten.lift_fresh.default input: torch.float32, required torch.bfloat16"
+    ],
+    "scope": "explicit tensor arithmetic; implicit hardware accumulation not certified",
+    "constant_policy": "wide stored constants and unused buffers allowed; cast before arithmetic",
+    "violation_count": 20
+  },
+  "original_campaign": "a100-terra-medium-20261010",
+  "valid_results": false,
+  "publishable": false,
+  "resume_allowed": false,
+  "source_sha256": "0ede08280b4ebac6330ec29c665b5a329d4c3c95791ba24033b4409849375618",
+  "actual_source_location": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/precision-policy-20261016/terra-deriche/mini-runs/20261010T214307.655716Z-polybench-deriche-mini/baseline-inputs/c2.py",
+  "scope": "Requested bf16 only; valid FP64 CPU evidence is retained"
+}

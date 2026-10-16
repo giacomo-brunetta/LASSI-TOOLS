@@ -297,7 +297,18 @@ async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str]
         ValueError: If all attempts contain malformed or ambiguous strategy arrays.
 
     """
+    strategies: list[str] | None = None
     count = config.arena.candidates
+    if config.arena.seed_sources:
+        if len(config.arena.seed_sources) != count:
+            raise ValueError("seed_sources must contain exactly arena.candidates files")
+        strategies = [
+            f"Adapt and repair frozen starting implementation c{i} for the configured dataset. "
+            "Preserve its approach when feasible; replace size-limited or excessive-memory "
+            "algorithms when necessary. The seed is not verified at the target size."
+            for i in range(1, count + 1)
+        ]
+        return strategies, {"source": "frozen-seeds", "model_calls": 0, "strategies": strategies}
     target_ids = sorted(
         {
             *(
@@ -344,7 +355,6 @@ Source context:
 """
     total_usage = Usage()
     attempts: list[dict[str, Any]] = []
-    strategies: list[str] | None = None
     async with HermesSession(
         config.models.planner,
         cwd=workspace,
@@ -625,8 +635,18 @@ async def generate_candidate(
         strategy.splitlines()[0][:80] if strategy else "",
     )
     try:
+        seed_context = ""
+        if config.arena.seed_sources:
+            seed = config.arena.seed_sources[index - 1]
+            await execution.stage_bytes(candidate_id, "candidate.py", seed.read_bytes())
+            seed_context = (
+                "\nA common, unverified starting implementation is staged as candidate.py. "
+                "Read and adapt this implementation; this is a scored repair/port task, "
+                "not a fresh translation. No passing status at the target size is implied.\n"
+            )
         turn = await session.send(
             _generation_prompt(config, candidate_id, strategy, toolset, staged_reference)
+            + seed_context
         )
         record_turn(candidate, turn)
         backend = execution.backend()

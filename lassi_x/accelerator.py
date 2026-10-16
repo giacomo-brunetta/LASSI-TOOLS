@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 from .agent_support import (
@@ -74,7 +75,11 @@ def select_compatibility_failures(
         "submission_timeout",
         "execution_timeout",
         "precision_unsupported",
+        "precision_unverified",
+        "precision_audit_execution",
     }
+    if Status.TIMEOUT in repair_statuses:
+        nonrepairable_kinds.discard("execution_timeout")
     precision_order = {"fp32": 0, "fp16": 1, "bf16": 2, "fp64": 3}
     eligible = sorted(
         (
@@ -126,6 +131,7 @@ def compatibility_accuracy_diagnostic(
     patched_error = getattr(patched, metric, None)
     if (
         patched.status != Status.OK
+        or not patched.precision_eligible
         or patched_error is None
         or not math.isfinite(patched_error)
         or not patched.evaluation_semantic_verified
@@ -173,6 +179,8 @@ async def repair_accelerator_candidate(
     base: Candidate,
     failure: Measurement,
     backend: Backend[Any],
+    *,
+    previous: Candidate | None = None,
 ) -> tuple[Candidate, Measurement | None]:
     """Repair one target failure with CPU semantic and real-target feedback gates."""
 
@@ -181,7 +189,10 @@ async def repair_accelerator_candidate(
     mirror = execution.workspace_dir(slug)
     mirror.mkdir(parents=True, exist_ok=True)
     toolset = execution.register_workspace(slug)
-    await execution.stage_bytes(slug, "candidate.py", base.module_path.read_bytes())
+    source = (
+        previous.module_path if previous and previous.module_path.is_file() else base.module_path
+    )
+    await execution.stage_bytes(slug, "candidate.py", source.read_bytes())
     staged = await stage_reference_bundle(config, execution, slug)
     model = _candidate_model(config, base)
     candidate = Candidate(
@@ -223,6 +234,13 @@ loss of the parent's device accuracy; do not claim success before those gates re
         memory=config.memory,
     )
     target_measurement: Measurement | None = None
+    if previous is not None:
+        candidate.usage.add(previous.usage)
+        candidate.turn_outcomes.extend(previous.turn_outcomes)
+        prompt += (
+            "\nContinue an interrupted repair from the saved candidate.py. Prior gate evidence:\n"
+            + "\n".join(item.for_agent() for item in previous.diagnostics)[-12000:]
+        )
     try:
         turn = await session.send(prompt)
         record_turn(candidate, turn)
@@ -287,6 +305,8 @@ logs; use bounded summaries and artifact files. Return a concise evidence summar
         candidate.diagnostics.append(
             Diagnostic(gate="compatibility-agent", message=f"{type(exc).__name__}: {exc}")
         )
+        with suppress(Exception):
+            await execution.mirror_file(slug, "candidate.py")
     finally:
         await session.close()
     return candidate, target_measurement

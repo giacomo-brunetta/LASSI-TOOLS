@@ -8,6 +8,17 @@ precision-ramp templates. Residual carry and operand splitting are eligible only
 explicit state and operation respects the target format. Inspect implementations for promotion.
 Do not promote the full kernel and describe it as accumulation or refinement.
 
+The shipped target-format reduction helpers are `pairwise_sum`, `kahan_sum`,
+`neumaier_sum`, and `double_word_sum` with its default component dtype. Their
+recombination stays in the target dtype. The script templates for zero-centering,
+scaling, equilibration, residual carry, and Ozaki splitting use wider arithmetic:
+**they are mixed-policy examples, not strict-policy implementations**. Do not import
+those templates under `target_format_only`; implement a target-format reformulation
+and verify every operation instead. Never copy an FP32 example and cast its answer back.
+Wider stored constants may be initialized once and converted before forward;
+unused wider buffers are not violations. Supplied input tensors must obey their
+requested dtype; integer indexing/state is allowed and must remain integer.
+
 ## Shipped helpers
 
 `lassi_x.precision` provides FP32 accumulation, blocked-FP32 accumulation, pairwise, Kahan,

@@ -5,7 +5,7 @@
 #define POWER_STEPS 8
 
 int main(void) {
-  double image[SIZE][SIZE], residual[SIZE][SIZE], approximation[SIZE][SIZE];
+  static double image[SIZE][SIZE], residual[SIZE][SIZE], approximation[SIZE][SIZE];
   double left[SIZE], right[SIZE];
 
   for (int row = 0; row < SIZE; ++row)

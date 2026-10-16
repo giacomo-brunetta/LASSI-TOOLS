@@ -146,6 +146,36 @@ def _setup_torch(tmp_path: Path) -> tuple[RunConfig, OracleResult, Path]:
     return config, oracle, module
 
 
+def test_strict_torch_audit_cannot_be_disabled_by_legacy_off_config(tmp_path: Path) -> None:
+    config, oracle, module = _setup_torch(tmp_path)
+    spec = TorchBackendConfig(
+        type="torch", name="cpu", device="cpu", precisions=["fp16"], precision_audit="off"
+    )
+
+    def measure(variant: str) -> Measurement:
+        backend = TorchBackend(spec, LocalExecutionBackend(tmp_path / "remote", "cpu"), "cpu")
+        return asyncio.run(
+            backend.measure(
+                config,
+                oracle,
+                module,
+                candidate_id="c1",
+                variant_id=variant,
+                precision="fp16",
+                compensation="none",
+            )
+        )
+
+    good = measure("good")
+    assert good.precision_verdict == "passed", good.notes
+    assert good.precision_eligible
+    module.write_text(GOOD_MODULE.replace("return x", "return x.float().to(x.dtype)"))
+    bad = measure("bad")
+    assert bad.precision_verdict == "failed", bad.notes
+    assert bad.failure_kind == "precision_policy"
+    assert not bad.precision_eligible
+
+
 def test_groq_backend_fails_fast_without_live_worker(tmp_path: Path) -> None:
     config, module, oracle = setup_run(tmp_path)
     started = time.monotonic()
@@ -209,7 +239,9 @@ def test_groq_queue_completion_protocol(tmp_path: Path, monkeypatch: pytest.Monk
     assert result.max_rel_error == 0.02
     assert result.relative_l2 == 0.02
     assert result.accuracy_band == "concerning"
-    assert result.frontier_eligible
+    # Old queue completions retain timing/error, but carry no precision proof.
+    assert not result.frontier_eligible
+    assert result.precision_verdict == "unverified"
 
 
 class FakePBSExecutionBackend(LocalExecutionBackend):

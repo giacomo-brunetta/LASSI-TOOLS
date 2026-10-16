@@ -83,6 +83,25 @@ The resolved configuration must match the checkpoint. Completed measurement cell
 from their journal, and final measurement artifacts are rewritten from typed state so a resume
 cannot duplicate rows.
 
+To retry interrupted accelerator compatibility repairs, including quota failures in an
+otherwise finalized run:
+
+```bash
+lassi-x run my-run.yaml --resume runs/<timestamp>-<kernel> --retry-interrupted-repairs
+```
+
+This retries only crashed repair leaves, starting from their saved source and diagnostic
+evidence in a new worker conversation. Completed candidates and base measurements are retained.
+Prior repair records and source are archived under `repair-history/`, token usage is cumulative,
+and progress is checkpointed after every repair. A renewed interruption stops the retry;
+the same command can continue later. Rejected repairs are not automatically retried.
+
+Numerical edits affected by the imported-baseline staging bug can be reopened with
+`--resume <run-directory> --retry-numerical-repairs`. Saved edits are checked against
+the exact staged baseline before any new model turn. Passing edits proceed to real GPU
+measurement; failing edits receive bounded correction rounds. Prior records, source, and
+diagnostics are archived under `numerical-repair-history/`.
+
 To generate and validate candidates on the harness host before acquiring accelerator
 resources, use the full run configuration with an explicit stopping point:
 
@@ -491,6 +510,25 @@ Missing, non-finite, nondeterministic, or unverified
 device output changes the cell to `diverged` with `failure_kind: missing_accuracy_latency_pair`.
 If accelerator evaluation uses the CPU-validation dataset, it reuses the main oracle. Otherwise,
 provide the matching evaluation oracle explicitly:
+
+For the recorded 33-kernel A100 campaign, a model-free LARGE evaluator is available:
+
+```bash
+python examples/cpu-ablation-suite/evaluate_a100_large.py --execute --detach
+# Continue an interrupted evaluation without remeasuring completed cells:
+python examples/cpu-ablation-suite/evaluate_a100_large.py --resume --execute --detach
+```
+
+It selects accepted MINI sources per precision, creates separate size specializations,
+and records every dimension/timestep change and source hash. LARGE references are rebuilt
+from C and checked twice for determinism. Accuracy and CUDA Graph latency use the same LARGE
+workload, with 3 warmups and 20 timing samples. No model or repair calls are made; unsupported
+specializations, invalid references, device failures, and numerical failures remain explicit.
+PolyBench uses its header-defined LARGE profile; custom scientific kernels use `SIZE=256`
+and `STEPS=200` where the C program uses that macro. This is a fresh evaluation: MINI accuracy
+does not establish accuracy or resource feasibility at LARGE.
+
+To configure a separate evaluation oracle manually:
 
 ```yaml
 oracle:

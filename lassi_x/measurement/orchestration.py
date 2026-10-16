@@ -155,6 +155,9 @@ async def _measure_compensated_cell(
             {
                 "seed": seed,
                 "status": sample.status.value,
+                "precision_verdict": sample.precision_verdict,
+                "precision_audit_protocol": sample.precision_audit_protocol,
+                "precision_audit_source_hash": sample.precision_audit_source_hash,
                 "latency_s": sample.latency_s,
                 "max_rel_error": sample.max_rel_error,
                 "relative_l2": sample.relative_l2,
@@ -186,6 +189,10 @@ async def _measure_compensated_cell(
             primary.failure_kind = "numerical_catastrophe"
         if any(sample.status != Status.OK for sample in samples):
             primary.status = Status.DIVERGED
+        if any(not sample.precision_eligible for sample in samples):
+            primary.precision_verdict = (
+                "failed" if any(s.precision_verdict == "failed" for s in samples) else "unverified"
+            )
     return primary
 
 

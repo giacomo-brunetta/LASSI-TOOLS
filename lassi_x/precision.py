@@ -130,8 +130,9 @@ def double_word_sum(
         high, low = fast_two_sum(first, second)
         high = high.to(component_dtype)
         low = low.to(component_dtype)
-    output_dtype = torch.float32 if component_dtype in HALF_DTYPES else component_dtype
-    return high.to(output_dtype) + low.to(output_dtype)
+    # Recombination is arithmetic too: a target-format expansion must not hide
+    # a final FP32 addition. Explicit double-word-fp32 still uses FP32 components.
+    return high + low
 
 
 def compensated_sum(

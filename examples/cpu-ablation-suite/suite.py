@@ -311,7 +311,9 @@ def main() -> int:
     )
     prepare_parser.add_argument("--polybench", type=Path, default=REPO.parent / "PolyBenchC-4.2.1")
     prepare_parser.add_argument("--output", type=Path, required=True)
-    prepare_parser.add_argument("--dataset", choices=["mini", "small", "medium"], default="mini")
+    prepare_parser.add_argument(
+        "--dataset", choices=["mini", "small", "medium", "large"], default="mini"
+    )
     prepare_parser.add_argument("--candidates", type=int, choices=range(1, 11), default=3)
     prepare_parser.add_argument("--correction-rounds", type=int, choices=range(11), default=2)
     prepare_parser.add_argument("--max-candidate-flows", type=int, choices=range(1, 65), default=3)

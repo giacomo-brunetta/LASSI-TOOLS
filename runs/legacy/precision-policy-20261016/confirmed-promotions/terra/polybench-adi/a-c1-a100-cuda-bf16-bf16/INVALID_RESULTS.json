@@ -1,0 +1,28 @@
+{
+  "model": "terra",
+  "kernel": "polybench-adi",
+  "candidate": "a-c1-a100-cuda-bf16",
+  "precision": "bf16",
+  "module": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-terra-medium-20261010/runs/polybench-adi/20261010T214819.667394Z-polybench-adi-mini/workspaces/a-c1-a100-cuda-bf16/candidate.py",
+  "reason": "Confirmed wider computation or wrong-format supplied input",
+  "evidence": {
+    "protocol": "observed-eager-dtype-v2",
+    "operations": 9359,
+    "passed": false,
+    "violations": [
+      "aten._to_copy.default output: torch.float32, required torch.bfloat16",
+      "aten.select.int input: torch.float32, required torch.bfloat16",
+      "aten.select.int output: torch.float32, required torch.bfloat16"
+    ],
+    "scope": "explicit tensor arithmetic; implicit hardware accumulation not certified",
+    "constant_policy": "wide stored constants and unused buffers allowed; cast before arithmetic",
+    "violation_count": 20
+  },
+  "original_campaign": "a100-terra-medium-20261010",
+  "valid_results": false,
+  "publishable": false,
+  "resume_allowed": false,
+  "source_sha256": "0f521c2413ac357283938b38b43865fbdfef937f07d205cfe79c4991e80c2fed",
+  "actual_source_location": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-terra-medium-20261010/runs/polybench-adi/20261010T214819.667394Z-polybench-adi-mini/workspaces/a-c1-a100-cuda-bf16/candidate.py",
+  "scope": "Requested bf16 only; valid FP64 CPU evidence is retained"
+}

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import yaml
@@ -51,6 +51,10 @@ def point(
         operator_precision="fp16",
         accumulator_precision="fp16",
         output_precision="fp16",
+        source_hash="fixture-source",
+        precision_verdict="passed",
+        precision_audit_protocol="executed-dtype-v3",
+        precision_audit_source_hash="fixture-source",
         latency_s=latency,
         max_rel_error=error,
         relative_l2=error,
@@ -104,6 +108,9 @@ def test_catastrophic_measurement_is_preserved_but_not_repaired() -> None:
     catastrophic.numerically_catastrophic = True
     catastrophic.accuracy_band = "catastrophic"
     assert compensation.select_weak_points([catastrophic], error_threshold=0.01) == []
+    assert compensation.select_weak_points(
+        [catastrophic], error_threshold=0.01, include_catastrophic=True
+    ) == [catastrophic]
 
 
 def test_weak_points_share_one_portable_group_per_candidate_and_precision() -> None:
@@ -189,6 +196,93 @@ class EditingSession:
         return None
 
 
+def test_saved_repair_revalidates_against_staged_baseline_without_model_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = RunConfig.model_validate(minimal_config(tmp_path))
+    base_path = tmp_path / "base.py"
+    base_path.write_text(GOOD_MODULE)
+    saved_path = tmp_path / "saved.py"
+    saved_source = GOOD_MODULE.replace("return x\n", "return x + 0\n")
+    saved_path.write_text(saved_source)
+    base = Candidate("c1", "model", None, "direct", base_path, status=Status.OK)
+    previous = compensation.CompensationVariant(
+        "c1",
+        "n-c1-fp16",
+        "portable",
+        "fp16",
+        "kahan",
+        saved_path,
+        status=Status.REJECTED,
+        usage=Usage(input_tokens=123),
+    )
+
+    class SavedSession(NoOpSession):
+        async def send(self, _: str) -> HermesTurn:
+            raise AssertionError("a valid saved edit must not consume a model turn")
+
+    class Execution:
+        def workspace_dir(self, slug: str) -> Path:
+            return tmp_path / slug
+
+        def register_workspace(self, slug: str) -> str:
+            return slug
+
+        def backend(self) -> object:
+            return self
+
+        async def stage_bytes(self, slug: str, name: str, data: bytes) -> None:
+            destination = self.workspace_dir(slug) / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+
+        async def mirror_file(self, *_: object) -> None:
+            pass
+
+    execution = Execution()
+
+    async def accepted(*_: object, **__: object) -> ValidationResult:
+        return ValidationResult(True, None, np.asarray([1.0, 2.0, 3.0]))
+
+    async def collapse(
+        config: object,
+        backend: object,
+        base_workspace: str,
+        compensated_workspace: str,
+        diagnostic_dir: Path,
+        **kwargs: Any,
+    ) -> ValidationResult:
+        assert base_workspace == compensated_workspace == "n-c1-fp16"
+        assert kwargs["base_module"] == ".lassi/baseline.py"
+        assert (
+            execution.workspace_dir(base_workspace) / kwargs["base_module"]
+        ).read_text() == GOOD_MODULE
+        assert (
+            execution.workspace_dir(base_workspace) / "candidate.py"
+        ).read_text() == saved_source
+        return await accepted()
+
+    monkeypatch.setattr(compensation, "HermesSession", SavedSession)
+    monkeypatch.setattr(compensation, "validate_candidate", accepted)
+    monkeypatch.setattr(compensation, "validate_fp32_collapse", collapse)
+    oracle = OracleResult(tmp_path / "oracle.npy", np.asarray([1.0, 2.0, 3.0]))
+    variant = asyncio.run(
+        compensation.generate_compensation(
+            config,
+            oracle,
+            tmp_path,
+            cast("ExecutionContext", execution),
+            base,
+            [point("c1", error=0.5)],
+            [config.measure.backends[0]],
+            previous=previous,
+        )
+    )
+    assert variant.status == Status.OK
+    assert variant.usage.input_tokens == 123
+    assert not variant.diagnostics
+
+
 class ImprovingBackend(Backend[Any]):
     def __init__(self, spec: BackendConfig) -> None:
         super().__init__(spec)
@@ -221,6 +315,10 @@ class ImprovingBackend(Backend[Any]):
             operator_precision=precision,
             accumulator_precision=precision,
             output_precision=precision,
+            source_hash="fixture-source",
+            precision_verdict="passed",
+            precision_audit_protocol="executed-dtype-v3",
+            precision_audit_source_hash="fixture-source",
             latency_s=1.0,
             max_rel_error=error,
             relative_l2=error,

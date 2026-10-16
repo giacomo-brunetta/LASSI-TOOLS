@@ -18,6 +18,7 @@ from ..protocol import ExecRequest
 from ..types import Measurement, Status
 from .common import (
     Backend,
+    _attach_precision_evidence,
     _base_measurement,
     _enforce_accuracy_latency_pair,
     _enforce_architectural_timing,
@@ -940,6 +941,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
         measurement.precision_metadata_source = str(
             precision_meta.get("metadata_source", "backend_contract")
         )
+        measurement = _attach_precision_evidence(measurement, payload)
         measurement = _enforce_accuracy_latency_pair(measurement)
         measurement = _enforce_numerical_accuracy_policy(config, measurement)
         return _enforce_architectural_timing(measurement)

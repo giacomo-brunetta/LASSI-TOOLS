@@ -31,6 +31,7 @@ from .model_doctor import DEFAULT_TIMEOUT_S as MODEL_PROBE_TIMEOUT_S
 from .model_doctor import distinct_models, probe_model
 from .pareto import frontier_indices
 from .pipeline import run_pipeline
+from .precision_revalidation import plan_revalidation
 from .skills import (
     SKILL_NAMES,
     doctor_skills,
@@ -359,10 +360,13 @@ async def _benchmark_command(args: argparse.Namespace) -> int:
             await context.close()
         emit(
             "benchmark.run",
-            {"ok": result.status == Status.OK, "measurement": result.to_dict()},
+            {
+                "ok": result.status == Status.OK and result.precision_eligible,
+                "measurement": result.to_dict(),
+            },
             json_output=args.json,
         )
-        return 0 if result.status == Status.OK else 1
+        return 0 if result.status == Status.OK and result.precision_eligible else 1
 
 
 def _load_measurements(path: Path) -> list[Measurement]:
@@ -380,9 +384,7 @@ def _load_measurements(path: Path) -> list[Measurement]:
         if not line.strip():
             continue
         raw = json.loads(line)
-        raw.pop("y_error", None)
-        raw["status"] = Status(raw["status"])
-        points.append(Measurement(**raw))
+        points.append(Measurement.from_dict(raw))
     return points
 
 
@@ -429,13 +431,24 @@ def command_report(args: argparse.Namespace) -> int:
         )
         return 2
     record = json.loads(record_path.read_text())
+    points = [Measurement.from_dict(p) for p in record.get("measurements", [])]
+    low = [p for p in points if p.precision != "fp64"]
+    unverified = sum(p.precision_verdict == "unverified" for p in low)
+    failed = sum(p.precision_verdict == "failed" for p in low)
+    reviewed_frontier = [points[i].to_dict() for i in frontier_indices(points)]
     payload = {
-        "ok": record.get("status") == "ok",
-        "status": record.get("status"),
+        "ok": record.get("status") == "ok" and not unverified and not failed,
+        "status": "precision_unverified" if unverified else record.get("status"),
+        "original_status": record.get("status"),
+        "precision_summary": {
+            "unverified": unverified,
+            "failed": failed,
+            "passed": sum(p.precision_eligible for p in low),
+        },
         "oracle": record.get("oracle"),
         "candidates": record.get("candidates", []),
         "compensation_variants": record.get("compensation_variants", []),
-        "frontier": record.get("frontier", []),
+        "frontier": reviewed_frontier,
     }
     emit("report.verification", payload, json_output=args.json)
     return 0 if payload["ok"] else 1
@@ -648,6 +661,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Resume a run directory whose checkpoint matches this configuration.",
     )
+    run.add_argument(
+        "--retry-interrupted-repairs",
+        action="store_true",
+        help="With --resume, retry crashed compatibility repairs from saved source and evidence.",
+    )
+    run.add_argument(
+        "--retry-numerical-repairs",
+        action="store_true",
+        help="With --resume, revalidate numerical edits affected by stale baseline validation.",
+    )
 
     skills = sub.add_parser("skills")
     skills_sub = skills.add_subparsers(dest="skills_command", required=True)
@@ -714,11 +737,16 @@ def build_parser() -> argparse.ArgumentParser:
     precision_measure.add_argument("--config", type=Path, required=True)
     precision_measure.add_argument("--module", type=Path, required=True)
     precision_measure.add_argument("--backend", required=True)
-    precision_measure.add_argument("--precision", choices=["fp16", "bf16"], required=True)
+    precision_measure.add_argument(
+        "--precision", choices=["fp64", "fp32", "fp16", "bf16"], required=True
+    )
     precision_measure.add_argument("--compensation", default="none")
     precision_measure.add_argument("--json", action="store_true", default=True)
     precision_methods = precision_sub.add_parser("methods")
     precision_methods.add_argument("--json", action="store_true", default=True)
+    precision_plan = precision_sub.add_parser("plan-revalidation")
+    precision_plan.add_argument("--campaign", type=Path, required=True)
+    precision_plan.add_argument("--output", type=Path, required=True)
 
     pareto = sub.add_parser("pareto")
     pareto_sub = pareto.add_subparsers(dest="pareto_command", required=True)
@@ -808,6 +836,8 @@ def _dispatch() -> int:
                     until=args.until,
                     from_cpu_baseline=args.from_cpu_baseline,
                     allow_adaptations=args.allow_adaptations,
+                    retry_interrupted_repairs=args.retry_interrupted_repairs,
+                    retry_numerical_repairs=args.retry_numerical_repairs,
                 )
             )
         except Exception as exc:
@@ -845,6 +875,22 @@ def _dispatch() -> int:
     if args.command == "benchmark":
         return asyncio.run(_benchmark_command(args))
     if args.command == "precision":
+        if args.precision_command == "plan-revalidation":
+            if args.output.exists():
+                raise ValueError("Refusing to overwrite a saved revalidation plan")
+            plan = plan_revalidation(args.campaign.resolve())
+            write_json(args.output, plan)
+            emit(
+                "precision.plan-revalidation",
+                {
+                    "ok": True,
+                    "output": str(args.output),
+                    "summary": plan["summary"],
+                    "evaluation_only_targets": len(plan["targets"]),
+                    "model_calls_required": 0,
+                },
+            )
+            return 0
         if args.precision_command == "methods":
             emit(
                 "precision.methods",

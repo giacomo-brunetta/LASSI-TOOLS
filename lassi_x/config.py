@@ -51,6 +51,8 @@ class EquivalenceConfig(StrictModel):
 
 class ArenaConfig(StrictModel):
     candidates: int = Field(default=3, ge=1, le=10)
+    seed_sources: list[Path] = Field(default_factory=list)
+    """Unverified starting implementations; each is adapted and validated by its model."""
     planner_format_retries: int = Field(default=1, ge=0, le=5)
     correction_rounds: int = Field(default=2, ge=0, le=10)
     timeout_s: float = 600.0
@@ -61,6 +63,7 @@ class ModelConfig(StrictModel):
     model: str
     provider: str | None = None
     base_url: str | None = None
+    providers_allowed: list[str] | None = None
     api_mode: Literal["chat_completions", "responses", "anthropic_messages"] | None = None
     reasoning_effort: (
         Literal["minimal", "low", "medium", "high", "xhigh", "max", "ultra"] | None
@@ -175,6 +178,9 @@ class TorchBackendConfig(BackendConfig):
 
     type: Literal["torch"]
     device: str
+    cuda_memory_limit_mb: int | None = Field(default=None, ge=256)
+    precision_audit: Literal["off", "report", "enforce"] = "enforce"
+    precision_audit_reference: Path | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -305,7 +311,7 @@ class AccuracyPolicyConfig(StrictModel):
         return self
 
 
-def _default_repair_statuses() -> list[Literal["crashed", "no_fit"]]:
+def _default_repair_statuses() -> list[Literal["crashed", "no_fit", "timeout"]]:
     return ["crashed", "no_fit"]
 
 
@@ -332,7 +338,7 @@ class CompatibilityConfig(StrictModel):
 
     enabled: bool = True
     correction_rounds: int = Field(default=2, ge=0, le=10)
-    repair_statuses: list[Literal["crashed", "no_fit"]] = Field(
+    repair_statuses: list[Literal["crashed", "no_fit", "timeout"]] = Field(
         default_factory=_default_repair_statuses
     )
     compile_targets: list[CompileTargetConfig] = Field(default_factory=list)
@@ -531,6 +537,7 @@ class ExecutionConfig(StrictModel):
 class CompensationConfig(StrictModel):
     enabled: bool = True
     arithmetic_policy: Literal["target_format_only", "mixed"] = "target_format_only"
+    repair_catastrophic: bool = False
     correction_rounds: int = Field(default=2, ge=0, le=10)
     error_threshold: float | None = Field(default=1e-2, ge=0.0)
     error_metric: ErrorMetric = "relative_l2"

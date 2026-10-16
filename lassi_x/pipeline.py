@@ -30,6 +30,7 @@ from .compensation import (
 from .config import ExecutionConfig, RunConfig
 from .execution import ExecutionContext
 from .execution.preflight import native_runtime_checks
+from .interruptions import model_service_interrupted
 from .measurement import Backend, build_backends, measure_compensation_variants, measure_variants
 from .pareto import frontier_indices, valid_point
 from .qualification import QualificationResult, qualify_candidate
@@ -447,6 +448,7 @@ def _reject_non_improving_variants(
             accepted = (
                 generated is not None
                 and generated.status == Status.OK
+                and generated.precision_eligible
                 and generated_error is not None
                 and generated.evaluation_semantic_verified
                 and bool(generated.accuracy_source)
@@ -710,6 +712,7 @@ async def _screened_candidate_flow(
             error_threshold=config.compensation.error_threshold,
             error_metric=config.pareto_error_metric,
             comparison_scope=config.compensation.comparison_scope,
+            include_catastrophic=config.compensation.repair_catastrophic,
         )
         if config.compensation.enabled and not deps.frozen_candidates
         else []
@@ -1042,6 +1045,7 @@ async def _candidate_flow(
                 error_threshold=config.compensation.error_threshold,
                 error_metric=config.pareto_error_metric,
                 comparison_scope=config.compensation.comparison_scope,
+                include_catastrophic=config.compensation.repair_catastrophic,
             )
             if config.compensation.enabled and not deps.frozen_candidates
             else []
@@ -1058,6 +1062,7 @@ async def _candidate_flow(
                 and point.precision == group[0].precision
                 and point.backend not in weak_names
                 and point.status == Status.OK
+                and point.precision_eligible
                 and getattr(point, config.pareto_error_metric) is not None
             ]
             names = sorted({point.backend for point in [*group, *guards]})
@@ -1257,6 +1262,8 @@ async def _stream_candidates_step(ctx: PipelineStepContext[None]) -> None:
             if ctx.deps.until is None:
                 _merge_outcome(ctx.state, outcome)
             _save_checkpoint(ctx.state, ctx.deps, "stream_candidates", complete=False)
+            if model_service_interrupted(outcome.to_dict()):
+                raise RuntimeError("Model service interrupted; candidate progress saved for retry")
     except BaseException:
         for task in tasks:
             task.cancel()
@@ -1458,6 +1465,207 @@ _pipeline_graph_builder.add(
 PIPELINE_GRAPH = _pipeline_graph_builder.build()
 
 
+async def _retry_interrupted_repairs(state: PipelineState, deps: PipelineDeps) -> None:
+    """Retry interrupted leaves, preserving base measurements and completed repairs.
+
+    Save after each leaf so another interruption can resume the remaining work.
+    Historical records and source are archived before reusing a repair workspace.
+    """
+    pending = [item for item in state.compatibility_candidates if item.status == Status.CRASHED]
+    if not pending:
+        return
+    backends = {
+        item.spec.name: item for item in build_backends(deps.config, deps.execution, deps.scheduler)
+    }
+    parents = {item.candidate_id: item for item in [*state.candidates, *state.numerical_candidates]}
+    for previous in pending:
+        if previous.parent_candidate_id is None:
+            raise ValueError("Cannot resume a compatibility repair without its parent candidate")
+        parent = parents[previous.parent_candidate_id]
+        failures = select_compatibility_failures(deps.config, state.measurements)
+        failure = next(
+            point
+            for point in failures
+            if (
+                point.variant_id if point.compensation != "none" else point.candidate_id,
+                point.backend,
+                point.precision,
+            )
+            == (parent.candidate_id, previous.target_backend, previous.target_precision)
+        )
+        archive = (
+            deps.run_dir
+            / "repair-history"
+            / dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+            / previous.candidate_id
+        )
+        archive.mkdir(parents=True)
+        if (deps.run_dir / "checkpoint.json").is_file():
+            shutil.copy2(deps.run_dir / "checkpoint.json", archive / "checkpoint.json")
+        if (deps.run_dir / "run.json").is_file():
+            shutil.copy2(deps.run_dir / "run.json", archive / "run.json")
+        write_json(archive / "candidate.json", previous.to_dict())
+        if previous.module_path.is_file():
+            shutil.copy2(previous.module_path, archive / "candidate.py")
+        repaired, point = await deps.scheduler.run_model(
+            partial(
+                repair_accelerator_candidate,
+                deps.config,
+                _require_oracle(state),
+                deps.run_dir,
+                deps.execution,
+                parent,
+                failure,
+                backends[failure.backend],
+                previous=previous,
+            )
+        )
+        state.compatibility_candidates = [
+            repaired if item.candidate_id == previous.candidate_id else item
+            for item in state.compatibility_candidates
+        ]
+        state.valid_candidates = [
+            item for item in state.valid_candidates if item.candidate_id != previous.candidate_id
+        ]
+        if repaired.status == Status.OK:
+            state.valid_candidates.append(repaired)
+        state.measurements = [
+            item for item in state.measurements if item.candidate_id != previous.candidate_id
+        ]
+        if point is not None:
+            state.measurements.append(point)
+        # Keep per-candidate journals consistent with the outer checkpoint.
+        for candidate in state.candidates:
+            restored = _load_candidate_journal(deps, candidate.candidate_id)
+            if restored is not None:
+                stage, outcome = restored
+                outcome.compatibility_candidates = [
+                    repaired if item.candidate_id == previous.candidate_id else item
+                    for item in outcome.compatibility_candidates
+                ]
+                outcome.measurements = [
+                    item
+                    for item in outcome.measurements
+                    if item.candidate_id != previous.candidate_id
+                ]
+                if point is not None and previous.parent_candidate_id in {
+                    candidate.candidate_id,
+                    *(item.candidate_id for item in outcome.numerical_candidates),
+                }:
+                    outcome.measurements.append(point)
+                _save_candidate_journal(deps, outcome, stage)
+        _save_checkpoint(state, deps, "retry_interrupted_repairs", complete=False)
+        if model_service_interrupted(repaired.to_dict()):
+            raise RuntimeError("Model service interrupted; compatibility repair saved for retry")
+        if repaired.status == Status.CRASHED:
+            raise RuntimeError("repair retry interrupted again; saved progress, stopping for retry")
+
+
+async def _retry_numerical_repairs(state: PipelineState, deps: PipelineDeps) -> None:
+    """Revalidate saved edits rejected by stale-baseline checks, then resume correction."""
+    backends = build_backends(deps.config, deps.execution, deps.scheduler)
+    runtime = {backend.spec.name: backend for backend in backends}
+    specs = {backend.name: backend for backend in deps.config.measure.backends}
+    for parent in list(state.candidates):
+        restored = _load_candidate_journal(deps, parent.candidate_id)
+        if restored is None:
+            continue
+        stage, outcome = restored
+        pending = [
+            variant
+            for variant in outcome.compensation_variants
+            if (
+                variant.status == Status.CRASHED
+                or any(
+                    diagnostic.gate == "runtime"
+                    and "unsupported dataset" in diagnostic.message
+                    and "base-fp32.npy" in " ".join(diagnostic.command or [])
+                    for diagnostic in variant.diagnostics
+                )
+            )
+        ]
+        if not pending and stage != "numerical_retry":
+            continue
+        weak = select_weak_points(
+            outcome.base_measurements,
+            error_threshold=deps.config.compensation.error_threshold,
+            error_metric=deps.config.pareto_error_metric,
+            comparison_scope=deps.config.compensation.comparison_scope,
+            include_catastrophic=deps.config.compensation.repair_catastrophic,
+        )
+        for previous in pending:
+            archive = (
+                deps.run_dir
+                / "numerical-repair-history"
+                / (dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S.%fZ"))
+                / previous.variant_id
+            )
+            archive.mkdir(parents=True)
+            write_json(archive / "variant.json", previous.to_dict())
+            for filename in ("run.json", "checkpoint.json"):
+                if (deps.run_dir / filename).is_file():
+                    shutil.copy2(deps.run_dir / filename, archive / filename)
+            if previous.module_path.is_file():
+                shutil.copy2(previous.module_path, archive / "candidate.py")
+            old_diagnostics = deps.run_dir / "diagnostics" / "variants" / previous.variant_id
+            if old_diagnostics.is_dir():
+                shutil.copytree(old_diagnostics, archive / "diagnostics")
+            group = [point for point in weak if point.precision == previous.precision]
+            repaired = await deps.scheduler.run_model(
+                partial(
+                    generate_compensation,
+                    deps.config,
+                    _require_oracle(state),
+                    deps.run_dir,
+                    deps.execution,
+                    outcome.candidate,
+                    group,
+                    [specs[point.backend] for point in group],
+                    target_backends=runtime,
+                    guard_points=[],
+                    previous=previous,
+                )
+            )
+            outcome.compensation_variants = [
+                repaired if item.variant_id == previous.variant_id else item
+                for item in outcome.compensation_variants
+            ]
+            state.compensation_variants = [
+                repaired if item.variant_id == previous.variant_id else item
+                for item in state.compensation_variants
+            ]
+            _save_candidate_journal(deps, outcome, "numerical_retry")
+            _save_checkpoint(state, deps, "retry_numerical_repairs", complete=False)
+            if repaired.status == Status.CRASHED:
+                raise RuntimeError("numerical repair interrupted; progress saved for retry")
+        outcome = await _screened_candidate_flow(deps, _require_oracle(state), outcome, backends)
+        replaced_ids = {parent.candidate_id} | {
+            item.candidate_id
+            for item in state.numerical_candidates
+            if item.parent_candidate_id == parent.candidate_id
+        }
+        state.candidates = [
+            item for item in state.candidates if item.candidate_id != parent.candidate_id
+        ]
+        state.valid_candidates = [
+            item for item in state.valid_candidates if item.candidate_id not in replaced_ids
+        ]
+        state.numerical_candidates = [
+            item
+            for item in state.numerical_candidates
+            if item.parent_candidate_id != parent.candidate_id
+        ]
+        state.compensation_variants = [
+            item for item in state.compensation_variants if item.candidate_id != parent.candidate_id
+        ]
+        state.measurements = [
+            item for item in state.measurements if item.candidate_id not in replaced_ids
+        ]
+        state.completed_candidate_ids.remove(parent.candidate_id)
+        _merge_outcome(state, outcome)
+        _save_checkpoint(state, deps, "retry_numerical_repairs", complete=False)
+
+
 async def run_pipeline(
     config_path: Path,
     *,
@@ -1465,6 +1673,8 @@ async def run_pipeline(
     until: Literal["cpu-verified"] | None = None,
     from_cpu_baseline: Path | None = None,
     allow_adaptations: bool = False,
+    retry_interrupted_repairs: bool = False,
+    retry_numerical_repairs: bool = False,
 ) -> tuple[int, Path]:
     """Execute or resume the pipeline, optionally stopping after CPU validation.
 
@@ -1474,12 +1684,18 @@ async def run_pipeline(
 
     if until not in {None, "cpu-verified"}:
         raise ValueError(f"unsupported pipeline stopping point: {until}")
+    if retry_interrupted_repairs and (resume_dir is None or until is not None):
+        raise ValueError("--retry-interrupted-repairs requires --resume without --until")
+    if retry_numerical_repairs and (resume_dir is None or until is not None):
+        raise ValueError("--retry-numerical-repairs requires --resume without --until")
     if from_cpu_baseline is not None and (resume_dir is not None or until is not None):
         raise ValueError("--from-cpu-baseline cannot be combined with --resume or --until")
     if allow_adaptations and from_cpu_baseline is None:
         raise ValueError("--allow-adaptations requires --from-cpu-baseline")
     require_automation_skills()
     config = RunConfig.load(config_path)
+    if retry_numerical_repairs and config.screening_backend is None:
+        raise ValueError("numerical retry requires the GPU screening flow")
     run_root = (
         config.runs_dir if config.runs_dir.is_absolute() else config.project.root / config.runs_dir
     )
@@ -1545,6 +1761,10 @@ async def run_pipeline(
             )
             if from_cpu_baseline is not None:
                 _save_checkpoint(state, deps, "import_cpu_baseline")
+            if retry_interrupted_repairs:
+                await _retry_interrupted_repairs(state, deps)
+            if retry_numerical_repairs:
+                await _retry_numerical_repairs(state, deps)
             atomic_write(
                 run_dir / "pipeline-graph.mmd",
                 PIPELINE_GRAPH.render(title="LASSI-X pipeline", direction="LR") + "\n",

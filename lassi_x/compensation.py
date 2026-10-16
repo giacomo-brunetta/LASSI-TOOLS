@@ -128,11 +128,21 @@ class CompensationVariant:
         data["target_measurements"] = [
             measurement.to_dict() for measurement in self.target_measurements
         ]
+        data["target_precision_verified"] = bool(self.target_measurements) and all(
+            point.precision_eligible for point in self.target_measurements
+        )
+        data["stable_success"] = (
+            self.status == Status.OK
+            and bool(self.target_measurements)
+            and all(point.stable_success for point in self.target_measurements)
+        )
         return data
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> CompensationVariant:
         data = dict(value)
+        data.pop("target_precision_verified", None)
+        data.pop("stable_success", None)
         data["module_path"] = Path(data["module_path"])
         data["status"] = Status(data["status"])
         data["diagnostics"] = [Diagnostic.from_dict(item) for item in data["diagnostics"]]
@@ -149,6 +159,7 @@ def select_weak_points(
     error_threshold: float | None = 1e-2,
     error_metric: str = "max_rel_error",
     comparison_scope: str = "same_candidate",
+    include_catastrophic: bool = False,
 ) -> list[Measurement]:
     """Select low-precision measurements that merit agent compensation.
 
@@ -174,7 +185,9 @@ def select_weak_points(
     low = [point for point in measurements if point.precision in {"fp16", "bf16"}]
     weak: list[Measurement] = []
     for point in low:
-        if point.numerically_catastrophic:
+        if not point.precision_eligible:
+            continue
+        if point.numerically_catastrophic and not include_catastrophic:
             continue
         if point.status in {
             Status.CRASHED,
@@ -205,6 +218,7 @@ def select_weak_points(
             and other.precision == point.precision
             and (comparison_scope == "cross_candidate" or other.candidate_id == point.candidate_id)
             and other.status == Status.OK
+            and other.precision_eligible
             and other.latency_s is not None
             and getattr(other, error_metric, None) is not None
             and other is not point
@@ -370,6 +384,8 @@ async def generate_compensation(
     backends: Sequence[BackendConfig],
     target_backends: dict[str, Backend[Any]] | None = None,
     guard_points: list[Measurement] | None = None,
+    *,
+    previous: CompensationVariant | None = None,
 ) -> CompensationVariant:
     """Generate one portable numerical variant for a candidate/precision family.
 
@@ -431,7 +447,14 @@ async def generate_compensation(
     mirror.mkdir(parents=True, exist_ok=True)
     toolset = execution.register_workspace(slug)
     target = mirror / "candidate.py"
-    await execution.stage_bytes(slug, "candidate.py", base.module_path.read_bytes())
+    baseline_bytes = base.module_path.read_bytes()
+    has_saved_edit = previous is not None and previous.module_path.is_file()
+    source = (
+        previous.module_path.read_bytes()
+        if previous is not None and has_saved_edit
+        else baseline_bytes
+    )
+    await execution.stage_bytes(slug, "candidate.py", source)
     fixture = fixture_relative_path(config)
     if fixture is not None and config.oracle.input_fixture is not None:
         await execution.stage_bytes(
@@ -460,6 +483,10 @@ async def generate_compensation(
         guard_backends=sorted({point.backend for point in guards}),
     )
     technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
+    if previous is not None:
+        variant.technique = previous.technique
+        variant.usage.add(previous.usage)
+        variant.turn_outcomes.extend(previous.turn_outcomes)
     weak_ids = {id(point) for point in weak_points}
     evidence = "\n".join(
         (
@@ -500,8 +527,12 @@ Allowed techniques:
 
 Choose one primary technique suited to the shared failure and portable across these backends.
 Edit the target copy. Do not add target-name conditionals or platform-specific operator rewrites.
-Import reusable arithmetic from lassi_x.precision where applicable. Update the module's
-LASSI_PRECISION metadata honestly. High-precision behavior must remain equivalent to the
+Import reusable arithmetic from lassi_x.precision where applicable.
+Under target_format_only use only target-format helpers: pairwise, Kahan, Neumaier,
+or double-word with the default component dtype. Generic mixed-precision scaling,
+centering, residual-carry and splitting templates are not compliant implementations;
+the technique names permit a target-format rewrite, not importing the mixed template.
+Update LASSI_PRECISION metadata honestly. High-precision behavior must remain equivalent to the
 original C/C++ reference and the compensation must collapse to the base behavior at FP32.
 Preserve support for both the `{config.kernel.validation_dataset}` CPU semantic-validation
 dataset and the `{config.evaluation_dataset}` merged accelerator evaluation dataset.
@@ -518,9 +549,10 @@ After editing and byte-compiling the target, return JSON only:
         memory=config.memory,
     )
     try:
-        turn = await session.send(prompt)
-        record_turn(variant, turn)
-        variant.technique = _parse_technique(turn.text, allowed)
+        if previous is None or not has_saved_edit:
+            turn = await session.send(prompt)
+            record_turn(variant, turn)
+            variant.technique = _parse_technique(turn.text, allowed)
         base_fingerprint = _semantic_fingerprint(base.module_path)
         execution_backend = execution.backend()
         for attempt in range(config.compensation.correction_rounds + 1):
@@ -545,13 +577,18 @@ After editing and byte-compiling the target, return JSON only:
                 external = await validate_candidate(
                     config, execution_backend, slug, oracle, diagnostic_dir
                 )
+                # Refresh the authoritative baseline immediately before the check.
+                # Imported CPU candidates need not exist in remote cN workspaces,
+                # which may contain stale files from unrelated campaigns.
+                await execution.stage_bytes(slug, ".lassi/baseline.py", baseline_bytes)
                 collapse = (
                     await validate_fp32_collapse(
                         config,
                         execution_backend,
-                        base.candidate_id,
+                        slug,
                         slug,
                         diagnostic_dir,
+                        base_module=".lassi/baseline.py",
                     )
                     if external.ok
                     else None
@@ -587,6 +624,7 @@ After editing and byte-compiling the target, return JSON only:
                     measured_error = getattr(measured, config.pareto_error_metric, None)
                     acceptable = (
                         measured.status == Status.OK
+                        and measured.precision_eligible
                         and measured_error is not None
                         and measured.evaluation_semantic_verified
                         and bool(measured.accuracy_source)
@@ -638,6 +676,8 @@ Repair the target without changing tolerances, disabling compensation, or embedd
 data. Preserve the selected technique where feasible. Do not print tensors, numerical artifacts,
 or complete logs; use bounded summaries and artifact files. Return a short summary.
 """
+            if previous is not None and not variant.turn_outcomes[len(previous.turn_outcomes) :]:
+                repair = prompt + "\nRevalidation of your saved edit failed:\n" + repair
             turn = await session.send(repair)
             record_turn(variant, turn)
     except Exception as exc:

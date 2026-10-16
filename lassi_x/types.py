@@ -128,6 +128,12 @@ class Measurement:
     output_precision: str
     observed_output_precision: str = ""
     precision_metadata_source: str = ""
+    arithmetic_policy: str = "target_format_only"
+    precision_verdict: str = "unverified"
+    precision_audit_protocol: str = ""
+    precision_audit_scope: str = ""
+    precision_audit_source_hash: str = ""
+    precision_violations: list[str] = field(default_factory=list)
     error_metric: str = "max_rel_error"
     evaluation_dataset: str = "default"
     accuracy_source: str = ""
@@ -181,6 +187,7 @@ class Measurement:
 
         return (
             self.status == Status.OK
+            and self.precision_eligible
             and not self.numerically_catastrophic
             and self.latency_s is not None
             and self.y_error is not None
@@ -195,11 +202,36 @@ class Measurement:
             and self.timing_protocol == "architectural-single-call-v1"
         )
 
+    @property
+    def precision_eligible(self) -> bool:
+        """Missing evidence preserves the record, but cannot certify low-format success."""
+        if self.precision == "fp64":
+            return True
+        return (
+            self.precision_verdict == "passed"
+            and self.precision_audit_protocol in {"executed-dtype-v3", "compiled-dtype-v1"}
+            and bool(self.source_hash)
+            and self.precision_audit_source_hash == self.source_hash
+        )
+
+    @property
+    def stable_success(self) -> bool:
+        return (
+            self.status == Status.OK
+            and self.precision_eligible
+            and self.relative_l2 is not None
+            and math.isfinite(self.relative_l2)
+            and self.relative_l2 <= 0.01
+            and self.evaluation_semantic_verified
+        )
+
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["status"] = self.status.value
         data["y_error"] = self.y_error
         data["frontier_eligible"] = self.frontier_eligible
+        data["precision_eligible"] = self.precision_eligible
+        data["stable_success"] = self.stable_success
         return data
 
     @classmethod
@@ -207,6 +239,8 @@ class Measurement:
         data = dict(value)
         data.pop("y_error", None)
         data.pop("frontier_eligible", None)
+        data.pop("precision_eligible", None)
+        data.pop("stable_success", None)
         data["status"] = Status(data["status"])
         return cls(**data)
 

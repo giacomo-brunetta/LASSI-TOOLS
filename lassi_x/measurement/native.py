@@ -14,6 +14,7 @@ from ..types import Measurement, Status
 from ..validation import fixture_relative_path
 from .common import (
     Backend,
+    _attach_precision_evidence,
     _base_measurement,
     _enforce_accuracy_latency_pair,
     _enforce_architectural_timing,
@@ -303,6 +304,7 @@ class NativeBackend(Backend[NativeBackendConfig]):
         measurement.precision_metadata_source = str(
             precision_meta.get("metadata_source", "candidate_declared")
         )
+        measurement = _attach_precision_evidence(measurement, payload)
         measurement = _enforce_accuracy_latency_pair(measurement)
         measurement = _enforce_numerical_accuracy_policy(config, measurement)
         return _enforce_architectural_timing(measurement)

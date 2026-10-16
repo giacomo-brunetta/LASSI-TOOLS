@@ -3,7 +3,14 @@
 #define LASSI_SCIENCE_COMMON_H
 #include <math.h>
 #include <stdio.h>
-#if defined(MEDIUM_DATASET)
+#if defined(LARGE_DATASET)
+#ifndef SIZE
+#define SIZE 256
+#endif
+#ifndef STEPS
+#define STEPS 200
+#endif
+#elif defined(MEDIUM_DATASET)
 #define SIZE 128
 #define STEPS 100
 #elif defined(SMALL_DATASET)

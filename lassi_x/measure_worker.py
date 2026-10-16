@@ -13,10 +13,12 @@ from typing import cast
 import numpy as np
 import torch
 
-from .runner import PRECISIONS, load_module
+from .runner import PRECISIONS
+from .runner import load_module as load_module
 from .validation import compare_outputs, load_reference_output
 
 ARCHITECTURAL_TIMING_PROTOCOL = "architectural-single-call-v1"
+_PRECISION_AUDIT_ACTIVE = False
 ARCHITECTURAL_TIMING_EXCLUDES = [
     "allocation",
     "compilation",
@@ -71,6 +73,10 @@ def main() -> int:
     parser.add_argument("--invariant")
     parser.add_argument("--invariant-threshold", type=float)
     args = parser.parse_args()
+    if args.precision != "fp64" and not globals().get("_PRECISION_AUDIT_ACTIVE", False):
+        from .precision_audit_worker import main as audit_main  # noqa: PLC0415
+
+        return audit_main()
     phase = "load_candidate"
     try:
         torch.manual_seed(args.seed)

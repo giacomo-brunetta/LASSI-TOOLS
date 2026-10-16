@@ -189,6 +189,7 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
         model=request.model,
         provider=request.provider,
         base_url=request.base_url,
+        providers_allowed=request.providers_allowed,
         api_key=api_key,
         api_mode=request.api_mode,
         reasoning_config=(

@@ -1,0 +1,28 @@
+{
+  "model": "luna",
+  "kernel": "polybench-durbin",
+  "candidate": "a-c1-a100-cuda-bf16",
+  "precision": "bf16",
+  "module": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-luna-from-terra-20261013/runs/polybench-durbin/20261014T020845.305233Z-polybench-durbin-mini/workspaces/a-c1-a100-cuda-bf16/candidate.py",
+  "reason": "Confirmed wider computation or wrong-format supplied input",
+  "evidence": {
+    "protocol": "observed-eager-dtype-v2",
+    "operations": 3872,
+    "passed": false,
+    "violations": [
+      "aten._to_copy.default output: torch.float64, required torch.bfloat16",
+      "aten.slice.Tensor input: torch.float64, required torch.bfloat16",
+      "aten.slice.Tensor output: torch.float64, required torch.bfloat16"
+    ],
+    "scope": "explicit tensor arithmetic; implicit hardware accumulation not certified",
+    "constant_policy": "wide stored constants and unused buffers allowed; cast before arithmetic",
+    "violation_count": 20
+  },
+  "original_campaign": "a100-luna-from-terra-20261013",
+  "valid_results": false,
+  "publishable": false,
+  "resume_allowed": false,
+  "source_sha256": "962bcc9b5b25edda850fd3dad94529459a82421b8bfe1c611fad569cf0218e81",
+  "actual_source_location": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-luna-from-terra-20261013/runs/polybench-durbin/20261014T020845.305233Z-polybench-durbin-mini/workspaces/a-c1-a100-cuda-bf16/candidate.py",
+  "scope": "Requested bf16 only; valid FP64 CPU evidence is retained"
+}
