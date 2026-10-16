@@ -1,0 +1,924 @@
+{
+  "valid_results": false,
+  "source_selection": "lowest accepted MINI relative_l2 per precision",
+  "entries": [
+    {
+      "kernel": "direct-dft",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00033978689867768594,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/direct-dft/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "direct-dft",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.001557358438850591,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/direct-dft/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "iir-filter-bank",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00484478472145188,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/iir-filter-bank/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "iir-filter-bank",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.04106695120776343,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/iir-filter-bank/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "jpeg-dct",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.0010350249011683908,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/jpeg-dct/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "jpeg-dct",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.008803547307455748,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/jpeg-dct/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "lorenz-rk4",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.003007512757274188,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/lorenz-rk4/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "lorenz-rk4",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0018225726180741985,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/lorenz-rk4/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "low-rank-compression",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/low-rank-compression/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "low-rank-compression",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.028771797992782778,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/low-rank-compression/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "mutual-information",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.001005852906478415,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/mutual-information/run.json",
+      "historical_dimensions": {
+        "N": 256
+      }
+    },
+    {
+      "kernel": "mutual-information",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.003600044888292791,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/mutual-information/run.json",
+      "historical_dimensions": {
+        "N": 256
+      }
+    },
+    {
+      "kernel": "poisson-cg",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": 0.26252552610698177,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/poisson-cg/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "poisson-cg",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.031955423566385324,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/poisson-cg/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "polybench-3mm",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-3mm/run.json",
+      "historical_dimensions": {
+        "NI": 800,
+        "NJ": 900,
+        "NK": 1000,
+        "NL": 1100,
+        "NM": 1200
+      }
+    },
+    {
+      "kernel": "polybench-3mm",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0018366476187703382,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-3mm/run.json",
+      "historical_dimensions": {
+        "NI": 800,
+        "NJ": 900,
+        "NK": 1000,
+        "NL": 1100,
+        "NM": 1200
+      }
+    },
+    {
+      "kernel": "polybench-adi",
+      "precision": "fp16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-adi/run.json",
+      "historical_dimensions": {
+        "N": 1000,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-adi",
+      "precision": "bf16",
+      "status": "timeout",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-adi/run.json",
+      "historical_dimensions": {
+        "N": 1000,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-atax",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-atax/run.json",
+      "historical_dimensions": {
+        "M": 1900,
+        "N": 2100
+      }
+    },
+    {
+      "kernel": "polybench-atax",
+      "precision": "bf16",
+      "status": "diverged",
+      "relative_l2": 2498.6991773205004,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-atax/run.json",
+      "historical_dimensions": {
+        "M": 1900,
+        "N": 2100
+      }
+    },
+    {
+      "kernel": "polybench-bicg",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00022690805870392085,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-bicg/run.json",
+      "historical_dimensions": {
+        "M": 1900,
+        "N": 2100
+      }
+    },
+    {
+      "kernel": "polybench-bicg",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0017098612498804469,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-bicg/run.json",
+      "historical_dimensions": {
+        "M": 1900,
+        "N": 2100
+      }
+    },
+    {
+      "kernel": "polybench-cholesky",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": 0.3318121293706077,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-cholesky/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-cholesky",
+      "precision": "bf16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-cholesky/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-correlation",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-correlation/run.json",
+      "historical_dimensions": {
+        "M": 1200,
+        "N": 1400
+      }
+    },
+    {
+      "kernel": "polybench-correlation",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0038189434917493313,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-correlation/run.json",
+      "historical_dimensions": {
+        "M": 1200,
+        "N": 1400
+      }
+    },
+    {
+      "kernel": "polybench-covariance",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-covariance/run.json",
+      "historical_dimensions": {
+        "M": 1200,
+        "N": 1400
+      }
+    },
+    {
+      "kernel": "polybench-covariance",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.002420911609858321,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-covariance/run.json",
+      "historical_dimensions": {
+        "M": 1200,
+        "N": 1400
+      }
+    },
+    {
+      "kernel": "polybench-deriche",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-deriche/run.json",
+      "historical_dimensions": {
+        "H": 2160,
+        "W": 4096
+      }
+    },
+    {
+      "kernel": "polybench-deriche",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0035418774228027066,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-deriche/run.json",
+      "historical_dimensions": {
+        "H": 2160,
+        "W": 4096
+      }
+    },
+    {
+      "kernel": "polybench-doitgen",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.0002407559616712745,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-doitgen/run.json",
+      "historical_dimensions": {
+        "NP": 160,
+        "NQ": 140,
+        "NR": 150
+      }
+    },
+    {
+      "kernel": "polybench-doitgen",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0018563985421492142,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-doitgen/run.json",
+      "historical_dimensions": {
+        "NP": 160,
+        "NQ": 140,
+        "NR": 150
+      }
+    },
+    {
+      "kernel": "polybench-durbin",
+      "precision": "fp16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-durbin/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-durbin",
+      "precision": "bf16",
+      "status": "timeout",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-durbin/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-fdtd-2d",
+      "precision": "fp16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-fdtd-2d/run.json",
+      "historical_dimensions": {
+        "NX": 1000,
+        "NY": 1200,
+        "TMAX": 500
+      }
+    },
+    {
+      "kernel": "polybench-fdtd-2d",
+      "precision": "bf16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-fdtd-2d/run.json",
+      "historical_dimensions": {
+        "NX": 1000,
+        "NY": 1200,
+        "TMAX": 500
+      }
+    },
+    {
+      "kernel": "polybench-floyd-warshall",
+      "precision": "fp16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-floyd-warshall/run.json",
+      "historical_dimensions": {
+        "N": 2800
+      }
+    },
+    {
+      "kernel": "polybench-floyd-warshall",
+      "precision": "bf16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-floyd-warshall/run.json",
+      "historical_dimensions": {
+        "N": 2800
+      }
+    },
+    {
+      "kernel": "polybench-gemm",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.0003552325960270678,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gemm/run.json",
+      "historical_dimensions": {
+        "NI": 1000,
+        "NJ": 1100,
+        "NK": 1200
+      }
+    },
+    {
+      "kernel": "polybench-gemm",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0028107379497067206,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gemm/run.json",
+      "historical_dimensions": {
+        "NI": 1000,
+        "NJ": 1100,
+        "NK": 1200
+      }
+    },
+    {
+      "kernel": "polybench-gemver",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gemver/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-gemver",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.003380357909135036,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gemver/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-gesummv",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.0003162156474378792,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gesummv/run.json",
+      "historical_dimensions": {
+        "N": 1300
+      }
+    },
+    {
+      "kernel": "polybench-gesummv",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0020859971743457002,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gesummv/run.json",
+      "historical_dimensions": {
+        "N": 1300
+      }
+    },
+    {
+      "kernel": "polybench-gramschmidt",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gramschmidt/run.json",
+      "historical_dimensions": {
+        "M": 1000,
+        "N": 1200
+      }
+    },
+    {
+      "kernel": "polybench-gramschmidt",
+      "precision": "bf16",
+      "status": "diverged",
+      "relative_l2": 0.5817295541505756,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-gramschmidt/run.json",
+      "historical_dimensions": {
+        "M": 1000,
+        "N": 1200
+      }
+    },
+    {
+      "kernel": "polybench-heat-3d",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00019994726199872568,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-heat-3d/run.json",
+      "historical_dimensions": {
+        "N": 120,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-heat-3d",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.002285599594009329,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-heat-3d/run.json",
+      "historical_dimensions": {
+        "N": 120,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-jacobi-2d",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-jacobi-2d/run.json",
+      "historical_dimensions": {
+        "N": 1300,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-jacobi-2d",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.010443825789864828,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-jacobi-2d/run.json",
+      "historical_dimensions": {
+        "N": 1300,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-lu",
+      "precision": "fp16",
+      "status": "diverged",
+      "relative_l2": 0.33791007038659887,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-lu/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-lu",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0020492657004706925,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-lu/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-mvt",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00023711331768535188,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-mvt/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-mvt",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0017794878042503106,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-mvt/run.json",
+      "historical_dimensions": {
+        "N": 2000
+      }
+    },
+    {
+      "kernel": "polybench-nussinov",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.0,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-nussinov/run.json",
+      "historical_dimensions": {
+        "N": 2500
+      }
+    },
+    {
+      "kernel": "polybench-nussinov",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-nussinov/run.json",
+      "historical_dimensions": {
+        "N": 2500
+      }
+    },
+    {
+      "kernel": "polybench-seidel-2d",
+      "precision": "fp16",
+      "status": "crashed",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-seidel-2d/run.json",
+      "historical_dimensions": {
+        "N": 2000,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-seidel-2d",
+      "precision": "bf16",
+      "status": "timeout",
+      "relative_l2": null,
+      "needs_repair": true,
+      "reason": "execution_or_numerical_failure",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-seidel-2d/run.json",
+      "historical_dimensions": {
+        "N": 2000,
+        "TSTEPS": 500
+      }
+    },
+    {
+      "kernel": "polybench-syr2k",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00027874067804689275,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-syr2k/run.json",
+      "historical_dimensions": {
+        "M": 1000,
+        "N": 1200
+      }
+    },
+    {
+      "kernel": "polybench-syr2k",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.002297039038517809,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-syr2k/run.json",
+      "historical_dimensions": {
+        "M": 1000,
+        "N": 1200
+      }
+    },
+    {
+      "kernel": "polybench-trmm",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.00030970221688984487,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-trmm/run.json",
+      "historical_dimensions": {
+        "M": 1000,
+        "N": 1200
+      }
+    },
+    {
+      "kernel": "polybench-trmm",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.0024681615445773537,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/polybench-trmm/run.json",
+      "historical_dimensions": {
+        "M": 1000,
+        "N": 1200
+      }
+    },
+    {
+      "kernel": "softened-nbody",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.0015323885027378056,
+      "needs_repair": false,
+      "reason": "historically_passed_unverified_precision",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/softened-nbody/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "softened-nbody",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.011606446927140891,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/softened-nbody/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "wavelet-compression",
+      "precision": "fp16",
+      "status": "ok",
+      "relative_l2": 0.013685829040927152,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/wavelet-compression/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    },
+    {
+      "kernel": "wavelet-compression",
+      "precision": "bf16",
+      "status": "ok",
+      "relative_l2": 0.08398094645890967,
+      "needs_repair": true,
+      "reason": "weak_accuracy",
+      "provisional_only": true,
+      "source_record": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015/a100-large-validation-20261014/runs/wavelet-compression/run.json",
+      "historical_dimensions": {
+        "SIZE": 256,
+        "STEPS": 200
+      }
+    }
+  ]
+}

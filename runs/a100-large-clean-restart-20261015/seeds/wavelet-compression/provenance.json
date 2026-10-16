@@ -1,0 +1,52 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/wavelet-compression/20261003T014918.662136Z-wavelet-compression-mini/cpu-baseline/c1.py",
+      "source_sha256": "09205f74df2044f37264bd49d53929d84e19c8cc308b6ef4a03f913e20ab71a6",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/wavelet-compression/c1.py",
+      "seed_sha256": "0868242f111c7d8c055d22761822bb6ddd3abf5a8516d530e71dfd2ef7be3f19",
+      "changes": [
+        {
+          "line": 24,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/wavelet-compression/20261003T014918.662136Z-wavelet-compression-mini/cpu-baseline/c2.py",
+      "source_sha256": "99c3255c2cc9a811ad79b35c2c8c1dbab1c809b2093f4e69c49be0d50ff67432",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/wavelet-compression/c2.py",
+      "seed_sha256": "1ae077fa220619412b011252bf576d595487099cbdfe1bfd93f98ae4be487371",
+      "changes": [
+        {
+          "line": 27,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/wavelet-compression/20261003T014918.662136Z-wavelet-compression-mini/cpu-baseline/c3.py",
+      "source_sha256": "c5b8e262a4d71c93c7cf3fbffee64fd00ec0b7d36a610cca93014c9fa1f6dffc",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/wavelet-compression/c3.py",
+      "seed_sha256": "605d53ba999744be94b18cceacb8217ed2a5a66fc041a04e32fd4580ea54f5f2",
+      "changes": [
+        {
+          "line": 16,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

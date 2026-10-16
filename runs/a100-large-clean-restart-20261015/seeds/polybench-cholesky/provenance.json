@@ -1,0 +1,58 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-cholesky/20261002T193551.703077Z-polybench-cholesky-mini/cpu-baseline/c1.py",
+      "source_sha256": "afc4c78f2251b1267639bf8c75c6728eaa8fba026d2677d94735dd9f0270d59a",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-cholesky/c1.py",
+      "seed_sha256": "027b68df04621b7a9b74f7073a424674df04b3f1d1f23bb2e357badf4441f342",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-cholesky/20261002T193551.703077Z-polybench-cholesky-mini/cpu-baseline/c2.py",
+      "source_sha256": "013c2d0386536cbce92d0371f388664c98a2d7a794b077c1851062da54bb2b67",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-cholesky/c2.py",
+      "seed_sha256": "d4e8f301f3e81a6bcbe403102f153dca299e042c1b457dbb0b5bb2c9d775273d",
+      "changes": [
+        {
+          "line": 13,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        },
+        {
+          "line": 14,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-cholesky/20261002T193551.703077Z-polybench-cholesky-mini/cpu-baseline/c3.py",
+      "source_sha256": "8cc949b9f18484e4e093bb4a04a3fe10ee21d8c2fbd297fe381dcbd6d5b7a47d",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-cholesky/c3.py",
+      "seed_sha256": "abed83edb27be6a3233daf6c0d3264c4f36ff4d29344a8c32bfc6d6b94dc88ed",
+      "changes": [
+        {
+          "line": 14,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

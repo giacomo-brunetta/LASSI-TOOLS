@@ -1,0 +1,88 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-fdtd-2d/20261003T011427.002218Z-polybench-fdtd-2d-mini/cpu-baseline/c1.py",
+      "source_sha256": "943f5f654d5c8d695bc61e8e9f7853d6f9503af75dcae3695a194ac27dba2af4",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-fdtd-2d/c1.py",
+      "seed_sha256": "b03c8348ccb3c2345ef126cb21807695dded2ac7c27e6efb79c0957d5c4f1814",
+      "changes": [
+        {
+          "line": 71,
+          "dimension": "TMAX",
+          "before": 20,
+          "after": 500
+        },
+        {
+          "line": 71,
+          "dimension": "NX",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 71,
+          "dimension": "NY",
+          "before": 30,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-fdtd-2d/20261003T011427.002218Z-polybench-fdtd-2d-mini/cpu-baseline/c2.py",
+      "source_sha256": "2f7a438e980ae9147dc38c1d8961ea827073ae2bb0a64d1b2a01df50dc55e589",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-fdtd-2d/c2.py",
+      "seed_sha256": "8011f8cd7f67fdc18b98772aebd7096353a68459d3c0c4c9f429d19173d9f25e",
+      "changes": [
+        {
+          "line": 13,
+          "dimension": "TMAX",
+          "before": 20,
+          "after": 500
+        },
+        {
+          "line": 14,
+          "dimension": "NX",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 15,
+          "dimension": "NY",
+          "before": 30,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-fdtd-2d/20261003T011427.002218Z-polybench-fdtd-2d-mini/cpu-baseline/c3.py",
+      "source_sha256": "738a21e5ff3f7db3b90d9fca99c7693f0457928d566207c36e4890de5c647f7f",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-fdtd-2d/c3.py",
+      "seed_sha256": "f7e16aefca3992ae2236a4888424287c236ad12678ba315e86c9d777bfb80140",
+      "changes": [
+        {
+          "line": 20,
+          "dimension": "TMAX",
+          "before": 20,
+          "after": 500
+        },
+        {
+          "line": 20,
+          "dimension": "NX",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 20,
+          "dimension": "NY",
+          "before": 30,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

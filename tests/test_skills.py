@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 import yaml
 
 from lassi_x.skills import (
     SKILL_NAMES,
+    automation_skill_prompt,
     doctor_skills,
     install_skills,
+    require_automation_skills,
     source_root,
     uninstall_skills,
 )
@@ -64,3 +67,27 @@ def test_output_sensitive_skills_require_bounded_diagnostics() -> None:
         text = (source_root() / name / "SKILL.md").read_text()
         assert "## Bounded diagnostics" in text
         assert "8 KiB" in text
+
+
+def test_skill_checks_detect_stale_auxiliary_resources(tmp_path: Path) -> None:
+    installed = install_skills(tmp_path)
+    resource = tmp_path / "skills/lassi-x/lassi-x-fp16-compensate/references/techniques.md"
+    resource.write_text("stale recommendations")
+    assert not doctor_skills(tmp_path)["ok"]
+    assert installed["ok"]
+    with pytest.raises(RuntimeError, match="stale or incomplete"):
+        require_automation_skills(tmp_path)
+
+
+def test_numerical_worker_receives_full_skills_and_technique_reference() -> None:
+    prompt = automation_skill_prompt("compensation-n-c1-fp16")
+    for name in (
+        "lassi-x-fp-error-diagnose",
+        "lassi-x-fp16-compensate",
+        "lassi-x-elementary-function-audit",
+    ):
+        assert (source_root() / name / "SKILL.md").read_text() in prompt
+    assert (
+        source_root() / "lassi-x-fp16-compensate/references/techniques.md"
+    ).read_text() in prompt
+    assert automation_skill_prompt("unrelated-test-role") == ""

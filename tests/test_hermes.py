@@ -280,6 +280,12 @@ def test_worker_toggles_memory_layers_per_request(monkeypatch: pytest.MonkeyPatc
     create_agent(WorkerInit(model="test", role="planner", toolsets=["skills"], memory=memory), None)
     assert agent_kwargs["skip_memory"] is False
     assert agent_kwargs["enabled_toolsets"] == ["skills", "memory"]
+    assert "Required skill instructions (supplied in full" in str(
+        agent_kwargs["ephemeral_system_prompt"]
+    )
+    assert "lassi-x-accelerator-compatibility/SKILL.md" in str(
+        agent_kwargs["ephemeral_system_prompt"]
+    )
 
     create_agent(WorkerInit(model="test", role="planner", toolsets=["skills"]), None)
     assert agent_kwargs["skip_memory"] is True

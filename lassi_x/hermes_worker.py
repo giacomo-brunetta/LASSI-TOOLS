@@ -22,6 +22,7 @@ from lassi_x.protocol import (
     WorkerTurn,
     parse_worker_request,
 )
+from lassi_x.skills import automation_skill_prompt
 
 PROTOCOL_STREAM = sys.stdout
 
@@ -202,7 +203,11 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
         skip_memory=request.memory is None,
         skip_context_files=True,
         save_trajectories=False,
-        ephemeral_system_prompt=request.system_prompt,
+        ephemeral_system_prompt=(
+            (request.system_prompt or "") + "\n\n" + automation_skill_prompt(request.role)
+            if "skills" in request.toolsets
+            else request.system_prompt
+        ),
     )
 
 

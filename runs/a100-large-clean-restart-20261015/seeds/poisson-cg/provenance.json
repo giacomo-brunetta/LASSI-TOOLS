@@ -1,0 +1,52 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/poisson-cg/20261003T014308.851471Z-poisson-cg-mini/cpu-baseline/c1.py",
+      "source_sha256": "df73c28420fbe6cf14f0146581aa2c602e7c468593d01cebec9caf058a0efc60",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/poisson-cg/c1.py",
+      "seed_sha256": "c620faf4ca8cf1977021d1d1e0d7d46f9d83c3cdf93be527d225ac2275a74d12",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "SIZE+1",
+          "before": 33,
+          "after": 16385
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/poisson-cg/20261003T014308.851471Z-poisson-cg-mini/cpu-baseline/c2.py",
+      "source_sha256": "72c63fd0116f801b03359c10deace98bed204c44377f6a781909b3ca468d2929",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/poisson-cg/c2.py",
+      "seed_sha256": "8bf9f2b66ce77dcff878978b829e3a9bb65bc79a7da69ea428d80ba48dfade1d",
+      "changes": [
+        {
+          "line": 17,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 16384
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/poisson-cg/20261003T014308.851471Z-poisson-cg-mini/cpu-baseline/c3.py",
+      "source_sha256": "71b1561251b5cb21c24a94d73ee5f508abd90f7fa46d4aef1e84e849eb6a186f",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/poisson-cg/c3.py",
+      "seed_sha256": "961eaa686f5d727cacf50b11568885f9da5e3d2a06d85390b7d5c2715c00d96a",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "SIZE+1",
+          "before": 33,
+          "after": 16385
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

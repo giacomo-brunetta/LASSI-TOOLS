@@ -1,0 +1,70 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/lorenz-rk4/20261003T014009.744941Z-lorenz-rk4-mini/cpu-baseline/c1.py",
+      "source_sha256": "890638ea07e1ba5ea33af37af4125a68184bd6432a9d54324f41200fcf6ffc73",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/lorenz-rk4/c1.py",
+      "seed_sha256": "5bd877cbdbdeb98e3757df93482e26638cffbcb18fbd98c6ad72832e4bf06aef",
+      "changes": [
+        {
+          "line": 33,
+          "dimension": "STEPS",
+          "before": 20,
+          "after": 200
+        },
+        {
+          "line": 51,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/lorenz-rk4/20261003T014009.744941Z-lorenz-rk4-mini/cpu-baseline/c2.py",
+      "source_sha256": "f73e1f0b4f56372481fb8eaf47c173449551029279cb814fb3fb24bf503d4816",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/lorenz-rk4/c2.py",
+      "seed_sha256": "3ec3a6bf13d81532bff25de46ed0e099910bcaac6ede1da0779164d855214fa3",
+      "changes": [
+        {
+          "line": 14,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        },
+        {
+          "line": 15,
+          "dimension": "STEPS",
+          "before": 20,
+          "after": 200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/lorenz-rk4/20261003T014009.744941Z-lorenz-rk4-mini/cpu-baseline/c3.py",
+      "source_sha256": "e72456414117c7a8c6255ac13c91c786c061f099284d085f57f5f02c3db10785",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/lorenz-rk4/c3.py",
+      "seed_sha256": "3bc6379e13007690cbb511329145efb7d69504d601963bebf86b850ab44bd2c9",
+      "changes": [
+        {
+          "line": 40,
+          "dimension": "STEPS",
+          "before": 20,
+          "after": 200
+        },
+        {
+          "line": 61,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

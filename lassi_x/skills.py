@@ -128,12 +128,18 @@ def doctor_skills(home: Path | None = None) -> dict[str, Any]:
             invalid.append(name)
         else:
             found.append(name)
+    stale_files = [
+        relative
+        for relative, source in _source_files().items()
+        if not (root / relative).is_file() or _hash(root / relative) != _hash(source)
+    ]
     return {
-        "ok": not missing and not invalid,
+        "ok": not missing and not invalid and not stale_files,
         "root": str(root),
         "found": found,
         "missing": missing,
         "invalid": invalid,
+        "stale_files": stale_files,
     }
 
 
@@ -146,6 +152,63 @@ def require_automation_skills(home: Path | None = None) -> None:
             + ", ".join(missing)
             + ". Run: lassi-x skills install"
         )
+    stale = [
+        relative
+        for relative, source in _source_files().items()
+        if relative.split("/", 1)[0] in AUTOMATION_SKILLS
+        and (not (root / relative).is_file() or _hash(root / relative) != _hash(source))
+    ]
+    if stale:
+        raise RuntimeError(
+            "Required Hermes skill content is stale or incomplete: "
+            + ", ".join(stale)
+            + ". Run: lassi-x skills sync"
+        )
+
+
+def automation_skill_prompt(role: str) -> str:
+    """Supply full task-relevant instructions without relying on voluntary skill loading.
+
+    Other installed skills remain available through the skill tool. Required numerical
+    technique guidance is inline too; executable templates remain tool-accessible files.
+    """
+    if role.startswith("compensation-"):
+        names = (
+            "lassi-x-fp-error-diagnose",
+            "lassi-x-fp16-compensate",
+            "lassi-x-elementary-function-audit",
+        )
+    elif role.startswith("compatibility-"):
+        names = ("lassi-x-accelerator-compatibility", "lassi-x-repair-candidate")
+    elif role == "planner":
+        names = ("lassi-x-accelerator-compatibility", "lassi-x-translate-kernel")
+    elif role.startswith("c") and role[1:].isdigit():
+        names = (
+            "lassi-x-translate-kernel",
+            "lassi-x-repair-candidate",
+            "lassi-x-compare-outputs",
+            "lassi-x-accelerator-compatibility",
+            "lassi-x-elementary-function-audit",
+        )
+    else:
+        return ""
+    root = source_root()
+    resources = [f"{name}/SKILL.md" for name in names]
+    if "lassi-x-fp16-compensate" in names:
+        resources.append("lassi-x-fp16-compensate/references/techniques.md")
+    if "lassi-x-accelerator-compatibility" in names:
+        resources.append("lassi-x-accelerator-compatibility/references/platform-summary.md")
+    parts = [
+        "Required skill instructions (supplied in full by the harness):\n"
+        "The experiment's explicit precision contract overrides generic wider-arithmetic "
+        "examples or capability-based recommendations in these skills.\n"
+        f"Installed skill root: {install_root()}\n"
+        "Use the enabled skills tool for other skills, references and scripts."
+    ]
+    for relative in resources:
+        path = root / relative
+        parts.append(f"\n--- Skill resource: {relative} ---\n{path.read_text()}")
+    return "\n".join(parts)
 
 
 def uninstall_skills(home: Path | None = None) -> dict[str, Any]:

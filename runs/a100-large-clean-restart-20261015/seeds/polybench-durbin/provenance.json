@@ -1,0 +1,36 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-durbin/20261002T194124.282692Z-polybench-durbin-mini/cpu-baseline/c1.py",
+      "source_sha256": "ad3f142b665bf956b7aaa651c653dfb433a4ca4ced7f179f7bc8cc90780624ba",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-durbin/c1.py",
+      "seed_sha256": "58590ff89dc71e5d05c62f76ffc9af0f7b21970bb0145bf6136e0deed2e9d7f0",
+      "changes": [
+        {
+          "line": 19,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-durbin/20261002T194124.282692Z-polybench-durbin-mini/cpu-baseline/c2.py",
+      "source_sha256": "cd16cd8dd9655ecf852de2c4348158bb26b22119819fef4087c85b2821c2fe93",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-durbin/c2.py",
+      "seed_sha256": "f6e9eeb6ce5e6c849c7d0acbfd3d2b05d173608d6a6c342ba379fd5dc3471136",
+      "changes": [
+        {
+          "line": 20,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

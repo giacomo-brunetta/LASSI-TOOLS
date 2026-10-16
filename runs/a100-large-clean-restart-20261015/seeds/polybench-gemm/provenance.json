@@ -1,0 +1,106 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-gemm/20261002T183121.126927Z-polybench-gemm-mini/cpu-baseline/c1.py",
+      "source_sha256": "41be4708313f80f57245b931cb38aeb36c00e9f237cef2d7d1925801ebdd0ca6",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-gemm/c1.py",
+      "seed_sha256": "60505e89886a81ebf13ea7f1c7ca5ab0191f6735b890d4d1d4b3defcc355cb1c",
+      "changes": [
+        {
+          "line": 23,
+          "dimension": "NI",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 23,
+          "dimension": "NJ",
+          "before": 25,
+          "after": 1100
+        },
+        {
+          "line": 23,
+          "dimension": "NK",
+          "before": 30,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-gemm/20261002T183121.126927Z-polybench-gemm-mini/cpu-baseline/c2.py",
+      "source_sha256": "5827dc0689f86c163379a897aac84033632b52e0774ab87fdf69f90905b62609",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-gemm/c2.py",
+      "seed_sha256": "e7002e9ddbc847771848234b5e43718e57d9412604c04ce25927084e99d72775",
+      "changes": [
+        {
+          "line": 18,
+          "dimension": "NI",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 18,
+          "dimension": "NJ",
+          "before": 25,
+          "after": 1100
+        },
+        {
+          "line": 18,
+          "dimension": "NK",
+          "before": 30,
+          "after": 1200
+        },
+        {
+          "line": 19,
+          "dimension": "NI",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 19,
+          "dimension": "NJ",
+          "before": 25,
+          "after": 1100
+        },
+        {
+          "line": 19,
+          "dimension": "NK",
+          "before": 30,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-gemm/20261002T183121.126927Z-polybench-gemm-mini/cpu-baseline/c3.py",
+      "source_sha256": "610e647c880ed0d095f6fec5d0cdb562b3ceb47a3e74522790e605c1d0f114c2",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-gemm/c3.py",
+      "seed_sha256": "67fbfbd7e030c790c26c778e832571e83eb46c30785715f28d06c495d6fd810d",
+      "changes": [
+        {
+          "line": 20,
+          "dimension": "NI",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 20,
+          "dimension": "NJ",
+          "before": 25,
+          "after": 1100
+        },
+        {
+          "line": 20,
+          "dimension": "NK",
+          "before": 30,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

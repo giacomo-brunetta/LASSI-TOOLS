@@ -10,6 +10,7 @@ from .agent_support import BOUNDED_TOOL_OUTPUT_POLICY, record_turn, stage_refere
 from .config import compatibility_target_for
 from .execution import ResourceUnavailableError
 from .hermes import HermesSession
+from .precision_policy import precision_contract
 from .types import Candidate, Diagnostic, Status, Usage
 from .validation import OracleResult, fixture_relative_path, validate_candidate
 
@@ -347,7 +348,7 @@ Source context:
     async with HermesSession(
         config.models.planner,
         cwd=workspace,
-        system_prompt=PLANNER_SYSTEM,
+        system_prompt=PLANNER_SYSTEM + "\n\n" + precision_contract(config),
         toolsets=["skills"],
         role="planner",
         memory=config.memory,
@@ -611,7 +612,7 @@ async def generate_candidate(
     session = HermesSession(
         model,
         cwd=mirror,
-        system_prompt=CANDIDATE_SYSTEM,
+        system_prompt=CANDIDATE_SYSTEM + "\n\n" + precision_contract(config),
         toolsets=["skills", toolset],
         role=candidate_id,
         memory=config.memory,

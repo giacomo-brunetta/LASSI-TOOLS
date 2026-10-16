@@ -1,0 +1,124 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-3mm/20261002T184736.436569Z-polybench-3mm-mini/cpu-baseline/c1.py",
+      "source_sha256": "fbbf161736355fcfc0e4275891678e59fa91d6169fb50727f3609d9000c111b0",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-3mm/c1.py",
+      "seed_sha256": "3511bb69c76a0f3949d4c1ca09044f8d1bfdd6997fc2890dbc1e1f341ebfe93d",
+      "changes": [
+        {
+          "line": 14,
+          "dimension": "NI",
+          "before": 16,
+          "after": 800
+        },
+        {
+          "line": 14,
+          "dimension": "NJ",
+          "before": 18,
+          "after": 900
+        },
+        {
+          "line": 14,
+          "dimension": "NK",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 14,
+          "dimension": "NL",
+          "before": 22,
+          "after": 1100
+        },
+        {
+          "line": 14,
+          "dimension": "NM",
+          "before": 24,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-3mm/20261002T184736.436569Z-polybench-3mm-mini/cpu-baseline/c2.py",
+      "source_sha256": "50b4235d1cfafb1c0bab9cf285b2cb8038148f9124d1c26e1a445ae64d75d5cb",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-3mm/c2.py",
+      "seed_sha256": "c0bfca89282dfd8e69046953fea2be039c025e36449fe56d4823c30fe61d6751",
+      "changes": [
+        {
+          "line": 14,
+          "dimension": "NI",
+          "before": 16,
+          "after": 800
+        },
+        {
+          "line": 15,
+          "dimension": "NJ",
+          "before": 18,
+          "after": 900
+        },
+        {
+          "line": 16,
+          "dimension": "NK",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 17,
+          "dimension": "NL",
+          "before": 22,
+          "after": 1100
+        },
+        {
+          "line": 18,
+          "dimension": "NM",
+          "before": 24,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-3mm/20261002T184736.436569Z-polybench-3mm-mini/cpu-baseline/c3.py",
+      "source_sha256": "137d18603c3358b2fd13df5980f0886af516360ca3c90fae4af809bbf07b1b4a",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-3mm/c3.py",
+      "seed_sha256": "490c5ac424a5eccbe9b87d4b96a277f2f24bf5db2bb9bf10da9b12b754612c7f",
+      "changes": [
+        {
+          "line": 15,
+          "dimension": "NI",
+          "before": 16,
+          "after": 800
+        },
+        {
+          "line": 15,
+          "dimension": "NJ",
+          "before": 18,
+          "after": 900
+        },
+        {
+          "line": 15,
+          "dimension": "NK",
+          "before": 20,
+          "after": 1000
+        },
+        {
+          "line": 15,
+          "dimension": "NL",
+          "before": 22,
+          "after": 1100
+        },
+        {
+          "line": 15,
+          "dimension": "NM",
+          "before": 24,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

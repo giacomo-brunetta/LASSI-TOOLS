@@ -14,6 +14,7 @@ from .agent_support import (
     workspace_slug,
 )
 from .hermes import HermesSession
+from .precision_policy import precision_contract
 from .types import Candidate, Diagnostic, Measurement, Status
 from .validation import validate_candidate
 
@@ -202,6 +203,8 @@ Authoritative sources:
 {references}
 Backend: {failure.backend}
 Precision: {failure.precision}
+
+{precision_contract(config)}
 Observed status: {failure.status.value}
 Parent device {config.pareto_error_metric}: {getattr(failure, config.pareto_error_metric, None)}
 Observed compiler/runtime evidence: {failure.notes or "no diagnostic text was returned"}

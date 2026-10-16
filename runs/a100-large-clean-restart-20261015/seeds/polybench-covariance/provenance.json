@@ -1,0 +1,70 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-covariance/20261002T182910.294155Z-polybench-covariance-mini/cpu-baseline/c1.py",
+      "source_sha256": "358295a2a410f894cc8c45eb5b480303ea976da480b77c0811bbf4f40197285a",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-covariance/c1.py",
+      "seed_sha256": "786e457837c0cc1e8422c8f8a7a53bb51732411377389a09664aa9dcd0862fec",
+      "changes": [
+        {
+          "line": 22,
+          "dimension": "N",
+          "before": 32,
+          "after": 1400
+        },
+        {
+          "line": 22,
+          "dimension": "M",
+          "before": 28,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-covariance/20261002T182910.294155Z-polybench-covariance-mini/cpu-baseline/c2.py",
+      "source_sha256": "74afdbad0102d13477cb5cd82aeba4eb2fcf518e801fd932dcafacadb00ec538",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-covariance/c2.py",
+      "seed_sha256": "18c838395f3a06af667695e5eb5803fc1d82f1d5ea662c286601f1ea9a6cf596",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "N",
+          "before": 32,
+          "after": 1400
+        },
+        {
+          "line": 21,
+          "dimension": "M",
+          "before": 28,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-covariance/20261002T182910.294155Z-polybench-covariance-mini/cpu-baseline/c3.py",
+      "source_sha256": "d691d5034431de9b24aa8c274edc2e180d74c60f65c451a83fc2958046a7b071",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-covariance/c3.py",
+      "seed_sha256": "c53de53fc3842ac95cb2916d726f6dd4aa802827e3b680069bf5df95510db3e9",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "N",
+          "before": 32,
+          "after": 1400
+        },
+        {
+          "line": 21,
+          "dimension": "M",
+          "before": 28,
+          "after": 1200
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

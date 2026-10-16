@@ -15,6 +15,7 @@ from .agent_support import (
     workspace_slug,
 )
 from .hermes import HermesSession
+from .precision_policy import precision_contract
 from .types import Candidate, Diagnostic, Measurement, Status, Usage
 from .validation import (
     OracleResult,
@@ -438,7 +439,16 @@ async def generate_compensation(
             fixture,
             config.resolve_project_path(config.oracle.input_fixture).read_bytes(),
         )
-    allowed = [name for name in config.compensation.techniques if name in TECHNIQUE_SUMMARY]
+    forbidden = (
+        {"fp32-accumulate", "blocked-fp32", "double-word-fp32", "mixed-refine", "precision-ramp"}
+        if config.compensation.arithmetic_policy == "target_format_only"
+        else set()
+    )
+    allowed = [
+        name
+        for name in config.compensation.techniques
+        if name in TECHNIQUE_SUMMARY and name not in forbidden
+    ]
     variant = CompensationVariant(
         candidate_id=base.candidate_id,
         variant_id=slug,
@@ -472,6 +482,12 @@ Workspace toolset: {toolset} (all paths below are workspace-relative)
 Target copy to edit: candidate.py (already contains the validated base translation)
 Target precision family: {precision}
 Configured error objective: {config.pareto_error_metric}
+
+{precision_contract(config)}
+
+Prefer one dtype-generic source intervention that can be independently tested in both FP16
+and BF16. Do not assume that success in either format establishes success in the other.
+The current session is scored only against its explicitly supplied target and guard cells.
 
 Observed target evidence:
 {evidence}

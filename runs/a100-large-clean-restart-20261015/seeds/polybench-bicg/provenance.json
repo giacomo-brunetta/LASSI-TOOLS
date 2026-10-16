@@ -1,0 +1,70 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-bicg/20261002T185303.424986Z-polybench-bicg-mini/cpu-baseline/c1.py",
+      "source_sha256": "b787de42dde8d6e54d7277564a2c30147e45a6a685c7f1d376659c1c8f365b35",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-bicg/c1.py",
+      "seed_sha256": "2866e3bbab7ef0b0fe9f84cd85e9d505b5f5d51b81246913d087b1522dfb61f9",
+      "changes": [
+        {
+          "line": 36,
+          "dimension": "M",
+          "before": 38,
+          "after": 1900
+        },
+        {
+          "line": 37,
+          "dimension": "N",
+          "before": 42,
+          "after": 2100
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-bicg/20261002T185303.424986Z-polybench-bicg-mini/cpu-baseline/c2.py",
+      "source_sha256": "0a57c1a7778a3533c9c902c0871e0555533b028f6b518de17ba8a2ba785ce1b2",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-bicg/c2.py",
+      "seed_sha256": "f7d8d4ae8a3bd8012f80f17b6ca3bb402723e143da093c176b316f160cb4fc84",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "M",
+          "before": 38,
+          "after": 1900
+        },
+        {
+          "line": 21,
+          "dimension": "N",
+          "before": 42,
+          "after": 2100
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-bicg/20261002T185303.424986Z-polybench-bicg-mini/cpu-baseline/c3.py",
+      "source_sha256": "a76ab4b1eb85614ada32792b8c5a6d55ed10024c1749f2950be392024f23adab",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-bicg/c3.py",
+      "seed_sha256": "36fcf772727d50ac7d70d7836cc330f526296f8edb98f866a76ea62b96aab50b",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "M",
+          "before": 38,
+          "after": 1900
+        },
+        {
+          "line": 22,
+          "dimension": "N",
+          "before": 42,
+          "after": 2100
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

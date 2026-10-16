@@ -1,0 +1,52 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-lu/20261002T195321.592272Z-polybench-lu-mini/cpu-baseline/c1.py",
+      "source_sha256": "3fcb9db7a3ea0f91249a247d2a9bb8d968fff041c191d308ec20d16f04151937",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-lu/c1.py",
+      "seed_sha256": "95afe4da6ef45e5fbaa979846e224bc90454243434373788d659a7d289943950",
+      "changes": [
+        {
+          "line": 23,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-lu/20261002T195321.592272Z-polybench-lu-mini/cpu-baseline/c2.py",
+      "source_sha256": "992f47ef58929d2c5c453ca8c9cfa40e16d8f718f898c05d82e6d008ac6869e3",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-lu/c2.py",
+      "seed_sha256": "b4317b80a8dbfcef2fa0aecff09dfc71f1d68cfcfd477ad2f3759c9cc963d2d0",
+      "changes": [
+        {
+          "line": 20,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-lu/20261002T195321.592272Z-polybench-lu-mini/cpu-baseline/c3.py",
+      "source_sha256": "5ed1002ca77fd1eaf09cff935de6ac8953a98f501c652f875d1b4ea5a7bc9bf9",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-lu/c3.py",
+      "seed_sha256": "2759afd839b3ce603aad61d0a59b6aa01f01575998d17263e2f528e5ab102629",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "N",
+          "before": 40,
+          "after": 2000
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

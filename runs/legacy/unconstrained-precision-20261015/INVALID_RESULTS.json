@@ -1,0 +1,15 @@
+{
+  "status": "quarantined_unconstrained_precision",
+  "archived_at": "2026-10-16T00:40:10.615878+00:00",
+  "valid_results": false,
+  "publishable": false,
+  "resume_allowed": false,
+  "reason": "Repair prompts allowed whole-computation FP32/FP64 promotion; derived size-sweep results inherit this limitation. This is a protocol limitation, not a finding of intentional misconduct.",
+  "campaigns": [
+    "a100-large-repair-20261015",
+    "a100-luna-numerical-repair-20261013",
+    "a100-sol-numerical-repair-20261014",
+    "a100-large-validation-20261014"
+  ],
+  "fresh_inventory": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-clean-restart-20261015"
+}

@@ -1,5 +1,13 @@
 # Compensation technique reference
 
+## Arithmetic-contract filter
+
+These are generic examples, not permission to use wider arithmetic. Under target-format-only
+experiments, exclude FP32 accumulation, blocked-FP32, FP32 double-word, wider refinement and
+precision-ramp templates. Residual carry and operand splitting are eligible only if every
+explicit state and operation respects the target format. Inspect implementations for promotion.
+Do not promote the full kernel and describe it as accumulation or refinement.
+
 ## Shipped helpers
 
 `lassi_x.precision` provides FP32 accumulation, blocked-FP32 accumulation, pairwise, Kahan,

@@ -1,0 +1,52 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/jpeg-dct/20261003T014624.067320Z-jpeg-dct-mini/cpu-baseline/c1.py",
+      "source_sha256": "30915ab346a1463edd8b3fadf3ec45f0de16e3f8808fa7461964e82403041e73",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/jpeg-dct/c1.py",
+      "seed_sha256": "30a634d5bb0b5ed3c50e1caed3ca3b593de280dc91401f29fc7032838bfaaf48",
+      "changes": [
+        {
+          "line": 16,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/jpeg-dct/20261003T014624.067320Z-jpeg-dct-mini/cpu-baseline/c2.py",
+      "source_sha256": "e061f8b39469ce84f6f0217b54c92081482389730ff3e87fad47d31a26cfe5b0",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/jpeg-dct/c2.py",
+      "seed_sha256": "6e91487b836fa22faa7adf6fc29e06cf5f47d9973de71a267cddf1b19ad86d90",
+      "changes": [
+        {
+          "line": 15,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/jpeg-dct/20261003T014624.067320Z-jpeg-dct-mini/cpu-baseline/c3.py",
+      "source_sha256": "97bd43d24598a3259c80018b1331dc3c0fc522f41622b607d12a4edd5d6de2e7",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/jpeg-dct/c3.py",
+      "seed_sha256": "a3f32c2cfad3899546707fc998b32d10037dc307fe504d12b03dc8e93b6a10be",
+      "changes": [
+        {
+          "line": 16,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 1024
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

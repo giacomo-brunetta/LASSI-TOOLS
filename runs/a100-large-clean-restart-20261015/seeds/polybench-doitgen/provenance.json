@@ -1,0 +1,69 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-doitgen/20261002T192942.528404Z-polybench-doitgen-mini/cpu-baseline/c1.py",
+      "source_sha256": "c17d2856fb0370d59de4e83e607f5ad8a4661102591cc4e2395ccbfe612f26a2",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-doitgen/c1.py",
+      "seed_sha256": "829c4070c310e5d1278edfd7b2e02b814e27fb3b6405b89dae8f89632b68f3b6",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "NR",
+          "before": 10,
+          "after": 150
+        },
+        {
+          "line": 21,
+          "dimension": "NQ",
+          "before": 8,
+          "after": 140
+        },
+        {
+          "line": 21,
+          "dimension": "NP",
+          "before": 12,
+          "after": 160
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-doitgen/20261002T192942.528404Z-polybench-doitgen-mini/cpu-baseline/c2.py",
+      "source_sha256": "3cf9b31365bb8f6039d38496862543588118f89d5a7fe1ac846bb978773e7a17",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-doitgen/c2.py",
+      "seed_sha256": "3cf9b31365bb8f6039d38496862543588118f89d5a7fe1ac846bb978773e7a17",
+      "changes": [],
+      "specialization_error": "No explicit dimension specialization found for polybench-doitgen",
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-doitgen/20261002T192942.528404Z-polybench-doitgen-mini/cpu-baseline/c3.py",
+      "source_sha256": "b6f721679e785042314d9258734746346a6875208955c93b905e275328f79ccd",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-doitgen/c3.py",
+      "seed_sha256": "38e12072abbb1e6517c39ceb484f889a1070601363e4f42b77a6006a97670a35",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "NR",
+          "before": 10,
+          "after": 150
+        },
+        {
+          "line": 21,
+          "dimension": "NQ",
+          "before": 8,
+          "after": 140
+        },
+        {
+          "line": 21,
+          "dimension": "NP",
+          "before": 12,
+          "after": 160
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

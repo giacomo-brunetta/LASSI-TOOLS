@@ -63,7 +63,14 @@ If any condition is missing, stop and report the missing evidence.
 
 ## Selection guidance
 
-- Prefer FP32 accumulation when the backend exposes it.
+- Obey the experiment's arithmetic contract before considering backend capabilities. A GPU
+  used to evaluate portability to a target-format-only accelerator does not authorize FP32.
+- Under `target_format_only`, keep operators, persistent state, compensation/residuals and
+  outputs in the target format. Do not use wider tensor casts or helpers that promote internally.
+  Prefer scaling, stable reformulation, centering, reduction restructuring and target-format
+  multiword arithmetic. Implicit wider hardware accumulation requires explicit target permission.
+- Under an explicitly mixed-precision contract, consider selective FP32 accumulation. Promoting
+  the entire computation is a fallback baseline, not a repair, even if output is cast back.
 - Use blocked FP32 accumulation when full FP32 accumulation is costly and blockwise low-precision
   work is measurable. Tune the block size on the target.
 - Reserve pairwise, Kahan, and Neumaier for manual reductions; low-precision compensation state
@@ -88,3 +95,7 @@ latency, and comparison with the base point.
 - Never claim improvement without paired base and compensated measurements.
 - Never hide compiler reassociation, fusion, or flush-to-zero risks.
 - Never claim unbiased stochastic arithmetic from a software cast helper alone.
+- Never regenerate known fixture values inside forward or move kernel work into build_inputs.
+- Prefer one dtype-generic intervention and independently measure FP16 and BF16; success in one
+  does not establish success in the other. FP16 range failures and BF16 significance failures
+  can require different follow-up changes.

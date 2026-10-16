@@ -1,0 +1,29 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/iir-filter-bank/20261003T015706.341494Z-iir-filter-bank-mini/cpu-baseline/c1.py",
+      "source_sha256": "b6000d56ea66c8f57f412f0162f7e0ad3a140df363d0c62a361654b948e7baba",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/iir-filter-bank/c1.py",
+      "seed_sha256": "d8e8efe45c7fdea679f04c30204e715384757fed06b92750c166bf763e65897e",
+      "changes": [
+        {
+          "line": 91,
+          "dimension": "SIZE",
+          "before": 32,
+          "after": 16384
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/iir-filter-bank/20261003T015706.341494Z-iir-filter-bank-mini/cpu-baseline/c3.py",
+      "source_sha256": "57e24d224e376f5bb4d2908ce7a7de4435b4122d2b57996a573c86fe289ea5bd",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/iir-filter-bank/c2.py",
+      "seed_sha256": "57e24d224e376f5bb4d2908ce7a7de4435b4122d2b57996a573c86fe289ea5bd",
+      "changes": [],
+      "specialization_error": "No explicit dimension specialization found for iir-filter-bank",
+      "target_verified": false
+    }
+  ]
+}

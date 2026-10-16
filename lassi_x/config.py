@@ -530,6 +530,7 @@ class ExecutionConfig(StrictModel):
 
 class CompensationConfig(StrictModel):
     enabled: bool = True
+    arithmetic_policy: Literal["target_format_only", "mixed"] = "target_format_only"
     correction_rounds: int = Field(default=2, ge=0, le=10)
     error_threshold: float | None = Field(default=1e-2, ge=0.0)
     error_metric: ErrorMetric = "relative_l2"

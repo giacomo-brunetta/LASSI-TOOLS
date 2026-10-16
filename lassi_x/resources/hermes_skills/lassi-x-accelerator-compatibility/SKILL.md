@@ -33,14 +33,21 @@ Choose the workflow matching the agent role.
    pressure points, and semantically faithful alternative structures.
 4. Mark exact operators as coder preflight obligations. Without an exact wiki result supplied in
    context, do not state that an individual operator is compiled or rejected.
+   If the wiki executable is unavailable, record that exact preflight could not be performed.
+   Do not substitute family-level evidence or repeatedly retry a missing executable.
 
 ### Coder or repair agent
 
 1. Run `lassi-x-compat-wiki targets` and select the exact published target. Current published
    target IDs are `graphcore-pod64-poptorch`, `alcf-cs3-cerebras-pytorch`,
    `groq-r01-groqflow`, and `torch-mlir-tosa`.
+   The CLI may also list configured targets without published snapshots, including
+   `a100-sami-inductor`. Query that exact target and report missing canonical evidence once;
+   do not substitute another target's snapshot or repeatedly search for an absent snapshot.
 2. Inventory the actual `aten.*` operators produced or expected by the candidate. Do not treat a
    Torch-MLIR/TOSA result as evidence for accelerator execution.
+   Worker images can ship a reduced CLI without `lassi-x-compat validate`; in that case inspect
+   the graph or source instead of repeatedly invoking an unavailable subcommand.
 3. Query every uncertain or nontrivial operator with:
    `lassi-x-compat-wiki op OPERATOR --target TARGET --precision PRECISION`.
    Add `--markdown` when the full canonical fixture, result, or compiler diagnostic is needed.

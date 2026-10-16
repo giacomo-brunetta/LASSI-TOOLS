@@ -1,0 +1,48 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-deriche/20261002T195654.254920Z-polybench-deriche-mini/cpu-baseline/c2.py",
+      "source_sha256": "0ede08280b4ebac6330ec29c665b5a329d4c3c95791ba24033b4409849375618",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-deriche/c1.py",
+      "seed_sha256": "42203cb73060b99da43182c16cc8df0810cf5c5b2dd367c33eafe660040e35e4",
+      "changes": [
+        {
+          "line": 12,
+          "dimension": "W",
+          "before": 64,
+          "after": 4096
+        },
+        {
+          "line": 13,
+          "dimension": "H",
+          "before": 64,
+          "after": 2160
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-deriche/20261002T195654.254920Z-polybench-deriche-mini/cpu-baseline/c3.py",
+      "source_sha256": "a8eba1ccb562f7993d245d565ccd4c7048519017004da04f9c8b9bc880296847",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-deriche/c2.py",
+      "seed_sha256": "cbed3ce7e4135e40067d03970ab7254ea38c85fbc893facd208ba886235e3426",
+      "changes": [
+        {
+          "line": 21,
+          "dimension": "W",
+          "before": 64,
+          "after": 4096
+        },
+        {
+          "line": 22,
+          "dimension": "H",
+          "before": 64,
+          "after": 2160
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

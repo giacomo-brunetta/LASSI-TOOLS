@@ -1,0 +1,52 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-gesummv/20261002T183725.994462Z-polybench-gesummv-mini/cpu-baseline/c1.py",
+      "source_sha256": "2b0ca844cb2fef6783e63ce4afb6eaba9ba86bacc78a6fa0125244f630dd9913",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-gesummv/c1.py",
+      "seed_sha256": "f64df8dfa52461ab9def9be16dd5edf46b08cede5db52673dd3b2bba207f4b38",
+      "changes": [
+        {
+          "line": 17,
+          "dimension": "N",
+          "before": 30,
+          "after": 1300
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-gesummv/20261002T183725.994462Z-polybench-gesummv-mini/cpu-baseline/c2.py",
+      "source_sha256": "d2d3b010ae4b0c2d46bd1a1a029689253ae759715e8a77c2962627f66a2499cf",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-gesummv/c2.py",
+      "seed_sha256": "22191bdc3f2d03f7696682a935eecf53e88f81a8b48a6c766704c8940eee6d62",
+      "changes": [
+        {
+          "line": 19,
+          "dimension": "N",
+          "before": 30,
+          "after": 1300
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-gesummv/20261002T183725.994462Z-polybench-gesummv-mini/cpu-baseline/c3.py",
+      "source_sha256": "9b91a1ef22a7b440b18de0a155c3bbaa92f219bf7b51686c0f93ceb9e011f3d2",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-gesummv/c3.py",
+      "seed_sha256": "f07cd1ad6d84a58e7640f40e129f7a8a62f12c944bf24d8cc86aa782ed18849f",
+      "changes": [
+        {
+          "line": 20,
+          "dimension": "N",
+          "before": 30,
+          "after": 1300
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}

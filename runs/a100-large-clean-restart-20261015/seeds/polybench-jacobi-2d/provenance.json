@@ -1,0 +1,70 @@
+{
+  "candidates": [
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-jacobi-2d/20261003T012309.137738Z-polybench-jacobi-2d-mini/cpu-baseline/c1.py",
+      "source_sha256": "c6f3df75f0fb5a0a37619bb603fbcda2d54b71a4587d9b5d46e6877189188d1c",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-jacobi-2d/c1.py",
+      "seed_sha256": "4ab55ab0eca49c49ef1cfb9051f0ba22e70213f5c71a4dea6426644f2d1ed0f2",
+      "changes": [
+        {
+          "line": 13,
+          "dimension": "N",
+          "before": 30,
+          "after": 1300
+        },
+        {
+          "line": 14,
+          "dimension": "TSTEPS",
+          "before": 20,
+          "after": 500
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-jacobi-2d/20261003T012309.137738Z-polybench-jacobi-2d-mini/cpu-baseline/c2.py",
+      "source_sha256": "7aa177fdf28734dc4b6becc214beaa2c5e1e6ddee4081eb51ab2f2a48ef31fad",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-jacobi-2d/c2.py",
+      "seed_sha256": "6c3139b21e4a50b2ca72e42145fcc706ff070127b05c81391006441ef419e8cd",
+      "changes": [
+        {
+          "line": 14,
+          "dimension": "N",
+          "before": 30,
+          "after": 1300
+        },
+        {
+          "line": 15,
+          "dimension": "TSTEPS",
+          "before": 20,
+          "after": 500
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    },
+    {
+      "source": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/cpu-terra-medium-20261002-retry2/runs/polybench-jacobi-2d/20261003T012309.137738Z-polybench-jacobi-2d-mini/cpu-baseline/c3.py",
+      "source_sha256": "ce2be25080ebc0817bf294277ff45545f3676fb9f034199bba6353970fa54921",
+      "seed": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/a100-large-repair-20261015/seeds/polybench-jacobi-2d/c3.py",
+      "seed_sha256": "72e32aed117411e961228fcbebf828935241faf2a7974f93c289d0cdc5c0c021",
+      "changes": [
+        {
+          "line": 12,
+          "dimension": "N",
+          "before": 30,
+          "after": 1300
+        },
+        {
+          "line": 13,
+          "dimension": "TSTEPS",
+          "before": 20,
+          "after": 500
+        }
+      ],
+      "specialization_error": null,
+      "target_verified": false
+    }
+  ]
+}
