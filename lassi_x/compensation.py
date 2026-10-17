@@ -4,6 +4,8 @@ import ast
 import asyncio
 import json
 import re
+import time
+import weakref
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -16,6 +18,13 @@ from .agent_support import (
 )
 from .hermes import HermesSession
 from .precision_policy import precision_contract
+from .repair_history import (
+    RepairHistory,
+    RepairProposalError,
+    digest,
+    input_contract,
+    parse_hypothesis,
+)
 from .types import Candidate, Diagnostic, Measurement, Status, Usage
 from .validation import (
     OracleResult,
@@ -114,6 +123,15 @@ class CompensationVariant:
     target_measurements: list[Measurement] = field(default_factory=list)
     target_backends: list[str] = field(default_factory=list)
     guard_backends: list[str] = field(default_factory=list)
+    hypothesis: dict[str, str] = field(default_factory=dict)
+    history_scope: str = ""
+    attempt_history: list[dict[str, Any]] = field(default_factory=list)
+    baseline_errors: dict[str, float | None] = field(default_factory=dict)
+    repair_model: str = ""
+    arithmetic_policy: str = "target_format_only"
+    elapsed_s: float = 0.0
+    first_improvement_s: float | None = None
+    first_improvement_tokens: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the variant to a JSON-serializable artifact record.
@@ -128,14 +146,44 @@ class CompensationVariant:
         data["target_measurements"] = [
             measurement.to_dict() for measurement in self.target_measurements
         ]
-        data["target_precision_verified"] = bool(self.target_measurements) and all(
-            point.precision_eligible for point in self.target_measurements
+        latest = {p.backend: p for p in self.target_measurements}
+        targets = [latest[name] for name in self.target_backends if name in latest]
+        data["target_precision_verified"] = bool(latest) and all(
+            point.precision_eligible for point in latest.values()
         )
         data["stable_success"] = (
             self.status == Status.OK
-            and bool(self.target_measurements)
-            and all(point.stable_success for point in self.target_measurements)
+            and bool(latest)
+            and all(point.stable_success for point in latest.values())
         )
+        data["accuracy_improved"] = (
+            self.status == Status.OK
+            and bool(targets)
+            and len(targets) == len(self.target_backends)
+            and all(
+                p.precision_eligible
+                and p.y_error is not None
+                and (
+                    (baseline_error := self.baseline_errors.get(name)) is None
+                    or p.y_error < baseline_error
+                )
+                for name, p in latest.items()
+                if name in self.target_backends
+            )
+        )
+        data["recovered"] = (
+            self.status == Status.OK
+            and bool(latest)
+            and all(p.stable_success for p in latest.values())
+        )
+        data["arithmetic_classes"] = sorted({p.arithmetic_class for p in latest.values()})
+        data["error_reduction_factors"] = {
+            name: baseline / p.y_error
+            if p.y_error is not None and p.y_error > 0 and baseline is not None
+            else None
+            for name, p in latest.items()
+            if (baseline := self.baseline_errors.get(name)) is not None
+        }
         return data
 
     @classmethod
@@ -143,6 +191,13 @@ class CompensationVariant:
         data = dict(value)
         data.pop("target_precision_verified", None)
         data.pop("stable_success", None)
+        for derived in (
+            "accuracy_improved",
+            "recovered",
+            "arithmetic_classes",
+            "error_reduction_factors",
+        ):
+            data.pop(derived, None)
         data["module_path"] = Path(data["module_path"])
         data["status"] = Status(data["status"])
         data["diagnostics"] = [Diagnostic.from_dict(item) for item in data["diagnostics"]]
@@ -216,6 +271,7 @@ def select_weak_points(
             for other in low
             if other.backend == point.backend
             and other.precision == point.precision
+            and other.arithmetic_class == point.arithmetic_class
             and (comparison_scope == "cross_candidate" or other.candidate_id == point.candidate_id)
             and other.status == Status.OK
             and other.precision_eligible
@@ -322,6 +378,14 @@ def _semantic_fingerprint(path: Path) -> str:
     return ast.dump(stripped, include_attributes=False)
 
 
+def _valid_python(path: Path) -> bool:
+    try:
+        ast.parse(path.read_text())
+        return True
+    except (OSError, SyntaxError):
+        return False
+
+
 def _parse_technique(text: str, allowed: list[str]) -> str:
     """Recover the compensation technique selected in an agent response.
 
@@ -374,7 +438,52 @@ def _backend_capabilities(spec: BackendConfig) -> str:
     )
 
 
+_HISTORY_LOCKS: weakref.WeakKeyDictionary[Any, dict[str, asyncio.Lock]] = (
+    weakref.WeakKeyDictionary()
+)
+
+
 async def generate_compensation(
+    config: RunConfig,
+    oracle: OracleResult,
+    run_dir: Path,
+    execution: ExecutionContext,
+    base: Candidate,
+    weak_points: list[Measurement],
+    backends: Sequence[BackendConfig],
+    target_backends: dict[str, Backend[Any]] | None = None,
+    guard_points: list[Measurement] | None = None,
+    *,
+    previous: CompensationVariant | None = None,
+) -> CompensationVariant:
+    """Serialize same-arm/kernel attempts so every next agent sees completed history."""
+    locks = _HISTORY_LOCKS.setdefault(asyncio.get_running_loop(), {})
+    key = json.dumps(
+        [
+            str(config.compensation.history_dir or run_dir / "repair-history"),
+            config.kernel.name,
+            config.models.compensation.model_dump(mode="json"),
+            config.compensation.arithmetic_policy,
+        ],
+        sort_keys=True,
+        default=str,
+    )
+    async with locks.setdefault(key, asyncio.Lock()):
+        return await _generate_compensation(
+            config,
+            oracle,
+            run_dir,
+            execution,
+            base,
+            weak_points,
+            backends,
+            target_backends,
+            guard_points,
+            previous=previous,
+        )
+
+
+async def _generate_compensation(
     config: RunConfig,
     oracle: OracleResult,
     run_dir: Path,
@@ -417,6 +526,9 @@ async def generate_compensation(
     """
     if not weak_points:
         raise ValueError("portable compensation requires at least one weak measurement")
+    started = time.perf_counter()
+    config = config.model_copy(deep=True)
+    config.compensation.frozen_reference = base.module_path
     precision = weak_points[0].precision
     if any(
         point.candidate_id != base.candidate_id or point.precision != precision
@@ -448,6 +560,35 @@ async def generate_compensation(
     toolset = execution.register_workspace(slug)
     target = mirror / "candidate.py"
     baseline_bytes = base.module_path.read_bytes()
+    contract = (
+        input_contract(baseline_bytes.decode()) if config.compensation.freeze_input_builder else ""
+    )
+    scope_files = [config.kernel.reference, *config.kernel.context]
+    if config.oracle.input_fixture:
+        scope_files.append(config.oracle.input_fixture)
+    history = RepairHistory(
+        config.compensation.history_dir or run_dir / "repair-history",
+        {
+            "kernel": config.kernel.name,
+            "model_arm": config.models.compensation.model_dump(mode="json"),
+            "policy": config.compensation.arithmetic_policy,
+            "validation_dataset": config.kernel.validation_dataset,
+            "evaluation_dataset": config.evaluation_dataset,
+            "oracle": config.oracle.model_dump(mode="json"),
+            "equivalence": config.arena.equivalence.model_dump(mode="json"),
+            "references": {
+                str(p): digest(config.resolve_project_path(p).read_bytes())
+                if config.resolve_project_path(p).is_file()
+                else "missing"
+                for p in scope_files
+            },
+        },
+    )
+    if not any(
+        e.get("kind") == "baseline" and e["source_sha256"] == digest(baseline_bytes)
+        for e in history.entries()
+    ):
+        history.record(baseline_bytes, {"kind": "baseline", "candidate_id": base.candidate_id})
     has_saved_edit = previous is not None and previous.module_path.is_file()
     source = (
         previous.module_path.read_bytes()
@@ -455,6 +596,48 @@ async def generate_compensation(
         else baseline_bytes
     )
     await execution.stage_bytes(slug, "candidate.py", source)
+    ledger = history.entries()
+    for entry in ledger:
+        await execution.stage_bytes(
+            slug,
+            "history/" + entry["source_file"],
+            (history.root / entry["source_file"]).read_bytes(),
+        )
+    compact_ledger = [
+        {
+            **{
+                key: entry.get(key)
+                for key in (
+                    "event_id",
+                    "kind",
+                    "candidate_id",
+                    "precision",
+                    "source_file",
+                    "hypothesis",
+                    "status",
+                )
+            },
+            "diagnostics": entry.get("diagnostics", [entry.get("diagnostic", "")])[-1:],
+            "measurements": [
+                {
+                    key: point.get(key)
+                    for key in (
+                        "backend",
+                        "precision",
+                        "relative_l2",
+                        "latency_s",
+                        "arithmetic_class",
+                        "precision_verdict",
+                    )
+                }
+                for point in entry.get("measurements", [])
+            ],
+        }
+        for entry in ledger
+    ]
+    await execution.stage_bytes(
+        slug, "history/ledger.json", json.dumps(compact_ledger, default=str).encode()
+    )
     fixture = fixture_relative_path(config)
     if fixture is not None and config.oracle.input_fixture is not None:
         await execution.stage_bytes(
@@ -465,7 +648,7 @@ async def generate_compensation(
     forbidden = (
         {"fp32-accumulate", "blocked-fp32", "double-word-fp32", "mixed-refine", "precision-ramp"}
         if config.compensation.arithmetic_policy == "target_format_only"
-        else set()
+        else {"double-word-fp32", "mixed-refine", "precision-ramp"}
     )
     allowed = [
         name
@@ -481,9 +664,17 @@ async def generate_compensation(
         module_path=target,
         target_backends=sorted({point.backend for point in weak_points}),
         guard_backends=sorted({point.backend for point in guards}),
+        history_scope=str(history.root),
+        baseline_errors={p.backend: p.y_error for p in weak_points},
+        repair_model=config.models.compensation.model,
+        arithmetic_policy=config.compensation.arithmetic_policy,
     )
     technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
     if previous is not None:
+        variant.first_improvement_s = previous.first_improvement_s
+        variant.first_improvement_tokens = previous.first_improvement_tokens
+        variant.hypothesis = dict(previous.hypothesis)
+        variant.attempt_history.extend(previous.attempt_history)
         variant.technique = previous.technique
         variant.usage.add(previous.usage)
         variant.turn_outcomes.extend(previous.turn_outcomes)
@@ -509,6 +700,12 @@ Workspace toolset: {toolset} (all paths below are workspace-relative)
 Target copy to edit: candidate.py (already contains the validated base translation)
 Target precision family: {precision}
 Configured error objective: {config.pareto_error_metric}
+History: history/ledger.json and history/*.py contain this kernel's own model-arm attempts,
+including other candidates and FP16/BF16. Other models' and kernels' repairs are not provided.
+Consult their failure diagnostics and measured outcomes; do not repeat failed strategies by
+renaming them. A justified revision needs a specific new hypothesis and revisit_reason.
+Frozen input contract: do not edit build_inputs, its dependencies, input encoding, dimensions,
+or initialization. All target evaluation uses the original baseline's supplied inputs.
 
 {precision_contract(config)}
 
@@ -546,10 +743,33 @@ After editing and byte-compiling the target, return JSON only:
         system_prompt=COMPENSATION_SYSTEM,
         toolsets=["skills", toolset],
         role=f"compensation-{slug}",
-        memory=config.memory,
+        memory=config.memory.model_copy(update={"enabled": False}),
     )
     try:
         if previous is None or not has_saved_edit:
+            if config.compensation.require_hypothesis:
+                planning = (
+                    prompt.split("After editing and byte-compiling")[0]
+                    + """
+PLAN ONLY: do not edit candidate.py yet. Diagnose the error and propose a distinct repair.
+Return JSON only with nonempty strings: technique, failure_mechanism, transformation,
+semantics_argument, arithmetic_plan, strategy_key, novelty, and optional revisit_reason.
+strategy_key identifies mechanism AND operation location, not just the technique name.
+Explain a new hypothesis when revisiting a mechanism. Wider state or whole-kernel promotion
+is forbidden in both tracks. Mixed accumulation requires the named backend allowlist.
+"""
+                )
+                turn = await session.send(planning)
+                record_turn(variant, turn)
+                variant.hypothesis = parse_hypothesis(turn.text, allowed)
+                variant.technique = variant.hypothesis["technique"]
+                history.reject_repetition(variant.hypothesis)
+                await execution.mirror_file(slug, "candidate.py")
+                if target.read_bytes() != source:
+                    raise RepairProposalError(
+                        "planning phase edited candidate.py before hypothesis approval"
+                    )
+                prompt += "\nApproved hypothesis:\n" + json.dumps(variant.hypothesis)
             turn = await session.send(prompt)
             record_turn(variant, turn)
             variant.technique = _parse_technique(turn.text, allowed)
@@ -563,7 +783,24 @@ After editing and byte-compiling the target, return JSON only:
             except (OSError, SyntaxError):
                 changed = True
             diagnostic: Diagnostic | None
-            if not changed:
+            input_changed = False
+            try:
+                input_changed = bool(contract) and input_contract(target.read_text()) != contract
+                repeated = history.repeated_source(digest(_semantic_fingerprint(target).encode()))
+            except (OSError, SyntaxError, ValueError):
+                input_changed, repeated = True, False
+            if input_changed or (repeated and previous is None):
+                external = collapse = None
+                diagnostic = Diagnostic(
+                    gate="repair-input-contract" if input_changed else "repair-repetition",
+                    message="frozen input builder/dependencies changed"
+                    if input_changed
+                    else (
+                        "implementation repeats an earlier attempt; "
+                        "renaming a strategy is not novelty"
+                    ),
+                )
+            elif not changed:
                 external = None
                 collapse = None
                 diagnostic = Diagnostic(
@@ -648,6 +885,15 @@ After editing and byte-compiling the target, return JSON only:
                         )
                 if not failures:
                     variant.status = Status.OK
+                    if variant.first_improvement_s is None:
+                        variant.first_improvement_s = (
+                            time.perf_counter()
+                            - started
+                            + (previous.elapsed_s if previous else 0.0)
+                        )
+                        variant.first_improvement_tokens = (
+                            variant.usage.input_tokens + variant.usage.output_tokens
+                        )
                     await execution.mirror_file(slug, "candidate.py")
                     break
                 diagnostic = Diagnostic(
@@ -663,6 +909,22 @@ After editing and byte-compiling the target, return JSON only:
                     gate="compensation", message="compensation validation failed"
                 )
             variant.diagnostics.append(diagnostic)
+            event = history.record(
+                target.read_bytes(),
+                {
+                    "kind": "attempt",
+                    "candidate_id": base.candidate_id,
+                    "precision": precision,
+                    "hypothesis": variant.hypothesis,
+                    "semantic_fingerprint": digest(_semantic_fingerprint(target).encode())
+                    if not input_changed
+                    else "",
+                    "status": "rejected",
+                    "diagnostic": diagnostic.for_agent(),
+                    "measurements": [p.to_dict() for p in variant.target_measurements],
+                },
+            )
+            variant.attempt_history.append(event)
             if attempt >= config.compensation.correction_rounds:
                 variant.status = Status.REJECTED
                 break
@@ -680,11 +942,39 @@ or complete logs; use bounded summaries and artifact files. Return a short summa
                 repair = prompt + "\nRevalidation of your saved edit failed:\n" + repair
             turn = await session.send(repair)
             record_turn(variant, turn)
+    except RepairProposalError as exc:
+        variant.status = Status.REJECTED
+        variant.diagnostics.append(Diagnostic(gate="repair-hypothesis", message=str(exc)))
     except Exception as exc:
         variant.status = Status.CRASHED
         variant.diagnostics.append(
             Diagnostic(gate="compensation-agent", message=f"{type(exc).__name__}: {exc}")
         )
     finally:
+        variant.elapsed_s = (
+            time.perf_counter() - started + (previous.elapsed_s if previous else 0.0)
+        )
         await session.close()
+        if target.is_file():
+            variant.attempt_history.append(
+                history.record(
+                    target.read_bytes(),
+                    {
+                        "kind": "result",
+                        "candidate_id": base.candidate_id,
+                        "precision": precision,
+                        "hypothesis": variant.hypothesis,
+                        "status": variant.status.value,
+                        "diagnostics": [d.for_agent() for d in variant.diagnostics],
+                        "measurements": [p.to_dict() for p in variant.target_measurements],
+                        "usage": asdict(variant.usage),
+                        "elapsed_s": variant.elapsed_s,
+                        "first_improvement_s": variant.first_improvement_s,
+                        "first_improvement_tokens": variant.first_improvement_tokens,
+                        "semantic_fingerprint": digest(_semantic_fingerprint(target).encode())
+                        if _valid_python(target)
+                        else "",
+                    },
+                )
+            )
     return variant

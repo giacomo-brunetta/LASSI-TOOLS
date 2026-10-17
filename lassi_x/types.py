@@ -129,6 +129,13 @@ class Measurement:
     observed_output_precision: str = ""
     precision_metadata_source: str = ""
     arithmetic_policy: str = "target_format_only"
+    arithmetic_class: str = "unverified"
+    observed_tensor_dtypes: list[str] = field(default_factory=list)
+    wider_operations: list[dict[str, Any]] = field(default_factory=list)
+    implicit_accumulator_precision: str = "unverified"
+    input_contract: str = "unverified"
+    input_reference_hash: str = ""
+    repair_model: str = ""
     precision_verdict: str = "unverified"
     precision_audit_protocol: str = ""
     precision_audit_scope: str = ""
@@ -168,7 +175,7 @@ class Measurement:
     invariant_error: float | None = None
     invariant_candidate: dict[str, Any] = field(default_factory=dict)
     invariant_oracle: dict[str, Any] = field(default_factory=dict)
-    stochastic_samples: list[dict[str, float | int | str | None]] = field(default_factory=list)
+    stochastic_samples: list[dict[str, Any]] = field(default_factory=list)
     notes: str = ""
     source_hash: str = ""
     source_integrity_verified: bool = False
@@ -207,9 +214,16 @@ class Measurement:
         """Missing evidence preserves the record, but cannot certify low-format success."""
         if self.precision == "fp64":
             return True
+        if self.precision_audit_protocol == "executed-dtype-v4":
+            allowed_classes = {"target_only", "control"}
+            if self.arithmetic_policy == "mixed":
+                allowed_classes.add("mixed_accumulation")
+            if self.arithmetic_class not in allowed_classes:
+                return False
         return (
             self.precision_verdict == "passed"
-            and self.precision_audit_protocol in {"executed-dtype-v3", "compiled-dtype-v1"}
+            and self.precision_audit_protocol
+            in {"executed-dtype-v3", "executed-dtype-v4", "compiled-dtype-v1"}
             and bool(self.source_hash)
             and self.precision_audit_source_hash == self.source_hash
         )

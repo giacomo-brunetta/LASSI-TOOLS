@@ -12,4 +12,5 @@ def test_new_runs_default_to_target_format_only() -> None:
 def test_contract_separates_validation_and_target_execution() -> None:
     assert "FP32/FP64 branches remain available solely" in TARGET_FORMAT_CONTRACT
     assert "never regenerate the" in TARGET_FORMAT_CONTRACT
-    assert "fallback baseline, not a numerical repair" in MIXED_FORMAT_CONTRACT
+    assert "whole kernel are forbidden" in MIXED_FORMAT_CONTRACT
+    assert "explicitly allowlisted" in MIXED_FORMAT_CONTRACT

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -16,6 +17,18 @@ from lassi_x.validation import OracleResult, ValidationResult
 
 from .test_config import minimal_config
 from .test_validation import GOOD_MODULE
+
+HYPOTHESIS = json.dumps(
+    {
+        "technique": "kahan",
+        "failure_mechanism": "lost updates",
+        "transformation": "target-format compensation",
+        "semantics_argument": "same sum",
+        "arithmetic_plan": "target only",
+        "strategy_key": "sum:carry",
+        "novelty": "first attempt",
+    }
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -130,7 +143,9 @@ class NoOpSession:
     def __init__(self, *_: object, **__: object) -> None:
         pass
 
-    async def send(self, _: str) -> HermesTurn:
+    async def send(self, prompt: str) -> HermesTurn:
+        if "PLAN ONLY" in prompt:
+            return HermesTurn(HYPOTHESIS, Usage())
         return HermesTurn('{"technique":"kahan","summary":"comments only"}', Usage())
 
     async def close(self) -> None:
@@ -185,10 +200,13 @@ class EditingSession:
         self.cwd = kwargs["cwd"]
         self.turn = 0
 
-    async def send(self, _: str) -> HermesTurn:
+    async def send(self, prompt: str) -> HermesTurn:
+        if "PLAN ONLY" in prompt:
+            return HermesTurn(HYPOTHESIS, Usage())
         self.turn += 1
         target = self.cwd / "candidate.py"
         source = target.read_text()
+        source = source.replace(f"return x + {self.turn - 1} * 0\n", "return x\n")
         target.write_text(source.replace("return x\n", f"return x + {self.turn} * 0\n"))
         return HermesTurn('{"technique":"kahan","summary":"edited"}', Usage())
 

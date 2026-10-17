@@ -105,10 +105,18 @@ def render_summary(record: RunRecord) -> str:
             f"corrections={candidate['correction_rounds']}"
         )
     lines += ["", "## Frontier", ""]
+    for kind in sorted({p.get("arithmetic_class", "unverified") for p in record.measurements}):
+        points = [p for p in record.measurements if p.get("arithmetic_class", "unverified") == kind]
+        lines.append(
+            f"- Arithmetic track `{kind}`: {len(points)} measurements; "
+            f"{sum(bool(p.get('stable_success')) for p in points)} stable observations "
+            "(observation counts, not independent repair trials)."
+        )
     for point in record.frontier:
         lines.append(
             f"- `{point['candidate_id']}/{point['variant_id']}` "
             f"{point['backend']} {point['precision']} {point['compensation']}: "
+            f"arithmetic={point.get('arithmetic_class', 'unverified')}; "
             f"latency={point['latency_s']} s, "
             f"{record.pareto_error_metric}={point.get(record.pareto_error_metric)}"
         )

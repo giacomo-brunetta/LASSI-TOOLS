@@ -27,6 +27,8 @@ def frontier_indices(points: list[Measurement]) -> list[int]:
         for j, _, other_latency, other_error in valid:
             if i == j:
                 continue
+            if points[i].arithmetic_class != points[j].arithmetic_class:
+                continue
             assert other_latency is not None
             assert other_error is not None
             if (

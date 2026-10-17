@@ -121,6 +121,9 @@ class BackendCapabilities(StrictModel):
     matmul_accumulator: str | None = None
     explicit_fp32_tensor_ops: bool | None = None
     fp64: bool | None = None
+    mixed_accumulation_ops: list[
+        Literal["aten.sum.default", "aten.sum.dim_IntList", "aten.mm.dtype", "aten.bmm.dtype"]
+    ] = Field(default_factory=list)
 
 
 class GroqRuntimeConfig(StrictModel):
@@ -537,6 +540,10 @@ class ExecutionConfig(StrictModel):
 class CompensationConfig(StrictModel):
     enabled: bool = True
     arithmetic_policy: Literal["target_format_only", "mixed"] = "target_format_only"
+    history_dir: Path | None = None
+    freeze_input_builder: bool = True
+    require_hypothesis: bool = True
+    frozen_reference: Path | None = None
     repair_catastrophic: bool = False
     correction_rounds: int = Field(default=2, ge=0, le=10)
     error_threshold: float | None = Field(default=1e-2, ge=0.0)

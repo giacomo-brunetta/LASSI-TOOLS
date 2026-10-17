@@ -219,23 +219,32 @@ class TorchBackend(Backend[TorchBackendConfig]):
         ]
         audit_required = self.spec.precision_audit != "off" or (
             precision in {"fp32", "fp16", "bf16"}
-            and config.compensation.arithmetic_policy == "target_format_only"
+            and config.compensation.arithmetic_policy in {"target_format_only", "mixed"}
         )
         if audit_required:
             audit_source = Path(__file__).resolve().parents[1] / "precision_audit_worker.py"
             await put_bytes(
                 self.execution, workspace, ".lassi-precision-audit.py", audit_source.read_bytes()
             )
-            if self.spec.precision_audit_reference is not None:
+            frozen_reference = (
+                config.compensation.frozen_reference or self.spec.precision_audit_reference
+            )
+            if frozen_reference is not None:
                 await put_bytes(
                     self.execution,
                     workspace,
                     ".lassi-audit-base.py",
-                    self.spec.precision_audit_reference.read_bytes(),
+                    frozen_reference.read_bytes(),
                 )
                 command += ["--audit-baseline", ".lassi-audit-base.py"]
+            mixed_ops = (
+                self.spec.capabilities.mixed_accumulation_ops if self.spec.capabilities else []
+            )
             bootstrap = (
                 "import os,runpy,sys; "
+                f"os.environ['LASSI_ARITHMETIC_POLICY']={config.compensation.arithmetic_policy!r}; "
+                "os.environ['LASSI_MIXED_ACCUMULATION_OPS']="
+                f"{json.dumps(mixed_ops)!r}; "
                 f"os.environ['LASSI_DTYPE_AUDIT_MODE']={self.spec.precision_audit!r}; "
                 "sys.argv=['.lassi-precision-audit.py',*sys.argv[1:]]; "
             )

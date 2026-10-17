@@ -31,11 +31,14 @@ Report actual storage/operator/accumulator/state/output formats and all casts ho
 """
 
 MIXED_FORMAT_CONTRACT = """Mixed-precision arithmetic contract:
-Keep the main computation in the requested low precision. Selective wider accumulation or
-residual correction is allowed by explicit backend capabilities, but promoting the entire
-kernel to FP32/FP64 is a fallback baseline, not a numerical repair. Casting the result back
-does not change this. forward must use its supplied values, never regenerate known fixtures.
-Report every wider operation and compare accuracy and latency with the existing FP32 baseline.
+Keep inputs, products, evolving state, compensation state and outputs in the requested format.
+Only explicitly allowlisted backend reduction/MAC operators may produce FP32 accumulation.
+Cast their result back before further arithmetic. Wider state/residual arithmetic and promotion
+of the whole kernel are forbidden, even if outputs are cast back. An empty backend allowlist
+permits no mixed operation. Report exact operator names and scope; explicit tensor evidence
+does not certify a vendor kernel's internal accumulation or another accelerator's capabilities.
+forward must consume supplied inputs, never regenerate known fixtures or change their encoding.
+Mixed-accumulation points are a separately labeled track, never target-format-only recoveries.
 """
 
 

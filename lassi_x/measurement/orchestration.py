@@ -158,6 +158,8 @@ async def _measure_compensated_cell(
                 "precision_verdict": sample.precision_verdict,
                 "precision_audit_protocol": sample.precision_audit_protocol,
                 "precision_audit_source_hash": sample.precision_audit_source_hash,
+                "arithmetic_class": sample.arithmetic_class,
+                "wider_operations": sample.wider_operations,
                 "latency_s": sample.latency_s,
                 "max_rel_error": sample.max_rel_error,
                 "relative_l2": sample.relative_l2,
@@ -193,6 +195,30 @@ async def _measure_compensated_cell(
             primary.precision_verdict = (
                 "failed" if any(s.precision_verdict == "failed" for s in samples) else "unverified"
             )
+        classes = {sample.arithmetic_class for sample in samples}
+        primary.arithmetic_class = next(
+            (
+                kind
+                for kind in (
+                    "wider_compute",
+                    "unverified",
+                    "mixed_accumulation",
+                    "target_only",
+                    "control",
+                )
+                if kind in classes
+            ),
+            "unverified",
+        )
+        primary.observed_tensor_dtypes = sorted(
+            {dtype for sample in samples for dtype in sample.observed_tensor_dtypes}
+        )
+        primary.wider_operations = [
+            event
+            for index, sample in enumerate(samples)
+            for event in sample.wider_operations
+            if not any(event in earlier.wider_operations for earlier in samples[:index])
+        ]
     return primary
 
 
@@ -204,6 +230,7 @@ async def measure_compensation_variants(
     *,
     cells: set[tuple[str, str]] | None = None,
     on_result: Callable[[Measurement], None] | None = None,
+    baseline_sources: dict[str, Path] | None = None,
 ) -> list[Measurement]:
     """Broadcast portable numerical variants across every configured backend and precision.
 
@@ -221,13 +248,17 @@ async def measure_compensation_variants(
         target_precision,
     ) in variants:
         del target_backend, target_precision
+        measured_config = config
+        if baseline_sources and candidate_id in baseline_sources:
+            measured_config = config.model_copy(deep=True)
+            measured_config.compensation.frozen_reference = baseline_sources[candidate_id]
         for backend in backends:
             for precision in config.measure.precisions:
                 if cells is not None and (backend.spec.name, precision) not in cells:
                     continue
                 calls.append(
                     _measure_compensated_cell(
-                        config,
+                        measured_config,
                         oracle,
                         backend,
                         candidate_id=candidate_id,

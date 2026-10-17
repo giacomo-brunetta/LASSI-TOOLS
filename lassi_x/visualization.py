@@ -226,7 +226,7 @@ def _point_label(point: Measurement) -> str:
         Candidate, precision, and optional compensation label.
 
     """
-    fields = [point.candidate_id, point.precision]
+    fields = [point.candidate_id, point.precision, point.arithmetic_class]
     if point.compensation != "none":
         fields.append(point.compensation)
     return " · ".join(fields)
@@ -248,6 +248,8 @@ def _point_tooltip(point: Measurement) -> str:
         f"{point.candidate_id}/{point.variant_id}\n"
         f"backend={point.backend}; resource={point.resource or 'unspecified'}\n"
         f"precision={point.precision}; compensation={point.compensation}\n"
+        f"arithmetic={point.arithmetic_class}; "
+        f"implicit_accumulator={point.implicit_accumulator_precision}\n"
         f"latency={latency}; error={error}"
     )
 
@@ -592,10 +594,17 @@ def render_pareto_svg(
         )
         for point in valid
     ]
-    frontier_plot = sorted(
-        (point for point in plotted if point.frontier), key=lambda point: point.x
-    )
-    if len(frontier_plot) > 1:
+    for arithmetic_class in sorted({p.measurement.arithmetic_class for p in plotted}):
+        frontier_plot = sorted(
+            (
+                p
+                for p in plotted
+                if p.frontier and p.measurement.arithmetic_class == arithmetic_class
+            ),
+            key=lambda p: p.x,
+        )
+        if len(frontier_plot) < 2:
+            continue
         ET.SubElement(
             root,
             f"{{{_SVG}}}polyline",
@@ -771,6 +780,13 @@ def write_pareto_visualizations(
         "schema_version": 1,
         "overall": [point.to_dict() for point in overall_frontier],
         "devices": device_frontiers,
+        "arithmetic_tracks": {
+            kind: [
+                point.to_dict()
+                for point in _frontier_points([p for p in valid if p.arithmetic_class == kind])
+            ]
+            for kind in sorted({p.arithmetic_class for p in valid})
+        },
     }
     write_json(output_dir / "frontiers.json", data)
     manifest: dict[str, Any] = {

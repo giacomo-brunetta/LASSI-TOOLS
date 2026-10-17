@@ -22,12 +22,71 @@ repair agents, and numerical repair agents. It requires:
 - Useful strategies include stable reformulation, scaling, centering, changed reduction
   structure and target-format compensation/multiword arithmetic.
 
-`compensation.arithmetic_policy: mixed` permits selective wider arithmetic when the backend
-supports it. Full-kernel promotion remains a fallback baseline rather than a numerical
-repair. Compare mixed candidates with the existing FP32 accuracy/latency point.
+`compensation.arithmetic_policy: mixed` is a separate accumulation-only arm. The backend
+must explicitly allow exact operator names in `capabilities.mixed_accumulation_ops`.
+The current eager auditor supports `aten.sum.default`, `aten.sum.dim_IntList`,
+`aten.mm.dtype`, and `aten.bmm.dtype`. Only target-format floating inputs may enter
+these operations, and any FP32 result must be cast back before subsequent arithmetic.
+This does not permit wider residual/state evolution or whole-kernel promotion. An empty
+allowlist permits no exception; an allowlisted operation may still be unavailable on
+the device/Torch release and must actually execute successfully. Compiler-backed targets
+need their own trusted qualification; an eager observation is not a compiler certificate.
+
+Every point records `arithmetic_class`, `observed_tensor_dtypes`, `wider_operations`,
+`implicit_accumulator_precision`, and the existing source/policy-bound precision verdict.
+Classes are `target_only`, `mixed_accumulation`, `wider_compute`, `control`, or `unverified`.
+They describe **explicit observed tensor arithmetic**. Vendor-internal accumulation remains
+`unverified`; FP16 tensors alone do not prove FP16 internal accumulation. Declarations do
+not certify a class. Failed policy observations are retained, not dropped.
+
+Frontier domination and plotted frontier lines are separated by arithmetic class. Exported
+frontiers include `arithmetic_tracks`; summaries keep stable-observation counts per class,
+not a pooled strict/mixed success rate. FP64 and audited FP32 are controls.
 
 The numerical agent's technique list excludes explicitly wider techniques under the
 target-format-only contract. Generic skill examples cannot override this contract.
+
+## Fixed inputs and same-kernel strategy history
+
+Numerical repairs default to `freeze_input_builder: true` and `require_hypothesis: true`.
+The harness freezes the builder AST and transitive top-level dependencies. Forward-only
+changes and new imports used exclusively by forward remain possible. Edited initialization,
+encoding or dimension dependencies are rejected before target measurement. Torch repair
+measurements also build inputs from the authoritative baseline, record its source hash,
+and run the existing FP32 supplied-input perturbation checks outside timing. These checks
+are not a proof of behavior over all inputs or a hostile-code sandbox.
+
+Before implementation, an extra bounded model turn must return a JSON hypothesis with
+`technique`, `failure_mechanism`, `transformation`, `semantics_argument`, `arithmetic_plan`,
+`strategy_key`, and `novelty`. Reusing a strategy key needs a specific `revisit_reason`.
+Exact AST-identical implementations (ignoring comments/docstrings/precision declarations)
+are rejected independently of technique labels. This does not prove that differently
+written algorithms are distinct numerical strategies; the recorded hypothesis makes that
+review possible. Correction rounds remain bounded and are revisions, not independent
+discoveries. Rejected/no-op/invalid-plan attempts remain recorded with token usage.
+
+History defaults to `<run>/repair-history/`; optional `compensation.history_dir` enables
+sharing within a deliberately chosen experiment root. It is partitioned by kernel,
+reference hashes, oracle/tolerances, datasets, repair model/provider/route/effort and
+arithmetic policy. Precision is intentionally not part of this scope: FP16 and BF16
+can learn from the same arm's history but are scored separately. Other models' repairs,
+other kernels, other workloads and the other arithmetic arm are not injected. Generic
+cross-run agent memory is disabled for numerical repair. Choose a fresh history root
+for an independent repetition; do not point it at legacy or another comparison.
+
+The workspace receives a compact `history/ledger.json`, with prior sources in
+`history/*.py` available on demand. Sources and result records are retained outside the
+agent workspace as immutable events. Same-arm/kernel calls are serialized within the
+pipeline process so later candidates see earlier outcomes. Independently launched
+processes must not simultaneously share a history root; this is not a distributed lock.
+
+Variants retain their hypothesis, history scope, per-attempt evidence, repair-model and
+policy identity, total tokens, elapsed time and tokens/time to first measured accepted
+improvement. `accuracy_improved`, `error_reduction_factors`, and `recovered` distinguish
+improvement from crossing the fixed 1% relative-L2 stability threshold. Revalidation-only
+success without target measurements is not a measured improvement. Counts of measurements
+and revisions are not independent model trials. Input-representation optimization should
+be evaluated as a separate experiment, not folded into fixed-input numerical repair.
 
 ## Joint FP16/BF16 strategy
 

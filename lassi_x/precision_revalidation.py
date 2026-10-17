@@ -82,7 +82,7 @@ def plan_revalidation(campaign: Path) -> dict[str, Any]:
                 }
             )
     return {
-        "policy": "executed-dtype-v3",
+        "policy": "executed-dtype-v4",
         "campaign": str(campaign),
         "raw_results_modified": False,
         "model_calls_required": 0,

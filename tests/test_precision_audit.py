@@ -7,6 +7,50 @@ from lassi_x.precision import compensated_sum
 from lassi_x.precision_audit_worker import AuditedModel, audit_forward
 
 
+def test_explicit_mixed_accumulation_is_labeled_and_requires_allowlist() -> None:
+    class Reduction(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return x.sum(dtype=torch.float32).to(x.dtype)
+
+    report: dict[str, Any] = {
+        "forward_calls": 0,
+        "operations": 0,
+        "violations": [],
+        "arithmetic_policy": "mixed",
+        "allowed_mixed_accumulation_ops": ["aten.sum.default"],
+    }
+    model = AuditedModel(Reduction(), torch.float16, report)
+    model(torch.ones(4, dtype=torch.float16))
+    assert report["arithmetic_class"] == "mixed_accumulation"
+    assert report["wider_operations"][0]["operation"] == "aten.sum.default"
+    assert report["observed_tensor_dtypes"] == ["torch.float16", "torch.float32"]
+    report["allowed_mixed_accumulation_ops"] = []
+    with pytest.raises(RuntimeError, match="precision policy"):
+        model(torch.ones(4, dtype=torch.float16))
+
+
+def test_mixed_track_still_rejects_whole_compute_and_wide_residual_state() -> None:
+    class Promoted(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return (x.float() + x.float()).to(x.dtype)
+
+    class WideState(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return (x.sum(dtype=torch.float32) + 1).to(x.dtype)
+
+    for candidate in (Promoted(), WideState()):
+        report: dict[str, Any] = {
+            "forward_calls": 0,
+            "operations": 0,
+            "violations": [],
+            "arithmetic_policy": "mixed",
+            "allowed_mixed_accumulation_ops": ["aten.sum.default"],
+        }
+        with pytest.raises(RuntimeError, match="precision policy"):
+            AuditedModel(candidate, torch.float16, report)(torch.ones(4, dtype=torch.float16))
+        assert report["arithmetic_class"] == "wider_compute"
+
+
 def test_target_arithmetic_passes() -> None:
     class Model(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:

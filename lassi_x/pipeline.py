@@ -791,6 +791,7 @@ async def _screened_candidate_flow(
             backends,
             cells=missing,
             on_result=record_generated,
+            baseline_sources={outcome.candidate.candidate_id: outcome.candidate.module_path},
         )
     _reject_non_improving_variants(config, valid_variants, outcome.base_measurements, generated)
     promoted = {
@@ -1115,6 +1116,7 @@ async def _candidate_flow(
             specs,
             backends,
             on_result=record_generated,
+            baseline_sources={outcome.candidate.candidate_id: outcome.candidate.module_path},
         )
         _reject_non_improving_variants(config, valid_variants, outcome.base_measurements, generated)
         outcome.numerical_candidates = [

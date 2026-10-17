@@ -38,6 +38,14 @@ def test_frontier_excludes_dominated_points() -> None:
     assert frontier_indices(points) == [0, 1, 2]
 
 
+def test_mixed_accumulation_cannot_dominate_target_only_track() -> None:
+    strict = point(2, 0.1)
+    strict.arithmetic_class = "target_only"
+    mixed = point(1, 0.01)
+    mixed.arithmetic_class = "mixed_accumulation"
+    assert frontier_indices([strict, mixed]) == [0, 1]
+
+
 def test_frontier_excludes_nonphysical_axes() -> None:
     points = [point(1, 0.5), point(0, 0.1), point(2, -0.1)]
     assert frontier_indices(points) == [0]

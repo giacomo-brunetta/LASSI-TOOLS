@@ -52,6 +52,80 @@ def test_old_results_preserved_but_unverified() -> None:
     assert not restored.frontier_eligible
 
 
+def test_mixed_evidence_is_policy_bound_and_roundtrips_labels() -> None:
+    record = point()
+    proof = {
+        "source_hash": "source",
+        "dtype_audit": {
+            "protocol": "executed-dtype-v4",
+            "requested_precision": "fp16",
+            "dataset": "default",
+            "source_hash": "source",
+            "complete": True,
+            "passed": True,
+            "arithmetic_policy": "mixed",
+            "arithmetic_class": "mixed_accumulation",
+            "observed_tensor_dtypes": ["torch.float16", "torch.float32"],
+            "wider_operations": [{"operation": "aten.sum.default"}],
+            "violations": [],
+        },
+    }
+    _attach_precision_evidence(record, proof)
+    assert not record.precision_eligible
+    record.arithmetic_policy = "mixed"
+    _attach_precision_evidence(record, proof)
+    assert record.precision_eligible
+    restored = Measurement.from_dict(record.to_dict())
+    assert restored.arithmetic_class == "mixed_accumulation"
+    assert restored.wider_operations == [{"operation": "aten.sum.default"}]
+    assert restored.implicit_accumulator_precision == "unverified"
+
+
+def test_worker_uses_frozen_inputs_not_repair_builder(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.py"
+    baseline.write_text(
+        "import torch\n"
+        "def build_inputs(device='cpu', dtype=torch.float64):\n"
+        "    return (torch.ones(4,device=device,dtype=dtype),)\n"
+        "class Model(torch.nn.Module):\n"
+        "    def forward(self,x): return x+x\n"
+        "def make_model(): return Model()\n"
+    )
+    candidate = tmp_path / "candidate.py"
+    candidate.write_text(baseline.read_text().replace("torch.ones(4,", "99*torch.ones(4,"))
+    oracle = tmp_path / "oracle.npy"
+    np.save(oracle, np.full(4, 2.0))
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lassi_x.precision_audit_worker",
+            "--module",
+            str(candidate),
+            "--audit-baseline",
+            str(baseline),
+            "--oracle",
+            str(oracle),
+            "--device",
+            "cpu",
+            "--precision",
+            "fp16",
+            "--warmup",
+            "1",
+            "--iterations",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0, payload
+    assert payload["dtype_audit"]["input_contract"] == "frozen_baseline"
+    assert payload["dtype_audit"]["passed"] is True
+    assert payload["equivalent"] is True
+
+
 def test_bound_evidence_required_for_ranking_and_stability() -> None:
     record = point()
     proof = {
@@ -141,7 +215,7 @@ def test_worker_checks_actual_timed_path(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert result.returncode != 0
     assert payload["phase"] == "precision_policy"
-    assert payload["dtype_audit"]["protocol"] == "executed-dtype-v3"
+    assert payload["dtype_audit"]["protocol"] == "executed-dtype-v4"
     assert payload["dtype_audit"]["forward_calls"] == 3
     assert payload["dtype_audit"]["passed"] is False
 

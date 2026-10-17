@@ -192,6 +192,7 @@ def _base_measurement(
         accumulator_precision=precision,
         output_precision=precision,
         arithmetic_policy=config.compensation.arithmetic_policy,
+        repair_model=config.models.compensation.model if compensation != "none" else "",
         error_metric=config.pareto_error_metric,
         evaluation_dataset=evaluation_dataset,
         source_hash=(
@@ -209,8 +210,15 @@ def _attach_precision_evidence(measurement: Measurement, payload: dict[str, Any]
     """
     if measurement.precision == "fp64":
         measurement.precision_verdict = "not_required"
+        measurement.arithmetic_class = "control"
         return measurement
     audit = payload.get("dtype_audit") or {}
+    measurement.arithmetic_class = str(audit.get("arithmetic_class") or "unverified")
+    measurement.observed_tensor_dtypes = list(audit.get("observed_tensor_dtypes") or [])
+    measurement.wider_operations = list(audit.get("wider_operations") or [])
+    measurement.implicit_accumulator_precision = "unverified"
+    measurement.input_contract = str(audit.get("input_contract") or "unverified")
+    measurement.input_reference_hash = str(audit.get("input_reference_hash") or "")
     measurement.precision_audit_protocol = str(audit.get("protocol") or "")
     measurement.precision_audit_scope = str(audit.get("scope") or "")
     measurement.precision_audit_source_hash = str(audit.get("source_hash") or "")
@@ -222,7 +230,13 @@ def _attach_precision_evidence(measurement: Measurement, payload: dict[str, Any]
         and audit.get("requested_precision") == measurement.precision
         and audit.get("dataset") == measurement.evaluation_dataset
     )
-    current = measurement.precision_audit_protocol in {"executed-dtype-v3", "compiled-dtype-v1"}
+    current = measurement.precision_audit_protocol in {
+        "executed-dtype-v3",
+        "executed-dtype-v4",
+        "compiled-dtype-v1",
+    }
+    if measurement.precision_audit_protocol == "executed-dtype-v4":
+        bound = bound and audit.get("arithmetic_policy") == measurement.arithmetic_policy
     if current and bound and audit.get("passed") is False:
         measurement.precision_verdict = "failed"
         measurement.failure_kind = "precision_policy"
