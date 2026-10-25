@@ -1,0 +1,166 @@
+note: using only cached resource files
+note: Running TeX ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/results:55: Underfull \vbox (badness 2189) has occurred while \output is active
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+note: Running BibTeX on main.aux ...
+warning: errors were issued by BibTeX, but were ignored; use --print and/or --keep-logs for details.
+note: Rerunning TeX because bibtex was run ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+warning: main.tex:24: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.bbl:29: Underfull \hbox (badness 1735) in paragraph at lines 25--29
+warning: main.bbl:107: Underfull \hbox (badness 3557) in paragraph at lines 105--107
+warning: main.bbl:107: Underfull \hbox (badness 3354) in paragraph at lines 105--107
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:118: Underfull \hbox (badness 3849) in paragraph at lines 115--118
+warning: main.bbl:118: Underfull \hbox (badness 10000) in paragraph at lines 115--118
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:134: Underfull \hbox (badness 10000) in paragraph at lines 131--134
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:217: Underfull \hbox (badness 2073) in paragraph at lines 212--217
+warning: main.bbl:249: Underfull \hbox (badness 3482) in paragraph at lines 244--249
+warning: internal consistency problem when checking if main.bbl changed
+note: Rerunning TeX because "main.bbl" changed ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+warning: main.tex:24: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.bbl:29: Underfull \hbox (badness 1735) in paragraph at lines 25--29
+warning: main.bbl:107: Underfull \hbox (badness 3557) in paragraph at lines 105--107
+warning: main.bbl:107: Underfull \hbox (badness 3354) in paragraph at lines 105--107
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:118: Underfull \hbox (badness 3849) in paragraph at lines 115--118
+warning: main.bbl:118: Underfull \hbox (badness 10000) in paragraph at lines 115--118
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:134: Underfull \hbox (badness 10000) in paragraph at lines 131--134
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:217: Underfull \hbox (badness 2073) in paragraph at lines 212--217
+warning: main.bbl:249: Underfull \hbox (badness 3482) in paragraph at lines 244--249
+warning: internal consistency problem when checking if main.bbl changed
+note: Rerunning TeX because "main.bbl" changed ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+warning: main.tex:24: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.bbl:29: Underfull \hbox (badness 1735) in paragraph at lines 25--29
+warning: main.bbl:107: Underfull \hbox (badness 3557) in paragraph at lines 105--107
+warning: main.bbl:107: Underfull \hbox (badness 3354) in paragraph at lines 105--107
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:118: Underfull \hbox (badness 3849) in paragraph at lines 115--118
+warning: main.bbl:118: Underfull \hbox (badness 10000) in paragraph at lines 115--118
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:134: Underfull \hbox (badness 10000) in paragraph at lines 131--134
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:217: Underfull \hbox (badness 2073) in paragraph at lines 212--217
+warning: main.bbl:249: Underfull \hbox (badness 3482) in paragraph at lines 244--249
+warning: internal consistency problem when checking if main.bbl changed
+note: Rerunning TeX because "main.bbl" changed ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+warning: main.tex:24: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.bbl:29: Underfull \hbox (badness 1735) in paragraph at lines 25--29
+warning: main.bbl:107: Underfull \hbox (badness 3557) in paragraph at lines 105--107
+warning: main.bbl:107: Underfull \hbox (badness 3354) in paragraph at lines 105--107
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:118: Underfull \hbox (badness 3849) in paragraph at lines 115--118
+warning: main.bbl:118: Underfull \hbox (badness 10000) in paragraph at lines 115--118
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:134: Underfull \hbox (badness 10000) in paragraph at lines 131--134
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:217: Underfull \hbox (badness 2073) in paragraph at lines 212--217
+warning: main.bbl:249: Underfull \hbox (badness 3482) in paragraph at lines 244--249
+warning: internal consistency problem when checking if main.bbl changed
+note: Rerunning TeX because "main.bbl" changed ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+warning: main.tex:24: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.bbl:29: Underfull \hbox (badness 1735) in paragraph at lines 25--29
+warning: main.bbl:107: Underfull \hbox (badness 3557) in paragraph at lines 105--107
+warning: main.bbl:107: Underfull \hbox (badness 3354) in paragraph at lines 105--107
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:118: Underfull \hbox (badness 3849) in paragraph at lines 115--118
+warning: main.bbl:118: Underfull \hbox (badness 10000) in paragraph at lines 115--118
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:134: Underfull \hbox (badness 10000) in paragraph at lines 131--134
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:217: Underfull \hbox (badness 2073) in paragraph at lines 212--217
+warning: main.bbl:249: Underfull \hbox (badness 3482) in paragraph at lines 244--249
+warning: internal consistency problem when checking if main.bbl changed
+note: Rerunning TeX because "main.bbl" changed ...
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: sections/challenges:84: Overfull \hbox (1.04126pt too wide) in paragraph at lines 38--84
+warning: sections/ablation-studies:30: Underfull \hbox (badness 2495) in paragraph at lines 29--30
+warning: main.tex:24: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.bbl:29: Underfull \hbox (badness 1735) in paragraph at lines 25--29
+warning: main.bbl:107: Underfull \hbox (badness 3557) in paragraph at lines 105--107
+warning: main.bbl:107: Underfull \hbox (badness 3354) in paragraph at lines 105--107
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:113: Underfull \hbox (badness 10000) in paragraph at lines 109--113
+warning: main.bbl:118: Underfull \hbox (badness 3849) in paragraph at lines 115--118
+warning: main.bbl:118: Underfull \hbox (badness 10000) in paragraph at lines 115--118
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:129: Underfull \hbox (badness 10000) in paragraph at lines 125--129
+warning: main.bbl:134: Underfull \hbox (badness 10000) in paragraph at lines 131--134
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:140: Underfull \hbox (badness 10000) in paragraph at lines 136--140
+warning: main.bbl:217: Underfull \hbox (badness 2073) in paragraph at lines 212--217
+warning: main.bbl:249: Underfull \hbox (badness 3482) in paragraph at lines 244--249
+warning: internal consistency problem when checking if main.bbl changed
+warning: TeX rerun seems needed, but stopping at 6 passes
+warning: warnings were issued by the TeX engine; use --print and/or --keep-logs for details.
+note: Running xdvipdfmx ...
+note: Writing `/private/tmp/lassi-accelerator-performance-latex-20261025/main.pdf` (185.14 KiB)
+note: Writing `/private/tmp/lassi-accelerator-performance-latex-20261025/main.blg` (1.64 KiB)
+note: Writing `/private/tmp/lassi-accelerator-performance-latex-20261025/main.log` (31.30 KiB)
+note: Skipped writing 3 intermediate files (use --keep-intermediates to keep them)

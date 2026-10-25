@@ -1,0 +1,82 @@
+{
+  "rows": 21,
+  "applications": 11,
+  "precision": "fp16",
+  "dataset": "large",
+  "display_units": "milliseconds",
+  "csv_units": "seconds",
+  "columns": [
+    "a100_inclusive_s",
+    "a100_resident_s",
+    "a100_active_s",
+    "groq_inclusive_s",
+    "groq_schedule_s",
+    "graphcore_inclusive_s",
+    "graphcore_active_s",
+    "cs3_stream_interval_s",
+    "cs3_first_iteration_s",
+    "cs3_native_budget_s",
+    "cs3_native_plus_context_s"
+  ],
+  "nonempty_cells": {
+    "a100_inclusive_s": 21,
+    "a100_resident_s": 21,
+    "a100_active_s": 20,
+    "groq_inclusive_s": 18,
+    "groq_schedule_s": 18,
+    "graphcore_inclusive_s": 18,
+    "graphcore_active_s": 18,
+    "cs3_stream_interval_s": 11,
+    "cs3_first_iteration_s": 11,
+    "cs3_native_budget_s": 11,
+    "cs3_native_plus_context_s": 11
+  },
+  "case_ids": [
+    "d67eb99aa8b98ed4",
+    "0a0c12aac16eaac0",
+    "7ee7420d37a5aa1f",
+    "f99d1ea6e672ef84",
+    "9cb75e56454e7c81",
+    "9ae118ea1218520e",
+    "bcbdd1ea84257e54",
+    "a61fe0c9e85cac94",
+    "ce79873364646c33",
+    "73edff7f92f8cf5d",
+    "b44e4f2ba1ec22c2",
+    "9b9b08905b93345f",
+    "a61daae9f76355cb",
+    "b46cad20492bba69",
+    "81f9fd6ba715f2ef",
+    "57e597e59ca45ff1",
+    "8932e234e5810fc1",
+    "3bd7d8e7b362da19",
+    "670744951a971e74",
+    "37998a2e95e583ab",
+    "e7967f6361e4478c"
+  ],
+  "excluded_profile_only_aliases": [
+    "14882e83f7d350a7"
+  ],
+  "source_files": {
+    "docs/experiments/accelerator-transfer-timing-20261025/latencies.csv": "0f39b7c7a38be24e72783d17c5ab9ade383006daaf65ad99ebc1ed32db1db14a",
+    "docs/experiments/gpu-active-timing-20261025/gpu-active-latencies.csv": "d6325c65aa998e7c513cb877067196cfe6628d5ebd1ba2f03e2c7648b0284487",
+    "docs/experiments/cs3-timing-estimates-20261025/cs3-latency-estimates.csv": "f838ba89a219690c5375a713d74c9453435b3abab27845b86d4490d592b23bbd",
+    "docs/experiments/cs3-resident-estimates-20261025/cs3-resident-estimates.csv": "db8ddb4cb436c0ea0dfcc98bc05b868253e3bccdac6540dffa34cabbd74de65f",
+    "runs/cerebras-sol-porting-20261024/cases/9b9b08905b93345f/result.json": "ea6e5de8982dc064648fb65d9d30c924a8917ffaf2ed3cc5def66c7e90a6de39",
+    "runs/gpu-transfer-timing-20261024/timings.csv": "7e651599b9bc46e15a9fadec2ee9d42308c0f77dc618d76578c94dc45a88cc11",
+    "runs/gpu-transfer-timing-20261024/results.json": "66549acc092c681ee2c1fa6aedfe693072f39ddf5752eeb07a765a11c9724318"
+  },
+  "a100_profile_anomaly_ids": [
+    "b44e4f2ba1ec22c2"
+  ],
+  "cs3_uncosted_host_helper_ids": [
+    "f99d1ea6e672ef84",
+    "9ae118ea1218520e",
+    "bcbdd1ea84257e54",
+    "a61fe0c9e85cac94",
+    "73edff7f92f8cf5d"
+  ],
+  "compiler_or_profile_estimates_are_measured_calls": false,
+  "new_hardware_jobs": 0,
+  "generator_sha256": "239198221a4fc0a71548cec4c91d34c67d7335e780e0b154d08d20d455b1b4f4"
+}

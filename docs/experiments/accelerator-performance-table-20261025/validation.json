@@ -1,0 +1,28 @@
+{
+  "rows": 21,
+  "applications": 11,
+  "nonempty_metric_cells": 178,
+  "per_column_counts": {
+    "a100_inclusive_s": 21,
+    "a100_resident_s": 21,
+    "a100_active_s": 20,
+    "groq_inclusive_s": 18,
+    "groq_schedule_s": 18,
+    "graphcore_inclusive_s": 18,
+    "graphcore_active_s": 18,
+    "cs3_stream_interval_s": 11,
+    "cs3_first_iteration_s": 11,
+    "cs3_native_budget_s": 11,
+    "cs3_native_plus_context_s": 11
+  },
+  "input_hashes_verified": 7,
+  "all_csv_values_match_source_join": true,
+  "paper_copies_match": true,
+  "milliseconds_rendering_checked": true,
+  "latex_build_exit_code": 0,
+  "table_page": 10,
+  "total_pdf_pages": 13,
+  "rendered_table_visually_checked": true,
+  "table_overfull_warnings": 0,
+  "preexisting_build_warnings": "Unrelated challenges overfull box, bibliography/underfull warnings, cached algorithmic encoding warning; Tectonic stopped bibliography reruns at six passes."
+}
