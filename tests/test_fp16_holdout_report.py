@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -20,7 +21,7 @@ spec.loader.exec_module(reporter)
 
 
 @pytest.fixture
-def evidence(tmp_path):
+def evidence(tmp_path: Path) -> Any:
     freeze, results, old = [tmp_path / n for n in ("freeze", "results", "old")]
     relative = "luna/poisson-cg/c1-fp16"
     for role in ("baseline", "repaired"):
@@ -84,7 +85,7 @@ def evidence(tmp_path):
     return freeze, results, old, tmp_path / "report"
 
 
-def test_numerical_failure_is_a_completed_result(evidence):
+def test_numerical_failure_is_a_completed_result(evidence: Any) -> None:
     report = reporter.collect(*evidence)
     assert report["totals"]["completed_targets"] == 1
     assert report["totals"]["full_holdout_passes"] == 0
@@ -92,7 +93,7 @@ def test_numerical_failure_is_a_completed_result(evidence):
     assert report["rows"][0]["status"] == "completed"
 
 
-def test_missing_case_cannot_be_reported_as_complete(evidence):
+def test_missing_case_cannot_be_reported_as_complete(evidence: Any) -> None:
     path = evidence[1] / "results.json"
     data = json.loads(path.read_text())
     next(iter(data.values()))["summary"]["cases"].pop()
@@ -101,7 +102,7 @@ def test_missing_case_cannot_be_reported_as_complete(evidence):
         reporter.collect(*evidence)
 
 
-def test_source_drift_cannot_reuse_a_result(evidence):
+def test_source_drift_cannot_reuse_a_result(evidence: Any) -> None:
     (evidence[0] / "luna/poisson-cg/c1-fp16/repaired.py").write_text("# changed\n")
     with pytest.raises(ValueError, match="Freeze changed"):
         reporter.collect(*evidence)

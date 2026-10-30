@@ -55,7 +55,9 @@ def test_preparation_binds_final_target_measurement_without_importing_sources(
         {"argument": "signal", "kind": "tensor", "shape": [4], "stride": [1], "integer_dtype": None}
     ]
     np.savez(
-        baseline / "c-inputs.npz", **values, __lassi_input_schema__=np.asarray(json.dumps(schema))
+        baseline / "c-inputs.npz",
+        signal=values["signal"],
+        __lassi_input_schema__=np.asarray(json.dumps(schema)),
     )
     write(baseline / "baseline.json", {"source_sha256": sha(baseline / "candidate.py")})
     write(
@@ -222,7 +224,10 @@ def test_polybench_output_envelope_matches_established_oracle(
     )
     flat, sizes = c_output(
         {"timeout_s": 1, "capture": "stderr", "format": "polybench"},
-        tmp_path / "unused", [], {}, tmp_path,
+        tmp_path / "unused",
+        [],
+        {},
+        tmp_path,
     )
     assert np.array_equal(flat, scrape_polybench_dump(text.decode()))
     assert np.array_equal(flat, [1, 2])

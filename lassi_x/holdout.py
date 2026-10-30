@@ -17,7 +17,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import yaml
@@ -107,7 +107,7 @@ def prepare(campaign: Path, output: Path, spec: Path) -> None:
         baseline = baseline_record.parent / "candidate.py"
         repaired = Path(variant["module_path"])
         measurements = variant.get("target_measurements", variant.get("measurements", []))
-        final_measurement = next(
+        final_measurement: dict[str, Any] = next(
             (m for m in reversed(measurements) if m.get("precision") == row["precision"]),
             {},
         )
@@ -218,7 +218,7 @@ def make_case(
         noise = rng.uniform(-1, 1, a.shape)
         if kernel in {"polybench-cholesky", "polybench-lu"} and key == "A":
             # D A D + positive diagonal preserves SPD without cubic generation work.
-            d = rng.uniform(0.75, 1.25, a.shape[0])
+            diagonal = np.asarray(rng.uniform(0.75, 1.25, a.shape[0]))
             if family == "independent":
                 b = rng.uniform(-0.25, 0.25, a.shape)
                 b = (b + b.T) / 2
@@ -227,7 +227,9 @@ def make_case(
             elif family == "scale":
                 arrays[key] = a * amount
             else:
-                arrays[key] = d[:, None] * a * d[None, :] + np.eye(a.shape[0]) * scale * amount
+                arrays[key] = (
+                    diagonal[:, None] * a * diagonal[None, :] + np.eye(a.shape[0]) * scale * amount
+                )
             continue
         if family == "local":
             value = a + scale * amount * noise
@@ -454,7 +456,7 @@ def evaluate(manifest_path: Path, target_path: Path, results: Path, device: str)
         folder = results / case["name"]
         folder.mkdir()
         arrays = original if case["family"] == "control" else make_case(original, metadata, case)
-        np.savez(folder / "inputs.npz", **arrays)
+        np.savez(folder / "inputs.npz", **cast("dict[str, Any]", arrays))
         record: dict[str, Any] = {
             "case": case["name"],
             "holdout": case["family"] != "control",

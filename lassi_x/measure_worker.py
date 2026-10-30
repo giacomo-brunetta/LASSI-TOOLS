@@ -8,7 +8,7 @@ import json
 import statistics
 import time
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -281,7 +281,7 @@ def main() -> int:
                 invariant_candidate = {"error": invariant_error}
             if args.invariant_threshold is not None and invariant_error > args.invariant_threshold:
                 valid = False
-        payload = {
+        payload: dict[str, Any] = {
             "ok": True,
             "valid": valid,
             "equivalent": ok,

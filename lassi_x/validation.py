@@ -10,7 +10,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -506,6 +506,37 @@ async def validate_candidate(
     *,
     module_name: str = "candidate.py",
 ) -> ValidationResult:
+    """Require numerical validation and, when configured, independent review."""
+    result = await _validate_correctness(
+        config, backend, workspace, oracle, artifact_dir, module_name=module_name
+    )
+    if config.judge is not None:
+        from .judge import review_candidate  # noqa: PLC0415
+
+        diagnostic = await review_candidate(
+            config,
+            backend,
+            workspace,
+            artifact_dir,
+            module_name=module_name,
+            tests_passed=result.ok,
+        )
+        if diagnostic is not None:
+            return ValidationResult(
+                False, diagnostic, result.output, result.output_dtype, result.metrics
+            )
+    return result
+
+
+async def _validate_correctness(
+    config: RunConfig,
+    backend: ExecutionBackend,
+    workspace: str,
+    oracle: OracleResult,
+    artifact_dir: Path,
+    *,
+    module_name: str = "candidate.py",
+) -> ValidationResult:
     """Require every configured workload to pass, with one report per revision.
 
     Reference/infrastructure failures propagate rather than triggering candidate repair.
@@ -518,7 +549,7 @@ async def validate_candidate(
     from .execution import put_bytes  # noqa: PLC0415
 
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "id": "primary",
             "dataset": config.kernel.validation_dataset,
@@ -556,6 +587,7 @@ async def validate_candidate(
                 case_oracle = await build_oracle(case_config, case_dir)
             fixture = fixture_relative_path(case_config)
             if fixture is not None:
+                assert case_config.oracle.input_fixture is not None
                 await put_bytes(
                     backend,
                     workspace,

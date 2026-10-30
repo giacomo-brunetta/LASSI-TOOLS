@@ -71,7 +71,7 @@ def test_groq_midpoint_input_check_uses_one_cast_on_older_torch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, actual_direct: bool
 ) -> None:
     sdk = ModuleType("groqflow")
-    sdk.groqit = lambda *a, **k: object()
+    sdk.__dict__["groqit"] = lambda *a, **k: object()
     monkeypatch.setitem(sys.modules, "groqflow", sdk)
     monkeypatch.setitem(sys.modules, "lassi_input_contract", input_contract)
     worker = importlib.import_module("lassi_x.groq_measure_worker")
@@ -80,7 +80,15 @@ def test_groq_midpoint_input_check_uses_one_cast_on_older_torch(
     direct = values.astype(np.float16)
     double = values.astype(np.float32).astype(np.float16)
     assert not np.array_equal(direct, double)
-    bad_round = lambda value, precision: np.asarray(value, dtype=np.float64).astype(np.float32).astype(np.float16).astype(np.float64)
+
+    def bad_round(value: Any, precision: str) -> Any:
+        return (
+            np.asarray(value, dtype=np.float64)
+            .astype(np.float32)
+            .astype(np.float16)
+            .astype(np.float64)
+        )
+
     monkeypatch.setattr(input_contract, "round_input_values", bad_round)
 
     class Model(torch.nn.Module):
@@ -89,15 +97,24 @@ def test_groq_midpoint_input_check_uses_one_cast_on_older_torch(
 
     contract = tmp_path / "inputs.npz"
     save_contract(contract, {"x": values}, {"kernel": "midpoint", "required": ["x"]})
-    args = SimpleNamespace(input_contract=contract, input_snapshot=tmp_path / "snapshot.npz",
-        input_bindings="{}", input_rtol=1e-12, input_atol=1e-14)
+    args = SimpleNamespace(
+        input_contract=contract,
+        input_snapshot=tmp_path / "snapshot.npz",
+        input_bindings="{}",
+        input_rtol=1e-12,
+        input_atol=1e-14,
+    )
     module = SimpleNamespace(make_model=Model)
     inputs = (torch.from_numpy(direct if actual_direct else double).float(),)
     if actual_direct:
-        worker._compile(module, inputs, build_name="midpoint", cache_dir=tmp_path, input_check_args=args)
+        worker._compile(
+            module, inputs, build_name="midpoint", cache_dir=tmp_path, input_check_args=args
+        )
     else:
         with pytest.raises(InputContractError):
-            worker._compile(module, inputs, build_name="midpoint", cache_dir=tmp_path, input_check_args=args)
+            worker._compile(
+                module, inputs, build_name="midpoint", cache_dir=tmp_path, input_check_args=args
+            )
     assert input_contract.round_input_values is bad_round
 
 

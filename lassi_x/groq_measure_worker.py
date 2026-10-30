@@ -293,7 +293,9 @@ def _compile(
 
         contract.round_input_values = one_storage_cast
         try:
-            check = contract.check_worker_inputs(network, inputs, input_check_args, precision="fp16")
+            check = contract.check_worker_inputs(
+                network, inputs, input_check_args, precision="fp16"
+            )
             if check is not None:
                 check["target_storage_cast"] = "numpy_direct_float64_to_fp16"
         finally:

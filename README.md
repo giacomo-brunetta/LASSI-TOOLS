@@ -674,6 +674,8 @@ Configure multiple required reference workloads with `arena.correctness_tests`.
 Every workload must pass on the current candidate revision; repair feedback and
 `suite.json` list passed, failed, and unexecuted tests individually. See
 [correctness suites](docs/correctness-suites.md) for configuration and failure handling.
+An optional [LLM correctness gate](docs/llm-judge.md) independently reviews every
+numerically passing revision and must approve before it advances.
 
 CPU candidate execution and agent-issued commands can be isolated using
 [`execution.mode: docker`](docker/cpu/README.md). This leaves the orchestrator,
@@ -705,3 +707,5 @@ For broader model comparisons through CPU verification, see the
 PolyBench kernels plus nine scientific kernels, optionally all 30 PolyBench kernels.
 It provides campaign configuration generation, C-only oracle checks, CPU-only batch
 launching, outcome CSVs and frozen-baseline accelerator follow-up instructions.
+
+Development: run the [complete locked quality checks](docs/development.md) before pushing.

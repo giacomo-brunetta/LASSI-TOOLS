@@ -3,17 +3,19 @@
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import torch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "experiments/holdout-validation/run_fp64_holdout.py"
 spec = importlib.util.spec_from_file_location("fp64_holdout", SCRIPT)
+assert spec and spec.loader
 holdout = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(holdout)
 
 
-def test_twenty_distinct_inputs_even_for_small_sparse_fields():
+def test_twenty_distinct_inputs_even_for_small_sparse_fields() -> None:
     original = {"signal": np.arange(4, dtype=float)}
     metadata = dict(kernel="direct-dft", required=["signal"])
     values = [holdout.make_case(original, metadata, c)["signal"] for c in holdout.cases()]
@@ -22,7 +24,7 @@ def test_twenty_distinct_inputs_even_for_small_sparse_fields():
     assert all(not np.array_equal(v, original["signal"]) for v in values)
 
 
-def test_integer_cases_preserve_discrete_domains_and_change_input():
+def test_integer_cases_preserve_discrete_domains_and_change_input() -> None:
     for kernel, key, shape in [
         ("polybench-nussinov", "seq", (30,)),
         ("polybench-floyd-warshall", "path", (12, 12)),
@@ -36,7 +38,7 @@ def test_integer_cases_preserve_discrete_domains_and_change_input():
             assert all(np.all(v < 4) for v in values)
 
 
-def test_probability_cases_stay_normalized_and_distinct():
+def test_probability_cases_stay_normalized_and_distinct() -> None:
     joint = np.full((8, 8), 0.5 / 64) + np.eye(8) * 0.5 / 8
     original = {"joint": joint}
     metadata = dict(kernel="mutual-information", required=["joint"])
@@ -45,7 +47,7 @@ def test_probability_cases_stay_normalized_and_distinct():
     assert all(np.all(v > 0) and np.isclose(v.sum(), 1) for v in values)
 
 
-def test_forced_sparse_changes_preserve_dependent_initial_state():
+def test_forced_sparse_changes_preserve_dependent_initial_state() -> None:
     original = dict(r=np.ones(4), p=np.ones(4), rr=np.asarray(4.0))
     metadata = dict(kernel="poisson-cg", required=["r"])
     for case in holdout.cases():
@@ -54,9 +56,9 @@ def test_forced_sparse_changes_preserve_dependent_initial_state():
         assert arrays["rr"] == np.sum(arrays["r"] ** 2)
 
 
-def test_variadic_interface_gets_independent_supplied_arrays():
+def test_variadic_interface_gets_independent_supplied_arrays() -> None:
     class Model(torch.nn.Module):
-        def forward(self, *inputs):
+        def forward(self, *inputs: Any) -> Any:
             return inputs[0] @ inputs[1] @ inputs[2] @ inputs[3]
 
     original = {k: np.ones((3, 3)) * i for i, k in enumerate("ABCD", 1)}

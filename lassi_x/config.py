@@ -117,6 +117,15 @@ class ModelConfig(StrictModel):
         return self
 
 
+class JudgeConfig(StrictModel):
+    """Optional independent semantic review, required when configured."""
+
+    model: ModelConfig
+    timeout_s: float = Field(default=180.0, gt=0.0)
+    max_source_chars: int = Field(default=200_000, ge=1000)
+    instructions: str = ""
+
+
 class MemoryConfig(StrictModel):
     """Long-term agent memory backed by a self-hosted Mem0 server.
 
@@ -606,6 +615,7 @@ class RunConfig(StrictModel):
     oracle: OracleConfig
     arena: ArenaConfig = Field(default_factory=ArenaConfig)
     models: ModelsConfig
+    judge: JudgeConfig | None = None
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     measure: MeasureConfig
     accuracy: AccuracyPolicyConfig = Field(default_factory=AccuracyPolicyConfig)

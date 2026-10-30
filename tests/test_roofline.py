@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 import torch
@@ -13,16 +14,16 @@ from lassi_x.roofline import HARDWARE, analyze, analyze_module, make_point, sha2
 
 
 class Function(torch.nn.Module):
-    def __init__(self, function):
+    def __init__(self, function: Any) -> None:
         super().__init__()
         self.function = function
 
-    def forward(self, *args):
+    def forward(self, *args: Any) -> Any:
         return self.function(*args)
 
 
 @pytest.mark.parametrize("execution", ["fake", "real"])
-def test_gemm_and_tensor_traffic(execution):
+def test_gemm_and_tensor_traffic(execution: str) -> None:
     # M=3,K=5,N=7: conventional dense GEMM = 2*M*N*K; inputs/output FP16.
     report = analyze(
         Function(lambda a, b: a @ b),
@@ -35,7 +36,7 @@ def test_gemm_and_tensor_traffic(execution):
     assert report["totals"]["tensor_write_bytes"] == 42
 
 
-def test_three_mm_matches_closed_form():
+def test_three_mm_matches_closed_form() -> None:
     report = analyze_module(Path("benchmarks/polybench-3mm/reference_mini.py"), setup="fake")
     assert report["complete"]
     assert report["totals"]["flops"] == 2 * (16 * 20 * 18 + 18 * 24 * 22 + 16 * 18 * 22)
@@ -44,7 +45,7 @@ def test_three_mm_matches_closed_form():
     )
 
 
-def test_views_do_not_read_write_and_alias_storage_is_deduplicated():
+def test_views_do_not_read_write_and_alias_storage_is_deduplicated() -> None:
     a = torch.ones(4, 6)
     report = analyze(Function(lambda x, y: (x.t(), y[:, :2])), (a, a))
     assert report["complete"]
@@ -52,7 +53,7 @@ def test_views_do_not_read_write_and_alias_storage_is_deduplicated():
     assert report["totals"]["input_state_storage_bytes"] == 4 * 6 * 4
 
 
-def test_broadcast_reduction_special_and_integer_work():
+def test_broadcast_reduction_special_and_integer_work() -> None:
     a, b = torch.ones(2, 3), torch.ones(3)
     report = analyze(Function(lambda x, y: torch.sqrt(((x + y) * x).sum(1))), (a, b))
     assert report["complete"]
@@ -63,8 +64,8 @@ def test_broadcast_reduction_special_and_integer_work():
     assert ints["totals"]["flops"] == 0
 
 
-def test_inplace_copy_and_fill():
-    def forward(x, y):
+def test_inplace_copy_and_fill() -> None:
+    def forward(x: Any, y: Any) -> Any:
         x.copy_(y)
         return x.fill_(0)
 
@@ -74,13 +75,13 @@ def test_inplace_copy_and_fill():
     assert report["totals"]["tensor_write_bytes"] == 64
 
 
-def test_mixed_dtypes_and_state_preserved():
+def test_mixed_dtypes_and_state_preserved() -> None:
     class Model(torch.nn.Module):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.register_buffer("bias", torch.ones(4, dtype=torch.float32))
 
-        def forward(self, x):
+        def forward(self, x: Any) -> Any:
             return x.float() + self.bias
 
     report = analyze(Model(), (torch.ones(4, dtype=torch.float16),))
@@ -89,14 +90,14 @@ def test_mixed_dtypes_and_state_preserved():
     assert report["totals"]["input_state_storage_bytes"] == 8 + 16
 
 
-def test_unknown_complex_and_data_dependent_paths():
+def test_unknown_complex_and_data_dependent_paths() -> None:
     report = analyze(Function(torch.linalg.det), (torch.eye(3),))
     assert not report["complete"]
     assert report["unsupported_operators"]
     complex_report = analyze(Function(lambda x: x * x), (torch.ones(4, dtype=torch.complex64),))
     assert not complex_report["complete"]
 
-    def branch(x):
+    def branch(x: Any) -> Any:
         return x + 1 if x.sum().item() > 0 else x * 2
 
     with pytest.raises(DataDependentOutputException):
@@ -106,7 +107,7 @@ def test_unknown_complex_and_data_dependent_paths():
     assert "aten._local_scalar_dense.default" in observed["unsupported_operators"]
 
 
-def test_addmm_scales_and_convolution():
+def test_addmm_scales_and_convolution() -> None:
     report = analyze(
         Function(lambda a, b, c: torch.addmm(c, a, b, alpha=2, beta=3)),
         (torch.ones(2, 3), torch.ones(3, 4), torch.ones(4)),
@@ -117,12 +118,12 @@ def test_addmm_scales_and_convolution():
     assert conv["totals"]["flops"] == 1 * 3 * 3 * 3 * (2 * 2 * 3 * 3 + 1)
 
 
-def test_max_ops_stops_unrolled_loops():
+def test_max_ops_stops_unrolled_loops() -> None:
     with pytest.raises(RuntimeError, match="max_ops"):
         analyze(Function(lambda x: x + x + x), (torch.ones(4),), max_ops=1)
 
 
-def test_timing_binding_and_memory_tier(tmp_path):
+def test_timing_binding_and_memory_tier(tmp_path: Path) -> None:
     path = tmp_path / "timing.json"
     path.write_text(json.dumps({"latency_s": 1e-5, "source_sha256": "abc"}))
     report = analyze(Function(lambda x: x + 1), (torch.ones(4, dtype=torch.float16),))
@@ -163,7 +164,7 @@ def test_timing_binding_and_memory_tier(tmp_path):
         make_point(report, entry, hardware, tmp_path)
 
 
-def test_measured_traffic_is_bound_to_workload(tmp_path):
+def test_measured_traffic_is_bound_to_workload(tmp_path: Path) -> None:
     path = tmp_path / "evidence.json"
     evidence = {
         "latency_s": 1e-5,

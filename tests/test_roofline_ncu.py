@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import csv
 import json
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from lassi_x.roofline_ncu import import_ncu
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def make_inputs(tmp_path, rows):
+
+def make_inputs(tmp_path: Path, rows: Any) -> Any:
     capture = tmp_path / "capture.json"
     capture.write_text(
         json.dumps(
@@ -35,7 +39,7 @@ def make_inputs(tmp_path, rows):
     return path, capture
 
 
-def test_import_sums_kernel_launches_and_si_units(tmp_path):
+def test_import_sums_kernel_launches_and_si_units(tmp_path: Path) -> None:
     path, capture = make_inputs(
         tmp_path,
         [
@@ -68,7 +72,9 @@ def test_import_sums_kernel_launches_and_si_units(tmp_path):
         ([], "exactly one GPU"),
     ],
 )
-def test_import_rejects_ambiguous_or_incomplete_counters(tmp_path, rows, message):
+def test_import_rejects_ambiguous_or_incomplete_counters(
+    tmp_path: Path, rows: Any, message: str
+) -> None:
     path, capture = make_inputs(tmp_path, rows)
     with pytest.raises(ValueError, match=message):
         import_ncu(path, capture)

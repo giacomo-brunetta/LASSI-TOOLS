@@ -14,7 +14,7 @@ prepare = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prepare)
 
 
-def test_missing_historical_stride_is_rejected_before_staging():
+def test_missing_historical_stride_is_rejected_before_staging() -> None:
     schema = [{"argument": "data", "kind": "tensor", "shape": [1400, 1200], "integer_dtype": None}]
     with pytest.raises(ValueError, match="tensor layout"):
         prepare.validate_schema(schema)
@@ -22,13 +22,13 @@ def test_missing_historical_stride_is_rejected_before_staging():
     prepare.validate_schema(schema)
 
 
-def test_scalar_tensor_layout_has_zero_rank():
+def test_scalar_tensor_layout_has_zero_rank() -> None:
     prepare.validate_schema(
         [{"argument": "rr", "kind": "tensor", "shape": [], "stride": [], "integer_dtype": None}]
     )
 
 
-def test_inconsistent_layout_rank_is_rejected():
+def test_inconsistent_layout_rank_is_rejected() -> None:
     with pytest.raises(ValueError, match="tensor layout"):
         prepare.validate_schema(
             [

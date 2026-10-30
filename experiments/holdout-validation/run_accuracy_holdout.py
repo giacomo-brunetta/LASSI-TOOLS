@@ -58,7 +58,8 @@ def remote(payload):
     if operation == "inventory":
         runtime = subprocess.check_output(
             [
-                python, "-c",
+                python,
+                "-c",
                 "import json,sys,torch;print(json.dumps(dict("
                 "device=torch.cuda.get_device_name(0),torch=torch.__version__,"
                 "python=sys.executable)))",
@@ -297,10 +298,15 @@ def run(args):
     )
 
     def call(operation, **fields):
-        future = executor.submit(remote, {
-            "operation": operation, "root": REMOTE,
-            "python_executable": args.remote_python, **fields,
-        })
+        future = executor.submit(
+            remote,
+            {
+                "operation": operation,
+                "root": REMOTE,
+                "python_executable": args.remote_python,
+                **fields,
+            },
+        )
         write(
             output / ("jpeg-active-task.json" if args.inspect_jpeg else "active-task.json"),
             {
@@ -340,8 +346,11 @@ def run(args):
     write(
         output / "transport.json",
         {
-            "endpoint": ENDPOINT, "remote": REMOTE, "package_sha256": code_sha,
-            "files": files, "python_executable": args.remote_python,
+            "endpoint": ENDPOINT,
+            "remote": REMOTE,
+            "package_sha256": code_sha,
+            "files": files,
+            "python_executable": args.remote_python,
         },
     )
     cached = set(inventory["assets"])
