@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 
     from ..config import RunConfig
     from ..protocol import HandshakeReport
-    from ..remote.agent import ExecutionAgent
     from .base import ExecutionBackend
+    from .worker import ExecutionWorker
 
 logger = logging.getLogger("lassi_x.execution")
 
@@ -93,7 +93,7 @@ class ExecutionContext:
     ) -> ExecutionContext:
         """Build backends from configuration and start the MCP server.
 
-        In ``academy`` mode one :class:`~lassi_x.remote.agent.ExecutionAgent`
+        In ``academy`` mode one :class:`~lassi_x.execution.worker.ExecutionWorker`
         is launched per configured resource. Without an ``exchange_url`` the
         agents run through a local exchange on this machine; with one, the
         manager connects to the remote (Globus-authenticated) exchange and
@@ -145,7 +145,7 @@ class ExecutionContext:
             from academy.handle import Handle  # noqa: PLC0415
             from academy.manager import Manager  # noqa: PLC0415
 
-            from ..remote.agent import ExecutionAgent  # noqa: PLC0415
+            from .worker import ExecutionWorker  # noqa: PLC0415
 
             executors: dict[str, Executor | None] = {
                 name: _resource_executor(name, spec) for name, spec in resources.items()
@@ -165,13 +165,13 @@ class ExecutionContext:
             for name, spec in resources.items():
                 agent_root = spec.workspace_root or mirror_root
                 launched = await manager.launch(
-                    ExecutionAgent,
+                    ExecutionWorker,
                     args=(str(agent_root), name),
                     executor=name,
                 )
                 # Bind the exchange client explicitly: backend calls happen in
                 # HTTP-handler tasks that never enter the manager context.
-                handle: Handle[ExecutionAgent] = Handle(
+                handle: Handle[ExecutionWorker] = Handle(
                     launched.agent_id, exchange=manager.exchange_client
                 )
                 backends[name] = AcademyExecutionBackend(

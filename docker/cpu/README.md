@@ -33,10 +33,10 @@ For the benchmark suite, prepare a new campaign instead of editing the hashed
 existing one:
 
 ```sh
-python examples/cpu-ablation-suite/suite.py prepare \
-  --models-config examples/polybench-jacobi-2d/run-luna-a100.yaml \
+python experiments/cpu-generation/suite.py prepare \
+  --models-config experiments/polybench-jacobi-2d/run-luna-a100.yaml \
   --execution docker --output runs/cpu-suite-mini-luna-docker
-python examples/cpu-ablation-suite/suite.py run \
+python experiments/cpu-generation/suite.py run \
   runs/cpu-suite-mini-luna-docker/suite.json --execute \
   --only polybench-3mm direct-dft
 ```

@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import signal
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -96,6 +98,7 @@ class OracleResult:
     source_sha256: str = ""
     output_sha256: str = ""
     determinism_runs: int = 1
+    input_contract_path: Path | None = None
 
 
 async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
@@ -178,6 +181,20 @@ async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
             f"{config.oracle.determinism_runs} executions"
         )
     reference_path = config.resolve_project_path(config.kernel.reference)
+    input_contract_path = None
+    if config.arena.input_check.enabled:
+        from .c_inputs import build_input_contract  # noqa: PLC0415
+
+        supplied = config.arena.input_check.contracts.get(config.kernel.validation_dataset)
+        if supplied is not None:
+            from .input_contract import load_contract  # noqa: PLC0415
+
+            input_contract_path = config.resolve_project_path(supplied)
+            _, metadata = load_contract(input_contract_path)
+            if metadata.get("dataset") != config.kernel.validation_dataset:
+                raise ValueError("configured input contract has the wrong dataset")
+        else:
+            input_contract_path = await build_input_contract(config, oracle_dir / "input-contract")
     return OracleResult(
         output,
         outputs[0],
@@ -186,6 +203,7 @@ async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
         hashlib.sha256(reference_path.read_bytes()).hexdigest(),
         hashlib.sha256(output.read_bytes()).hexdigest(),
         config.oracle.determinism_runs,
+        input_contract_path,
     )
 
 
@@ -322,6 +340,7 @@ async def execute_candidate(
     precision: str,
     device: str,
     artifact_path: Path,
+    input_contract: Path | None = None,
 ) -> tuple[np.ndarray | None, str, Diagnostic | None]:
     """Run one candidate module through the runner on its execution backend.
 
@@ -343,14 +362,14 @@ async def execute_candidate(
         when execution failed.
 
     """
-    from .execution import fetch_bytes  # noqa: PLC0415
+    from .execution import fetch_bytes, put_bytes  # noqa: PLC0415
 
     handshake = await backend.cached_handshake()
     remote_output = f".lassi/{artifact_path.name}"
     command = [
         handshake.python_executable,
         "-m",
-        "lassi_x.runner",
+        "lassi_x.candidate_runner",
         "--module",
         module_name,
         "--device",
@@ -364,22 +383,97 @@ async def execute_candidate(
     if fixture is not None:
         command += ["--fixture", fixture]
     command += ["--dataset", config.kernel.validation_dataset]
+    remote_input_report = f".lassi/{artifact_path.stem}-inputs.json"
+    remote_input_snapshot = f".lassi/inputs-{uuid.uuid4().hex}.npz"
+    if input_contract is not None:
+        remote_contract = ".lassi/trusted-input-contract.npz"
+        await put_bytes(backend, workspace, remote_contract, input_contract.read_bytes())
+        # Execute the harness runner even on endpoints with older packages.
+        for name, remote in (
+            ("input_contract.py", ".lassi-input-contract.py"),
+            ("candidate_runner.py", ".lassi-runner.py"),
+        ):
+            await put_bytes(backend, workspace, remote, (Path(__file__).parent / name).read_bytes())
+        bootstrap = (
+            "import importlib.util,sys,lassi_x; "
+            "s=importlib.util.spec_from_file_location("
+            "'lassi_x.input_contract','.lassi-input-contract.py'); "
+            "m=importlib.util.module_from_spec(s);sys.modules[s.name]=m;s.loader.exec_module(m); "
+            "import lassi_x.candidate_runner as r; "
+            "exec(compile(open('.lassi-runner.py').read(),'.lassi-runner.py','exec'),r.__dict__); "
+            "sys.argv=['lassi_x.candidate_runner',*sys.argv[1:]];sys.exit(r.main())"
+        )
+        command[1:3] = ["-c", bootstrap]
+        check = config.arena.input_check
+        command += [
+            "--input-contract",
+            remote_contract,
+            "--input-report",
+            remote_input_report,
+            "--input-snapshot",
+            remote_input_snapshot,
+            "--input-bindings",
+            json.dumps(check.bindings),
+            "--input-rtol",
+            str(check.rtol),
+            "--input-atol",
+            str(check.atol),
+        ]
     result = await backend.execute(
         ExecRequest(workspace=workspace, argv=command, timeout_s=config.arena.timeout_s)
     )
     if result.timed_out:
-        return None, "", Diagnostic(gate="runtime", message="candidate execution timed out")
-    stdout = result.stdout.strip()
-    try:
-        payload = json.loads(stdout.splitlines()[-1]) if stdout else {}
-    except json.JSONDecodeError:
-        payload = {}
-    if result.exit_code != 0 or not payload.get("ok"):
         return (
             None,
             "",
             Diagnostic(
                 gate="runtime",
+                message=f"candidate execution timed out after {config.arena.timeout_s:g} seconds",
+            ),
+        )
+    stdout = result.stdout.strip()
+    try:
+        payload = json.loads(stdout.splitlines()[-1]) if stdout else {}
+    except json.JSONDecodeError:
+        payload = {}
+    if input_contract is not None:
+        from .input_contract import compare_input_arrays, load_contract  # noqa: PLC0415
+
+        try:
+            snapshot_data = await fetch_bytes(backend, workspace, remote_input_snapshot)
+            artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_path = artifact_path.with_suffix(".inputs.npz")
+            snapshot_path.write_bytes(snapshot_data)
+            with np.load(snapshot_path, allow_pickle=False) as archive:
+                actual_inputs = {name: archive[name] for name in archive.files}
+            expected_inputs, metadata = load_contract(input_contract)
+            check = config.arena.input_check
+            report = compare_input_arrays(
+                actual_inputs,
+                expected_inputs,
+                metadata,
+                bindings=check.bindings,
+                rtol=check.rtol,
+                atol=check.atol,
+                precision=precision,
+            )
+            artifact_path.with_suffix(".inputs.json").write_text(
+                json.dumps(report, indent=2) + "\n"
+            )
+            if not report["ok"]:
+                return None, "", Diagnostic(gate="inputs", message=json.dumps(report["errors"]))
+        except Exception as exc:  # noqa: BLE001
+            return (
+                None,
+                "",
+                Diagnostic(gate="inputs", message=f"input snapshot unavailable or invalid: {exc}"),
+            )
+    if result.exit_code != 0 or not payload.get("ok"):
+        return (
+            None,
+            "",
+            Diagnostic(
+                gate=str(payload.get("gate") or "runtime"),
                 message=str(payload.get("error") or "candidate execution failed"),
                 command=command,
                 exit_code=result.exit_code,
@@ -404,6 +498,132 @@ async def execute_candidate(
 
 
 async def validate_candidate(
+    config: RunConfig,
+    backend: ExecutionBackend,
+    workspace: str,
+    oracle: OracleResult,
+    artifact_dir: Path,
+    *,
+    module_name: str = "candidate.py",
+) -> ValidationResult:
+    """Require every configured workload to pass, with one report per revision.
+
+    Reference/infrastructure failures propagate rather than triggering candidate repair.
+    The primary workload remains mandatory for backward-compatible configurations.
+    """
+    if not config.arena.correctness_tests:
+        return await _validate_single_candidate(
+            config, backend, workspace, oracle, artifact_dir, module_name=module_name
+        )
+    from .execution import put_bytes  # noqa: PLC0415
+
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "id": "primary",
+            "dataset": config.kernel.validation_dataset,
+            "status": "not_run",
+            "reason": "not reached",
+        }
+    ]
+    rows.extend(
+        {"id": test.id, "dataset": test.dataset, "status": "not_run", "reason": "not reached"}
+        for test in config.arena.correctness_tests
+    )
+    started = time.monotonic()
+    primary = None
+    stop_reason = None
+    runtime_failures = 0
+    try:
+        for index, row in enumerate(rows):
+            remaining = config.arena.suite_timeout_s - (time.monotonic() - started)
+            if stop_reason or remaining <= 0:
+                row["reason"] = stop_reason or "suite execution budget exhausted"
+                continue
+            case_config = config.model_copy(deep=True)
+            case_config.arena.correctness_tests = []
+            case_oracle = oracle
+            case_dir = artifact_dir / row["id"]
+            case_dir.mkdir(parents=True, exist_ok=True)
+            if index:
+                test = config.arena.correctness_tests[index - 1]
+                case_config.kernel.validation_dataset = test.dataset
+                case_config.oracle = test.oracle
+                case_config.arena.timeout_s = min(test.timeout_s, remaining)
+                case_config.arena.input_check.enabled = True
+                case_config.arena.input_check.contracts[test.dataset] = test.input_contract
+                # References are rebuilt by the trusted harness, never by the candidate.
+                case_oracle = await build_oracle(case_config, case_dir)
+            fixture = fixture_relative_path(case_config)
+            if fixture is not None:
+                await put_bytes(
+                    backend,
+                    workspace,
+                    fixture,
+                    case_config.resolve_project_path(case_config.oracle.input_fixture).read_bytes(),
+                )
+            remaining = config.arena.suite_timeout_s - (time.monotonic() - started)
+            if remaining <= 0:
+                row["reason"] = "suite execution budget exhausted during reference preparation"
+                continue
+            case_config.arena.timeout_s = min(case_config.arena.timeout_s, remaining)
+            result = await _validate_single_candidate(
+                case_config, backend, workspace, case_oracle, case_dir, module_name=module_name
+            )
+            if index == 0:
+                primary = result
+            row.update(status="passed" if result.ok else "failed", reason="")
+            if result.diagnostic:
+                row["reason"] = result.diagnostic.for_agent()
+                row["diagnostic"] = result.diagnostic.to_dict()
+                if result.diagnostic.gate in {"write", "compile"}:
+                    stop_reason = "candidate could not be loaded; repair required"
+                if result.diagnostic.gate == "runtime":
+                    runtime_failures += 1
+                    if runtime_failures >= 2:
+                        stop_reason = "repeated execution failures; repair required"
+            row["metrics"] = result.metrics
+    except Exception as exc:
+        row["status"] = "inconclusive"
+        row["reason"] = f"evaluation interrupted: {type(exc).__name__}: {exc}"
+        for pending in rows:
+            if pending["status"] == "not_run":
+                pending["reason"] = "evaluation interrupted by reference or infrastructure failure"
+        raise
+    finally:
+        (artifact_dir / "suite.json").write_text(json.dumps(rows, indent=2) + "\n")
+    ok = all(row["status"] == "passed" for row in rows)
+    summary = "\n".join(
+        f"{row['id']} (dataset={row['dataset']}): {row['status']}"
+        + (f" — {row['reason']}" if row["status"] == "not_run" else "")
+        for row in rows
+    )
+    counts = {
+        status: sum(row["status"] == status for row in rows)
+        for status in ("passed", "failed", "not_run")
+    }
+    failures = [row for row in rows if row["status"] == "failed"]
+    details = "\n\n".join(f"{row['id']}: {row['reason']}" for row in failures[:3])
+    if len(failures) > 3:
+        details += "\nAdditional diagnostics are saved in suite.json."
+    summary = f"Counts: {counts}\n{summary}\n\nFailure diagnostics:\n{details}"
+    diagnostic = (
+        None
+        if ok
+        else Diagnostic(
+            gate="correctness_suite", message="All required tests must pass.\n" + summary
+        )
+    )
+    return ValidationResult(
+        ok,
+        diagnostic,
+        primary.output if primary else None,
+        primary.output_dtype if primary else "",
+        primary.metrics if primary else None,
+    )
+
+
+async def _validate_single_candidate(
     config: RunConfig,
     backend: ExecutionBackend,
     workspace: str,
@@ -456,6 +676,22 @@ async def validate_candidate(
             ),
             None,
         )
+    input_contract = oracle.input_contract_path
+    if config.arena.input_check.enabled and input_contract is None:
+        from .c_inputs import build_input_contract  # noqa: PLC0415
+
+        # Resumed runs reconstruct OracleResult from saved outputs. Rebuild the
+        # independent input fixture rather than silently skipping this gate.
+        supplied = config.arena.input_check.contracts.get(config.kernel.validation_dataset)
+        if supplied is not None:
+            from .input_contract import load_contract  # noqa: PLC0415
+
+            input_contract = config.resolve_project_path(supplied)
+            _, metadata = load_contract(input_contract)
+            if metadata.get("dataset") != config.kernel.validation_dataset:
+                raise ValueError("configured input contract has the wrong dataset")
+        else:
+            input_contract = await build_input_contract(config, artifact_dir / "input-contract")
     output, output_dtype, diagnostic = await execute_candidate(
         config,
         backend,
@@ -464,6 +700,7 @@ async def validate_candidate(
         precision="fp64",
         device="cpu",
         artifact_path=artifact_dir / "fp64.npy",
+        input_contract=input_contract if config.arena.input_check.enabled else None,
     )
     if diagnostic or output is None:
         return ValidationResult(False, diagnostic, None)
@@ -502,6 +739,20 @@ async def validate_fp32_collapse(
         The validation outcome with diagnostics and numeric metrics.
 
     """
+    input_contract = None
+    if config.arena.input_check.enabled:
+        from .c_inputs import build_input_contract  # noqa: PLC0415
+
+        supplied = config.arena.input_check.contracts.get(config.kernel.validation_dataset)
+        if supplied is not None:
+            from .input_contract import load_contract  # noqa: PLC0415
+
+            input_contract = config.resolve_project_path(supplied)
+            _, metadata = load_contract(input_contract)
+            if metadata.get("dataset") != config.kernel.validation_dataset:
+                raise ValueError("configured input contract has the wrong dataset")
+        else:
+            input_contract = await build_input_contract(config, artifact_dir / "input-contract")
     base, _, diagnostic = await execute_candidate(
         config,
         backend,
@@ -510,6 +761,7 @@ async def validate_fp32_collapse(
         precision="fp32",
         device="cpu",
         artifact_path=artifact_dir / "base-fp32.npy",
+        input_contract=input_contract,
     )
     if diagnostic or base is None:
         return ValidationResult(False, diagnostic, None)
@@ -521,6 +773,7 @@ async def validate_fp32_collapse(
         precision="fp32",
         device="cpu",
         artifact_path=artifact_dir / "compensated-fp32.npy",
+        input_contract=input_contract,
     )
     if diagnostic or compensated is None:
         return ValidationResult(False, diagnostic, None)

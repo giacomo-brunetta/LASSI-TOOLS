@@ -1,0 +1,68 @@
+{
+  "schema": "lassi-roofline-hardware-v1",
+  "verified_on": "2026-10-24",
+  "units": "decimal FLOP/s and byte/s; one physical device, not node/rack totals",
+  "devices": {
+    "a100-pcie-40gb": {
+      "label": "NVIDIA A100 PCIe 40 GB",
+      "precision": "fp16",
+      "peak_flops_s": 312000000000000,
+      "peak_kind": "dense Tensor Core FP16; an optimistic reference for general kernels",
+      "memory_tier": "HBM2",
+      "bandwidth_bytes_s": 1555000000000,
+      "capacity_bytes": 40000000000,
+      "additional_compute_ceilings": [
+        {"label": "FP16 non-Tensor Core: 78 TFLOP/s", "peak_flops_s": 78000000000000}
+      ],
+      "sources": [
+        "https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/A100-PCIE-Prduct-Brief.pdf",
+        "https://developer.nvidia.com/blog/nvidia-ampere-architecture-in-depth/"
+      ]
+    },
+    "groq-lpu": {
+      "label": "GroqChip LPU (900 MHz)",
+      "precision": "fp16",
+      "peak_flops_s": 188000000000000,
+      "peak_kind": "published FP16 vector/matrix peak at 900 MHz",
+      "memory_tier": "on-chip SRAM",
+      "bandwidth_bytes_s": 80000000000000,
+      "capacity_bytes": 230000000,
+      "sources": [
+        "https://docs.alcf.anl.gov/ai-testbed/groq/",
+        "https://groq.com/wp-content/uploads/2024/08/GroqChip%E2%84%A2-Processor-Product-Brief-v1.7.pdf"
+      ],
+      "notes": "Verify the compiled program's chip count and clock before using this single-chip profile."
+    },
+    "graphcore-bow-ipu": {
+      "label": "Graphcore Bow IPU",
+      "precision": "fp16",
+      "peak_flops_s": 350000000000000,
+      "peak_kind": "published FP16.16 AI compute; accumulator mode matters",
+      "memory_tier": "on-chip SRAM",
+      "bandwidth_bytes_s": 65250000000000,
+      "capacity_bytes": 900000000,
+      "sources": [
+        "https://docs.alcf.anl.gov/ai-testbed/graphcore/",
+        "https://docs.graphcore.ai/projects/graphcore-glossary/en/latest/",
+        "https://docs.graphcore.ai/projects/bow-2000-datasheet/en/latest/product-description.html"
+      ],
+      "notes": "Bandwidth derived as 261 TB/s per four-IPU Bow-2000 divided by four; excludes exchange traffic and Streaming Memory."
+    },
+    "cerebras-wse3": {
+      "label": "Cerebras CS-3 / WSE-3",
+      "precision": "fp16",
+      "peak_flops_s": null,
+      "peak_kind": "dense FP16 ceiling pending verification; sparse marketing peak must not be substituted",
+      "reported_sparse_peak_flops_s": 125000000000000000,
+      "memory_tier": "on-chip SRAM",
+      "bandwidth_bytes_s": 21000000000000000,
+      "capacity_bytes": 44000000000,
+      "sources": [
+        "https://docs.alcf.anl.gov/ai-testbed/cerebras/",
+        "https://cdn.sanity.io/files/e4qjo92p/production/864133620041e5af418074842e42a669c137fa23.pdf",
+        "https://investors.cerebras.ai/static-files/ee277690-ec46-4a23-8439-53f0816bf7d5"
+      ],
+      "notes": "Only a bandwidth reference is drawn until a dense compute ceiling is supplied. Check the active wafer region and PE allocation."
+    }
+  }
+}

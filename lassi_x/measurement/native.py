@@ -22,6 +22,7 @@ from .common import (
     _evaluation_oracle_path,
     _timing_fields,
 )
+from .inputs import stage_measurement_input_check, verify_measurement_input_check
 
 if TYPE_CHECKING:
     import asyncio
@@ -143,6 +144,15 @@ class NativeBackend(Backend[NativeBackendConfig]):
             "--seed",
             str(seed),
         ]
+        input_arguments, input_check = await stage_measurement_input_check(
+            config,
+            oracle,
+            self.execution,
+            workspace,
+            precision=precision,
+            artifact=module_path.parent / f"{variant_id}-{precision}-inputs.json",
+        )
+        command += input_arguments
         fixture = fixture_relative_path(config)
         if fixture is not None:
             command += ["--fixture", fixture]
@@ -189,7 +199,7 @@ class NativeBackend(Backend[NativeBackendConfig]):
                 "error": (result.stderr or result.stdout)[-2000:]
                 or "native accelerator worker produced no result file",
             }
-        return self._finalize(
+        measurement = self._finalize(
             payload,
             config,
             module_path,
@@ -197,6 +207,9 @@ class NativeBackend(Backend[NativeBackendConfig]):
             variant_id=variant_id,
             precision=precision,
             compensation=compensation,
+        )
+        return await verify_measurement_input_check(
+            measurement, input_check, self.execution, workspace
         )
 
     def _finalize(

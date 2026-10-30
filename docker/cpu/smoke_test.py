@@ -45,7 +45,7 @@ async def main() -> None:
                 argv=[
                     report.python_executable,
                     "-m",
-                    "lassi_x.runner",
+                    "lassi_x.candidate_runner",
                     "--module",
                     "candidate.py",
                     "--device",

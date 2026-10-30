@@ -27,6 +27,7 @@ from .common import (
     _SubmitTimeoutError,
     _timing_fields,
 )
+from .inputs import stage_measurement_input_check, verify_measurement_input_check
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
@@ -244,6 +245,22 @@ class GroqBackend(Backend[GroqBackendConfig]):
                 Status.UNSUPPORTED,
                 failure_kind="precision_unsupported",
             )
+        if config.arena.input_check.enabled:
+            return _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.UNSUPPORTED,
+                failure_kind="input_check_unsupported",
+                notes=(
+                    "Legacy queue executors do not provide verified input snapshots; "
+                    "use a staged worker"
+                ),
+            )
         queue = self.spec.queue_dir
         assert queue is not None
         for subdir in ("pending", "running", "completed"):
@@ -438,6 +455,17 @@ class GroqBackend(Backend[GroqBackendConfig]):
                 ),
             )
             remote_workspace = Path(handshake.workspace_root) / workspace
+            input_arguments, input_check = await self._bounded(
+                "stage input contract",
+                stage_measurement_input_check(
+                    config,
+                    oracle,
+                    self.execution,
+                    workspace,
+                    precision=precision,
+                    artifact=module_path.parent / f"{variant_id}-{precision}-inputs.json",
+                ),
+            )
             command = [
                 str(runtime.python),
                 worker_name,
@@ -462,6 +490,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                 "--dataset",
                 config.evaluation_dataset,
             ]
+            command += input_arguments
             script_lines = _runtime_prelude(runtime)
             script_lines.extend([f"cd {shlex.quote(str(remote_workspace))}", shlex.join(command)])
             await self._bounded(
@@ -514,7 +543,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                 "error": (result.stderr or result.stdout)[-2000:]
                 or "Groq direct worker produced no result file",
             }
-        return self._finalize(
+        measurement = self._finalize(
             payload,
             config,
             module_path,
@@ -523,6 +552,9 @@ class GroqBackend(Backend[GroqBackendConfig]):
             precision=precision,
             compensation=compensation,
             mode="direct",
+        )
+        return await verify_measurement_input_check(
+            measurement, input_check, self.execution, workspace
         )
 
     async def _measure_pbs(
@@ -619,6 +651,17 @@ class GroqBackend(Backend[GroqBackendConfig]):
         remote_workspace = Path(handshake.workspace_root) / workspace
         source_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
         cache_dir = remote_workspace / "groq-cache" / source_hash[:16]
+        input_arguments, input_check = await self._bounded(
+            "stage input contract",
+            stage_measurement_input_check(
+                config,
+                oracle,
+                self.execution,
+                workspace,
+                precision=precision,
+                artifact=module_path.parent / f"{variant_id}-{precision}-inputs.json",
+            ),
+        )
         command = [
             str(pbs.python),
             worker_name,
@@ -643,6 +686,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
             "--dataset",
             config.evaluation_dataset,
         ]
+        command += input_arguments
         script_lines = _runtime_prelude(pbs)
         script_lines.extend(
             [
@@ -806,7 +850,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                     )
                 )
             raise
-        return self._finalize(
+        measurement = self._finalize(
             payload,
             config,
             module_path,
@@ -815,6 +859,9 @@ class GroqBackend(Backend[GroqBackendConfig]):
             precision=precision,
             compensation=compensation,
             mode="PBS",
+        )
+        return await verify_measurement_input_check(
+            measurement, input_check, self.execution, workspace
         )
 
     def _finalize(

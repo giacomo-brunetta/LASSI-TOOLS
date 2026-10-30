@@ -10,9 +10,9 @@ import yaml
 import lassi_x.pipeline as pipeline
 from lassi_x.config import DockerExecutionConfig, ExecutionConfig, RunConfig
 from lassi_x.execution import ExecutionContext
+from lassi_x.execution import workspace as workspace_ops
 from lassi_x.execution.docker import DockerExecutionBackend
 from lassi_x.protocol import ExecRequest, ExecResult
-from lassi_x.remote import ops
 
 from .test_config import minimal_config
 
@@ -51,7 +51,13 @@ def test_validation_mounts_readonly(backend: DockerExecutionBackend) -> None:
     command = backend.command(
         ExecRequest(
             workspace="c1",
-            argv=["/usr/local/bin/python", "-m", "lassi_x.runner", "--module", "candidate.py"],
+            argv=[
+                "/usr/local/bin/python",
+                "-m",
+                "lassi_x.candidate_runner",
+                "--module",
+                "candidate.py",
+            ],
         ),
         "test",
     )
@@ -80,7 +86,7 @@ def test_cleanup_always_runs(
     async def fake_remove(name: str) -> None:
         removed.append(name)
 
-    monkeypatch.setattr(ops, "run_exec", fake_exec)
+    monkeypatch.setattr(workspace_ops, "run_exec", fake_exec)
     monkeypatch.setattr(backend, "_remove", fake_remove)
 
     def task() -> ExecResult:

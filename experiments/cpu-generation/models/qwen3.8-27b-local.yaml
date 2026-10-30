@@ -1,0 +1,11 @@
+models:
+  planner: &model
+    provider: custom
+    model: Qwen/Qwen3.8-27B
+    base_url: http://100.112.233.13:8000/v1
+    api_mode: chat_completions
+    # vLLM does not authenticate, but Hermes uses a nonempty credential to
+    # select the explicit custom OpenAI-compatible route.
+    api_key_env: LASSI_QWEN_API_KEY
+  candidates: [*model, *model, *model]
+  compensation: *model

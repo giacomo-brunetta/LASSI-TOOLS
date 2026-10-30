@@ -17,23 +17,23 @@ from typing import Any, Literal, Protocol, TypeVar
 
 from pydantic_graph import GraphBuilder
 
-from .accelerator import repair_accelerator_candidate, select_compatibility_failures
-from .accuracy import candidate_accuracy
-from .arena import generate_candidate, plan_strategies
 from .artifacts import atomic_write, create_run_dir, write_json, write_resolved_config
+from .candidate_generation import generate_candidate, plan_strategies
+from .compatibility_repair import repair_accelerator_candidate, select_compatibility_failures
 from .compensation import (
     CompensationVariant,
     generate_compensation,
     group_portable_weak_points,
     select_weak_points,
 )
+from .compile_checks import QualificationResult, qualify_candidate
 from .config import ExecutionConfig, RunConfig
 from .execution import ExecutionContext
 from .execution.preflight import native_runtime_checks
+from .generation_metrics import candidate_accuracy
 from .interruptions import model_service_interrupted
 from .measurement import Backend, build_backends, measure_compensation_variants, measure_variants
 from .pareto import frontier_indices, valid_point
-from .qualification import QualificationResult, qualify_candidate
 from .run_record import RunRecord, evaluate_acceptance, render_summary, skill_records
 from .scheduler import PipelineScheduler
 from .skills import require_automation_skills

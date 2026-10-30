@@ -228,7 +228,9 @@ def _invoke(model: Any, inputs: dict[str, torch.Tensor]) -> Any:
         return model.run(inputs)
 
 
-def _inputs_for_dataset(module: Any, dataset: str) -> tuple[torch.Tensor, ...]:
+def _inputs_for_dataset(
+    module: Any, dataset: str, dtype: torch.dtype = torch.float32
+) -> tuple[torch.Tensor, ...]:
     """Build one deterministic candidate input profile.
 
     Args:
@@ -238,7 +240,7 @@ def _inputs_for_dataset(module: Any, dataset: str) -> tuple[torch.Tensor, ...]:
     Returns:
         Tuple of contiguous FP32 tensors suitable for GroqFlow tracing.
     """
-    kwargs: dict[str, Any] = {"device": "cpu", "dtype": torch.float32}
+    kwargs: dict[str, Any] = {"device": "cpu", "dtype": dtype}
     if "dataset" in inspect.signature(module.build_inputs).parameters:
         kwargs["dataset"] = dataset
     built = module.build_inputs(**kwargs)
@@ -254,6 +256,7 @@ def _compile(
     *,
     build_name: str,
     cache_dir: Path,
+    input_check_args: Any = None,
 ) -> tuple[Any, dict[str, torch.Tensor]]:
     """Compile a candidate for one static input profile.
 
@@ -271,6 +274,30 @@ def _compile(
         network = network.float()
     if hasattr(network, "eval"):
         network = network.eval()
+    if input_check_args is not None and getattr(input_check_args, "input_contract", None):
+        import lassi_input_contract as contract  # type: ignore[import-not-found]  # noqa: PLC0415
+
+        # GroqFlow traces FP32 transport tensors containing exactly FP16 values.
+        # Widening FP16 to FP32 is exact and cannot change the checked values.
+        # Older target Torch converts double->half through float, changing
+        # halfway cases. The independent C reference must use one storage cast.
+        original_round = contract.round_input_values
+
+        def one_storage_cast(values: Any, precision: str) -> Any:
+            if precision != "fp16":
+                return original_round(values, precision)
+            rounded = np.asarray(values, dtype=np.float64).astype(np.float16).astype(np.float64)
+            if not np.isfinite(rounded).all():
+                raise contract.InputContractError("Nonfinite C inputs after FP16 storage cast")
+            return rounded
+
+        contract.round_input_values = one_storage_cast
+        try:
+            check = contract.check_worker_inputs(network, inputs, input_check_args, precision="fp16")
+            if check is not None:
+                check["target_storage_cast"] = "numpy_direct_float64_to_fp16"
+        finally:
+            contract.round_input_values = original_round
     names = _forward_names(network, len(inputs))
     input_map = dict(zip(names, inputs, strict=False))
     try:
@@ -310,6 +337,10 @@ def main() -> int:
     parser.add_argument("--cache-dir", type=Path, required=True)
     parser.add_argument("--build-name", required=True)
     parser.add_argument("--dataset", default="default")
+    if "--input-contract" in sys.argv:
+        from lassi_input_contract import add_input_check_arguments  # noqa: PLC0415
+
+        add_input_check_arguments(parser)
     args = parser.parse_args()
 
     payload: dict[str, Any]
@@ -321,9 +352,14 @@ def main() -> int:
         phase = "evaluation_compile"
         evaluation_model, evaluation_inputs = _compile(
             module,
-            _inputs_for_dataset(module, args.dataset),
+            _inputs_for_dataset(
+                module,
+                args.dataset,
+                torch.float16 if getattr(args, "input_contract", None) else torch.float32,
+            ),
             build_name=f"{build_name}-evaluation-{args.dataset}"[:80],
             cache_dir=args.cache_dir,
+            input_check_args=args,
         )
         benchmark = getattr(evaluation_model, "benchmark", None)
         if not callable(benchmark):

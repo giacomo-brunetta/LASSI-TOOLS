@@ -77,10 +77,10 @@ possible formulation in that family is unsupported.
 
 The detailed records remain in:
 
-- `lassi_x/compat/targets/graphcore-pod64-poptorch/wiki/`
-- `lassi_x/compat/targets/alcf-cs3-cerebras-pytorch/wiki/`
-- `lassi_x/compat/targets/groq-r01-groqflow/wiki/`
+- `lassi_x/compatibility/targets/graphcore-pod64-poptorch/wiki/`
+- `lassi_x/compatibility/targets/alcf-cs3-cerebras-pytorch/wiki/`
+- `lassi_x/compatibility/targets/groq-r01-groqflow/wiki/`
 
 Use `lassi-x-compat-wiki op ... --markdown` to read one page through the installed package. The
-machine-readable `snapshot.json` files in `lassi_x/compat/targets/*/` are the source for bulk
+machine-readable `snapshot.json` files in `lassi_x/compatibility/targets/*/` are the source for bulk
 analysis.

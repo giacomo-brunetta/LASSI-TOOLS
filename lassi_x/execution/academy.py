@@ -39,7 +39,7 @@ if TYPE_CHECKING:
         HandshakeReport,
         ListDir,
     )
-    from ..remote.agent import ExecutionAgent
+    from .worker import ExecutionWorker
 
 logger = logging.getLogger("lassi_x.execution")
 
@@ -214,7 +214,7 @@ async def _warn_while_pending(description: str, interval_s: float) -> None:
 
 
 class AcademyExecutionBackend(ExecutionBackend):
-    """Forward every operation to a remote ``ExecutionAgent`` handle.
+    """Forward every operation to a remote ``ExecutionWorker`` handle.
 
     Every call is traced. Academy resolves an action by waiting on a response
     message with no deadline of its own, so a response that is never delivered
@@ -240,7 +240,7 @@ class AcademyExecutionBackend(ExecutionBackend):
 
     def __init__(
         self,
-        handle: Handle[ExecutionAgent],
+        handle: Handle[ExecutionWorker],
         resource: str = "?",
         *,
         call_timeout_s: float = CALL_TIMEOUT_S,

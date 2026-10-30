@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..remote import ops
+from . import workspace as workspace_ops
 from .base import ExecutionBackend
 
 if TYPE_CHECKING:
@@ -39,20 +39,20 @@ class LocalExecutionBackend(ExecutionBackend):
 
     async def execute(self, request: ExecRequest) -> ExecResult:
         """Execute one argv command inside its confined workspace."""
-        return await ops.run_exec(self.workspace_root, request)
+        return await workspace_ops.run_exec(self.workspace_root, request)
 
     async def put_file(self, request: FilePut) -> FileStat:
         """Write one file into its confined workspace."""
-        return ops.put_file(self.workspace_root, request)
+        return workspace_ops.put_file(self.workspace_root, request)
 
     async def get_file(self, request: FileGet) -> FileContent:
         """Read one file from its confined workspace."""
-        return ops.get_file(self.workspace_root, request)
+        return workspace_ops.get_file(self.workspace_root, request)
 
     async def list_dir(self, request: ListDir) -> DirListing:
         """List one directory inside its confined workspace."""
-        return ops.list_dir(self.workspace_root, request)
+        return workspace_ops.list_dir(self.workspace_root, request)
 
     async def handshake(self) -> HandshakeReport:
         """Measure and report this host's capabilities."""
-        return await ops.build_handshake(self.workspace_root, self.resource)
+        return await workspace_ops.build_handshake(self.workspace_root, self.resource)

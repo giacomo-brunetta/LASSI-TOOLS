@@ -45,11 +45,11 @@ from lassi_x.execution.academy import (
     PersistentHttpExchangeTransport,
 )
 from lassi_x.execution.preflight import native_runtime_checks
+from lassi_x.execution.worker import ExecutionWorker
+from lassi_x.execution.workspace import resolve_member
 from lassi_x.hermes import HermesSession
 from lassi_x.mcp_server import WORKSPACE_HEADER
 from lassi_x.protocol import ExecRequest, ExecResult, FileGet, FilePut, ListDir
-from lassi_x.remote import ExecutionAgent
-from lassi_x.remote.ops import resolve_member
 
 from .test_config import minimal_config
 
@@ -486,7 +486,7 @@ def test_academy_backend_write_execute_read_cycle(tmp_path: Path) -> None:
             factory=LocalExchangeFactory(),
             executors=ThreadPoolExecutor(max_workers=2),
         ) as manager:
-            handle = await manager.launch(ExecutionAgent, args=(str(tmp_path), "test-resource"))
+            handle = await manager.launch(ExecutionWorker, args=(str(tmp_path), "test-resource"))
             backend = AcademyExecutionBackend(handle)
             await _exercise_backend(backend)
             report = await backend.handshake()

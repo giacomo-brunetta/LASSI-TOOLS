@@ -49,7 +49,38 @@ class EquivalenceConfig(StrictModel):
     max_mismatches: int = 20
 
 
+class InputCheckConfig(StrictModel):
+    """Harness-owned input parity gate; legacy campaigns opt in."""
+
+    enabled: bool = False
+    bindings: dict[str, str] = Field(default_factory=dict)
+    rtol: float = Field(default=1e-12, ge=0.0)
+    atol: float = Field(default=1e-14, ge=0.0)
+    contracts: dict[str, Path] = Field(default_factory=dict)
+
+
+class CorrectnessTestConfig(StrictModel):
+    """A harness-owned reference workload; IDs also name artifact directories."""
+
+    id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+    dataset: str
+    oracle: OracleConfig
+    input_contract: Path
+    timeout_s: float = Field(default=600.0, gt=0.0)
+
+
 class ArenaConfig(StrictModel):
+    correctness_tests: list[CorrectnessTestConfig] = Field(default_factory=list)
+    suite_timeout_s: float = Field(default=3600.0, gt=0.0)
+
+    @field_validator("correctness_tests")
+    @classmethod
+    def unique_test_ids(cls, tests: list[CorrectnessTestConfig]) -> list[CorrectnessTestConfig]:
+        ids = [test.id for test in tests]
+        if len(ids) != len(set(ids)) or "primary" in ids:
+            raise ValueError("correctness test IDs must be unique and cannot be 'primary'")
+        return tests
+
     candidates: int = Field(default=3, ge=1, le=10)
     seed_sources: list[Path] = Field(default_factory=list)
     """Unverified starting implementations; each is adapted and validated by its model."""
@@ -57,6 +88,7 @@ class ArenaConfig(StrictModel):
     correction_rounds: int = Field(default=2, ge=0, le=10)
     timeout_s: float = 600.0
     equivalence: EquivalenceConfig = Field(default_factory=EquivalenceConfig)
+    input_check: InputCheckConfig = Field(default_factory=InputCheckConfig)
 
 
 class ModelConfig(StrictModel):
@@ -439,7 +471,7 @@ class ExecutionConfig(StrictModel):
     """Where agent tool calls and harness commands execute.
 
     ``local`` runs everything in-process against the run directory. ``academy``
-    launches one ExecutionAgent per resource through an Academy manager: with
+    launches one ExecutionWorker per resource through an Academy manager: with
     no ``exchange_url`` the agents run on a local exchange (single machine,
     used for development and tests); with an ``exchange_url`` and per-resource
     ``endpoint_id`` values they run on remote Globus Compute endpoints.
@@ -494,7 +526,7 @@ class ExecutionConfig(StrictModel):
 
     A Groq compile is legitimately minutes long, so a lost response there is
     less clearly distinguishable from slow honest work than it is elsewhere.
-    Naming the resource here keeps :mod:`lassi_x.arena` from discarding a
+    Naming the resource here keeps :mod:`lassi_x.candidate_generation` from discarding a
     candidate over it. Retirement still applies -- a resource that has stopped
     answering entirely is dead whatever it was doing.
     """
@@ -623,7 +655,7 @@ class RunConfig(StrictModel):
                 "compatibility.compile_targets name unknown execution resources: "
                 + ", ".join(unknown_compile_resources)
             )
-        target_root = Path(__file__).resolve().parent / "compat" / "targets"
+        target_root = Path(__file__).resolve().parent / "compatibility" / "targets"
         unknown_compile_targets = sorted(
             target.target_id
             for target in self.compatibility.compile_targets

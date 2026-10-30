@@ -21,6 +21,7 @@ from .common import (
     _evaluation_oracle_path,
     _timing_fields,
 )
+from .inputs import stage_measurement_input_check, verify_measurement_input_check
 
 if TYPE_CHECKING:
     import asyncio
@@ -217,6 +218,44 @@ class TorchBackend(Backend[TorchBackendConfig]):
             "--dataset",
             config.evaluation_dataset,
         ]
+        input_arguments, input_check = await stage_measurement_input_check(
+            config,
+            oracle,
+            self.execution,
+            workspace,
+            precision=precision,
+            artifact=module_path.parent / f"{variant_id}-{precision}-inputs.json",
+        )
+        command += input_arguments
+        input_bootstrap = ""
+        if input_check is not None:
+            await put_bytes(
+                self.execution,
+                workspace,
+                ".lassi-measure-worker.py",
+                (Path(__file__).resolve().parents[1] / "measure_worker.py").read_bytes(),
+            )
+            await put_bytes(
+                self.execution,
+                workspace,
+                ".lassi-validation.py",
+                (Path(__file__).resolve().parents[1] / "validation.py").read_bytes(),
+            )
+            # Load staged checks/worker even when an endpoint has an older package.
+            input_bootstrap = (
+                "import importlib.util,sys,lassi_x; "
+                "s=importlib.util.spec_from_file_location("
+                "'lassi_x.input_contract','lassi_input_contract.py'); "
+                "m=importlib.util.module_from_spec(s);"
+                "sys.modules[s.name]=m;s.loader.exec_module(m); "
+                "s=importlib.util.spec_from_file_location("
+                "'lassi_x.validation','.lassi-validation.py'); "
+                "m=importlib.util.module_from_spec(s);sys.modules[s.name]=m;"
+                "s.loader.exec_module(m); "
+                "import lassi_x.measure_worker as w; "
+                "exec(compile(open('.lassi-measure-worker.py').read(),"
+                "'.lassi-measure-worker.py','exec'),w.__dict__); "
+            )
         audit_required = self.spec.precision_audit != "off" or (
             precision in {"fp32", "fp16", "bf16"}
             and config.compensation.arithmetic_policy == "target_format_only"
@@ -235,7 +274,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
                 )
                 command += ["--audit-baseline", ".lassi-audit-base.py"]
             bootstrap = (
-                "import os,runpy,sys; "
+                input_bootstrap + "import os,runpy,sys; "
                 f"os.environ['LASSI_DTYPE_AUDIT_MODE']={self.spec.precision_audit!r}; "
                 "sys.argv=['.lassi-precision-audit.py',*sys.argv[1:]]; "
             )
@@ -254,7 +293,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
                 raise ValueError("cuda_memory_limit_mb requires a CUDA device")
             # Bootstrap on the worker without requiring a remote package upgrade.
             bootstrap = (
-                "import runpy,sys,torch; "
+                input_bootstrap + "import runpy,sys,torch; "
                 f"device=torch.device({str(self.spec.device)!r}); "
                 "device=torch.cuda.current_device() if device.index is None else device.index; "
                 "total=torch.cuda.get_device_properties(device).total_memory; "
@@ -264,6 +303,12 @@ class TorchBackend(Backend[TorchBackendConfig]):
                 "runpy.run_module('lassi_x.measure_worker',run_name='__main__')"
             )
             command[1:3] = ["-c", bootstrap]
+        elif input_check is not None:
+            command[1:3] = [
+                "-c",
+                input_bootstrap
+                + "sys.argv=['lassi_x.measure_worker',*sys.argv[1:]];sys.exit(w.main())",
+            ]
         fixture = fixture_relative_path(config)
         if fixture is not None:
             command += ["--fixture", fixture]
@@ -296,6 +341,23 @@ class TorchBackend(Backend[TorchBackendConfig]):
             payload = json.loads(result.stdout.strip().splitlines()[-1])
         except (json.JSONDecodeError, IndexError):
             payload = {"ok": False, "error": (result.stderr or result.stdout)[-2000:]}
+        checked = await verify_measurement_input_check(
+            _base_measurement(
+                config,
+                self.spec,
+                module_path,
+                candidate_id,
+                variant_id,
+                precision,
+                compensation,
+                Status.OK,
+            ),
+            input_check,
+            self.execution,
+            workspace,
+        )
+        if checked.failure_kind == "inputs":
+            return checked
         if audit_required:
             audit_path = module_path.parent / f"{variant_id}-{precision}-dtype-audit.json"
             audit_path.write_text(json.dumps(payload.get("dtype_audit", {}), indent=2) + "\n")
@@ -313,6 +375,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
                 failure_kind=str(payload.get("phase") or "worker_execution"),
                 notes=str(payload.get("error") or "measurement worker failed"),
             )
+            failed.input_check = checked.input_check
             return _attach_precision_evidence(failed, payload)
         expected_source_hash = hashlib.sha256(module_path.read_bytes()).hexdigest()
         reported_source_hash = str(payload.get("source_hash") or "")
@@ -343,6 +406,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
             precision,
             compensation,
             Status.OK if payload.get("valid", payload.get("equivalent")) else Status.DIVERGED,
+            input_check=checked.input_check,
             resource=self.resource,
             latency_s=float(payload["median_s"]),
             min_s=float(payload["min_s"]),

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..protocol import ExecRequest, HandshakeReport
-from ..remote import ops
+from . import workspace as workspace_ops
 from .local import LocalExecutionBackend
 
 if TYPE_CHECKING:
@@ -35,12 +35,16 @@ class DockerExecutionBackend(LocalExecutionBackend):
         unknown = set(request.env) - ALLOWED_ENV
         if unknown:
             raise ValueError(f"Docker execution rejects environment variables: {sorted(unknown)}")
-        workspace = ops.resolve_workspace(self.workspace_root, request.workspace)
-        cwd = workspace if request.cwd is None else ops.resolve_member(workspace, request.cwd)
+        workspace = workspace_ops.resolve_workspace(self.workspace_root, request.workspace)
+        cwd = (
+            workspace
+            if request.cwd is None
+            else workspace_ops.resolve_member(workspace, request.cwd)
+        )
         cwd.mkdir(parents=True, exist_ok=True)
         if "," in str(workspace):
             raise ValueError("Docker workspace paths must not contain commas")
-        validating = request.argv[:3] == ["/usr/local/bin/python", "-m", "lassi_x.runner"]
+        validating = request.argv[:3] == ["/usr/local/bin/python", "-m", "lassi_x.candidate_runner"]
         memory = f"{self.settings.memory_mb}m"
         command = [
             "docker",
@@ -72,11 +76,11 @@ class DockerExecutionBackend(LocalExecutionBackend):
             f"type=bind,src={workspace},dst=/workspace" + (",readonly" if validating else ""),
         ]
         if validating:
-            output = ops.resolve_member(workspace, ".lassi")
+            output = workspace_ops.resolve_member(workspace, ".lassi")
             output.mkdir(parents=True, exist_ok=True)
             command += ["--mount", f"type=bind,src={output},dst=/workspace/.lassi"]
         elif (workspace / "reference").exists():
-            reference = ops.resolve_member(workspace, "reference")
+            reference = workspace_ops.resolve_member(workspace, "reference")
             command += ["--mount", f"type=bind,src={reference},dst=/workspace/reference,readonly"]
         for key, value in {**dict.fromkeys(ALLOWED_ENV, "1"), **request.env}.items():
             command += ["--env", f"{key}={value}"]
@@ -110,7 +114,7 @@ class DockerExecutionBackend(LocalExecutionBackend):
         name = f"lassi-cpu-{uuid.uuid4().hex}"
         command = self.command(request, name)
         try:
-            return await ops.run_exec(
+            return await workspace_ops.run_exec(
                 self.workspace_root, request.model_copy(update={"argv": command, "env": {}})
             )
         finally:

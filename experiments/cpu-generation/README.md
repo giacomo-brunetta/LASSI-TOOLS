@@ -1,0 +1,166 @@
+# CPU experiment suite
+
+The default campaign covers **24 of the 30 PolyBench/C 4.2.1 kernels plus nine
+scientific kernels**. It stops at local FP64 CPU verification and publishes an
+immutable CPU baseline for each successful run. No accelerator endpoint is needed.
+
+| Coverage | Core kernels |
+| --- | --- |
+| Statistics | correlation, covariance |
+| BLAS | gemm, gemver, gesummv, syr2k, trmm |
+| Contractions / matrix-vector | 3mm, atax, bicg, doitgen, mvt |
+| Factorizations / recurrences | cholesky, durbin, gramschmidt, lu |
+| Filters / dynamic programming | deriche, floyd-warshall, nussinov |
+| Stencils / PDEs | adi, fdtd-2d, heat-3d, jacobi-2d, seidel-2d |
+| Scientific additions | direct-dft, softened-nbody, lorenz-rk4, poisson-cg, mutual-information, jpeg-dct, wavelet-compression, low-rank-compression, iir-filter-bank |
+
+`--full-polybench` adds 2mm, symm, syrk, ludcmp, trisolv and jacobi-1d for a
+39-kernel campaign. The core prioritizes distinct computational patterns over
+near-duplicate BLAS operations. It retains dependency-heavy kernels that may
+be difficult to accelerate: correctness or compilation failures are useful results.
+
+The scientific additions exercise transcendental reductions, all-pairs forces,
+batched nonlinear ODE integration, fixed-iteration sparse conjugate gradient and
+information-theoretic reductions, lossy image transforms, low-rank approximation
+and recurrent digital filtering. The eight standalone C fixtures are deliberately
+small, deterministic validation problems, not established benchmark-suite results.
+Mutual information uses the existing scientific reference in this repository.
+
+## Prepare and check
+
+Run from the repository root with its environment active. By default, the script
+uses `benchmarks/polybench`; use `--polybench /path/to/PolyBenchC-4.2.1` otherwise.
+It uses the source tree you supply, including local modifications; hashes establish
+identity, not certification that the tree is pristine upstream PolyBench.
+
+To isolate candidate execution, build the [CPU Docker image](../../docker/cpu/README.md)
+and add `--execution docker` when preparing a new campaign. The default remains
+local unsandboxed execution; C-only oracle checks always execute on the host.
+
+```sh
+python experiments/cpu-generation/suite.py prepare \
+  --models-config experiments/polybench-jacobi-2d/run-luna-a100.yaml \
+  --output runs/cpu-suite-mini-luna
+
+python experiments/cpu-generation/suite.py run \
+  runs/cpu-suite-mini-luna/suite.json --check-oracles
+```
+
+The models argument accepts an existing run YAML (only `models` is copied), or a
+YAML with `planner`, `candidates` and `compensation` at its root. Remote settings,
+memory, compensation and accelerator repair are not copied. The default is three
+candidates and two CPU correction rounds; the model list must have exactly three
+entries. Set `--candidates N` and provide N model entries to change that budget.
+Credential/provider configuration is inherited; preparation does not validate
+credentials or contact model services. The example reuses existing Luna settings;
+it is not a model recommendation.
+
+Preparation refuses existing output directories. It records source, context and
+config hashes in `suite.json`; execution rejects changed campaign inputs. The C
+oracles use `-O0`, disabled FP contraction, the selected dataset, two determinism
+runs and the production output parser. Floating dumps use 17 significant digits;
+integer dumps retain `%d`. Computation and initialization are not rewritten.
+
+## Launch CPU verification
+
+```sh
+# Preview commands only (default).
+python experiments/cpu-generation/suite.py run runs/cpu-suite-mini-luna/suite.json
+
+# Explicit model execution; sequential benchmarks, normal pipeline concurrency within each.
+python experiments/cpu-generation/suite.py run \
+  runs/cpu-suite-mini-luna/suite.json --execute
+
+# Pilot subset before the complete campaign.
+python experiments/cpu-generation/suite.py run \
+  runs/cpu-suite-mini-luna/suite.json --execute \
+  --only polybench-3mm polybench-correlation polybench-jacobi-2d \
+         polybench-cholesky direct-dft poisson-cg
+
+# CSV to stdout, including failures and all attempts (not just the best run).
+python experiments/cpu-generation/suite.py summary runs/cpu-suite-mini-luna/suite.json
+```
+
+A core run requests 99 candidates, plus 33 planner calls and up to two correction
+rounds per candidate. This can consume substantial time and model quota. Execution
+continues after an individual benchmark fails and returns nonzero if any failed.
+Repeating `--execute` creates fresh attempts; it does not silently resume or skip
+previous runs. Resume a specific interrupted run explicitly:
+
+```sh
+lassi-x run runs/cpu-suite-mini-luna/configs/polybench-3mm.yaml \
+  --resume runs/cpu-suite-mini-luna/runs/polybench-3mm/<run-id> --until cpu-verified
+```
+
+## Comparison protocol
+
+Start with MINI, a common FP64 gate (`rtol=1e-10`, `atol=1e-12`), three candidate
+slots and two correction rounds. Integer kernels should be checked for exact
+integer semantics. Keep every failure; do not relax thresholds for one model.
+Report candidate pass fraction and benchmark coverage separately: a run is
+successful if **any** candidate passes, not necessarily all three.
+
+For a candidate-model ablation, hold the planner model/settings constant and put
+the model under test in all three candidate slots. Make one campaign directory
+per model and replicate, with identical sources, dataset and budgets. The planner
+may still vary its strategies between runs; this workflow does not yet freeze
+planner strategies or guarantee deterministic model sampling. If the planner also
+changes, describe the comparison as an end-to-end model-stack ablation. Memory is
+disabled to avoid deliberate cross-run memory carryover.
+
+After the pilot, repeat with `--dataset small` in a new directory to expose more
+reduction and recurrence stress; optionally use MEDIUM. These are **different
+CPU baselines**, not larger accelerator inputs interchangeable with MINI. A
+small correctness fixture alone says little about accelerator throughput.
+The eight standalone fixtures use sizes 32/64/128 and ODE step counts 20/50/100;
+CG always performs ten iterations. PolyBench and mutual-information sizes come
+from their original headers.
+
+## Frozen accelerator follow-up
+
+Each run with passing candidates exports `<run>/cpu-baseline`. Copy that benchmark's
+generated config, change only accelerator/execution/measurement settings, and use:
+
+```sh
+lassi-x run accelerator-a.yaml --from-cpu-baseline <cpu-run>
+lassi-x run accelerator-b.yaml --from-cpu-baseline <cpu-run>
+```
+
+Keep `kernel`, `oracle`, CPU equivalence, referenced files and the dataset unchanged;
+the importer checks their contract. In particular, retain the generated precision
+header and campaign directory. Imported runs skip generation and default to frozen
+candidates (no compensation or model repair). Each receives independent copies of
+the same passing modules and oracle. For cross-model accelerator comparisons, use
+the **same chosen CPU run** for every accelerator, not each model's own candidates.
+Selection of that baseline should be recorded explicitly to avoid selection bias.
+# Frozen LARGE A100 repair comparison
+
+`run_a100_large_repair.py --detach` prepares a new campaign and gates model calls
+on deterministic, finite C oracles for all 33 kernels and a fresh CUDA endpoint
+handshake. Existing campaign directories are never overwritten. A prepared but
+not yet started campaign can use `--launch-prepared --detach`.
+
+PolyBench uses its standard LARGE profile, not EXTRALARGE. Scientific LARGE is
+explicitly frozen in the script: DFT 4096 samples; N-body 2048 bodies; Lorenz
+1024 trajectories and 200 steps; Poisson 16384 unknowns and 10 CG iterations;
+JPEG/wavelet/low-rank images 1024 square (8-square JPEG blocks, 3 wavelet levels,
+rank 4 and 8 power steps); IIR 16384 samples and 4 filters; mutual information
+256-square joint probabilities. Initializers, physical parameters, and output
+coverage remain those of the C references. Large image arrays have static
+storage to prevent host stack failures.
+
+Luna, Terra, and SOL 5.6 use medium effort, identical immutable starting sources,
+and identical prior failure hints. All CPU-verified Terra baseline candidates
+are retained (three except IIR, Durbin, and Deriche, which have two). Size-only
+adaptations are unverified seeds, not imported passing LARGE CPU baselines.
+Each model gets one initial seed-adaptation turn and two validation correction
+rounds, followed by enabled compatibility and numerical repair stages. Tokens
+from adaptation and repairs count; historical baseline-generation tokens do not.
+
+Measurement runs are serialized, with a 900-second worker timeout, 3 warmups,
+20 samples, and an 8192 MiB PyTorch CUDA allocator ceiling. This ceiling does not
+bound non-PyTorch memory, model-issued diagnostic commands, or certify Groq fit.
+The existing 1% relative-L2 numerical-repair target is distinct from the looser
+measurement acceptance gate; report these separately. All intermediate journals,
+token usage, and measurement attempts remain available. Model/service errors
+stop the launcher rather than being treated as scientific failures.

@@ -142,6 +142,7 @@ class Measurement:
     evaluation_output_numel: int | None = None
     evaluation_output_sha256: str = ""
     evaluation_semantic_verified: bool = False
+    input_check: dict[str, Any] = field(default_factory=dict)
     failure_kind: str = ""
     resource: str = ""
     latency_s: float | None = None

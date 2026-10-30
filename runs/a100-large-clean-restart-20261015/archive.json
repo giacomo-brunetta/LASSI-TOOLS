@@ -1,9 +1,0 @@
-{
-  "archive": "/Users/giacomobrunetta/Projects/LASSI-TOOLS/runs/legacy/unconstrained-precision-20261015",
-  "campaigns": [
-    "a100-large-repair-20261015",
-    "a100-luna-numerical-repair-20261013",
-    "a100-sol-numerical-repair-20261014",
-    "a100-large-validation-20261014"
-  ]
-}

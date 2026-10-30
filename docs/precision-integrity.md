@@ -67,7 +67,7 @@ Plans already prepared for Terra and Luna are in
 For the frozen clean LARGE campaign, evaluation-only resume is available:
 
 ```sh
-python examples/cpu-ablation-suite/run_clean_gpu_repairs.py \
+python experiments/repair-campaigns/run_clean_gpu_repairs.py \
   --output runs/a100-clean-gpu-repairs-20261016 \
   --resume --execute --baseline-only --detach
 ```

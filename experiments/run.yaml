@@ -1,0 +1,180 @@
+version: 1
+
+project:
+  root: ../benchmarks/polybench
+
+kernel:
+  name: 3mm
+  reference: linear-algebra/kernels/3mm/3mm.c
+  context:
+    - linear-algebra/kernels/3mm/3mm.h
+  task: Translate PolyBench 3mm into a semantically equivalent PyTorch module.
+
+oracle:
+  build:
+    - gcc
+    - -O3
+    - -DDATA_TYPE_IS_DOUBLE
+    - -DPOLYBENCH_DUMP_ARRAYS
+    - "{reference}"
+    - utilities/polybench.c
+    - -Iutilities
+    - -lm
+    - -o
+    - "{oracle_dir}/reference"
+  run:
+    - "{oracle_dir}/reference"
+  output: oracle.csv
+  capture: stderr
+  format: polybench
+  timeout_s: 600
+  # Run the reference repeatedly and require bitwise-identical numeric output.
+  determinism_runs: 2
+
+arena:
+  candidates: 3
+  correction_rounds: 2
+  equivalence:
+    rtol: 0.001
+    atol: 0.000001
+
+models:
+  planner:
+    provider: nous
+    model: anthropic/claude-sonnet-4.6
+  candidates:
+    - {provider: nous, model: openai/gpt-5.2}
+    - {provider: nous, model: google/gemini-3-pro-preview}
+    - {provider: nous, model: anthropic/claude-sonnet-4.6}
+  compensation:
+    provider: nous
+    model: openai/gpt-5.2
+  # Optional; otherwise compatibility repair reuses the failed candidate's model.
+  # compatibility: {provider: nous, model: openai/gpt-5.2}
+
+# Optional long-term agent memory via a self-hosted Mem0 server
+# (see docker/mem0/README.md). Omit the section to keep memories off.
+# memory:
+#   enabled: true
+#   host: http://localhost:8888
+#   user_id: lassi-x
+#   # api_key_env: MEM0_API_KEY   # only when the server requires X-API-Key
+
+measure:
+  precisions: [fp64, fp32, fp16, bf16]
+  warmup: 3
+  iterations: 20
+  # One workload supplies both device accuracy and latency. When this differs
+  # from kernel.validation_dataset, evaluation_oracle is mandatory.
+  evaluation_dataset: default
+  # evaluation_oracle: fixtures/large-oracle.csv
+  stochastic_seeds: [0, 1, 2, 3, 4]
+  backends:
+    - type: torch
+      name: cpu
+      device: cpu
+      precisions: [fp64, fp32, bf16]
+    - type: torch
+      name: cuda
+      device: cuda
+      # Optional: run this backend's cells on a named execution resource
+      # (defaults to the run's default resource).
+      # resource: nvidia
+      precisions: [fp64, fp32, fp16, bf16]
+    - type: groq
+      name: groq
+      queue_dir: /shared/lassi-x-groq
+      precisions: [fp16]
+      timeout_s: 1800
+      capabilities:
+        storage: [fp16]
+        elementwise: [fp16]
+        matmul_accumulator: fp32
+        explicit_fp32_tensor_ops: false
+        fp64: false
+
+compensation:
+  enabled: true
+  correction_rounds: 2
+  # Trigger compensation even when only one candidate survives. One portable
+  # source is generated per candidate/precision family, then broadcast to all
+  # backends before target-specific compatibility branches are created.
+  error_threshold: 0.01
+  error_metric: relative_l2
+  comparison_scope: same_candidate
+  measurement_scope: all
+
+# Screen numerical behavior on CUDA before building the promoted portable
+# source on Groq or other accelerators. Omit backend for automatic selection.
+screening:
+  enabled: true
+  backend: cuda
+  precisions: [fp16, bf16]
+  smoke_precision: fp32
+  promote_repairs: true
+  audit_fraction: 0.1
+
+compatibility:
+  enabled: true
+  correction_rounds: 2
+  # Optional whole-candidate compile gates. These qualify source compatibility
+  # and never contribute a latency point.
+  # compile_targets:
+  #   - target_id: torch-mlir-tosa
+  #     python: python
+  #     precisions: [fp32]
+  #     required: true
+
+# Candidate flows stream independently. All measurement and qualification work
+# on the same named execution resource shares its capacity limit.
+scheduler:
+  max_candidate_flows: 3
+  max_model_sessions: 4
+  default_resource_concurrency: 1
+  # resource_concurrency:
+  #   nvidia: 2
+  #   groq-login: 1
+
+# Optional accelerator-only early gate. Host timing is never accepted for
+# pruning, Pareto construction, or success.
+pruning:
+  enabled: false
+  # probe_backend: cuda
+  # probe_precision: fp32
+
+# The frontier and compensation loops share this objective. Omit the section to
+# use compensation.error_metric.
+pareto:
+  error_metric: relative_l2
+
+# By default every configured non-CPU backend is required. List targets explicitly
+# to make the acceptance contract auditable, or use [] for exploratory runs.
+success:
+  required_backends: [cuda, groq]
+  required_precisions:
+    cuda: [fp16]
+    groq: [fp16]
+
+# Where agent tool calls and commands execute. The default (local) runs
+# everything in-process. "academy" launches one execution agent per resource:
+# resources without endpoint_id run on this machine over a local exchange;
+# resources with endpoint_id run on their Globus Compute endpoint, reached
+# through the Globus-authenticated cloud exchange. Endpoint resources need a
+# site-local workspace_root, and the endpoint environment must pin the same
+# lassi-x version. Verify connectivity with: lassi-x execution doctor --config run.yaml
+# execution:
+#   mode: academy
+#   exchange_url: https://exchange.academy-agents.org
+#   auth: globus
+#   default_resource: nvidia
+#   resources:
+#     nvidia:
+#       endpoint_id: 00000000-0000-0000-0000-000000000000
+#       workspace_root: /scratch/me/lassi-x
+#       labels: [cuda, h100]
+#     xpu:
+#       endpoint_id: 11111111-1111-1111-1111-111111111111
+#       workspace_root: /lus/me/lassi-x
+#       labels: [xpu, pvc]
+
+runs_dir: ../../runs

@@ -27,7 +27,8 @@ def test_plan_keeps_raw_results_and_never_requires_models(tmp_path: Path) -> Non
 
 def clean_runner() -> Any:
     path = (
-        Path(__file__).resolve().parents[1] / "examples/cpu-ablation-suite/run_clean_gpu_repairs.py"
+        Path(__file__).resolve().parents[1]
+        / "experiments/repair-campaigns/run_gpu_repair_comparison.py"
     )
     spec = importlib.util.spec_from_file_location("clean_runner", path)
     assert spec is not None and spec.loader is not None

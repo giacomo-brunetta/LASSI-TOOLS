@@ -12,6 +12,7 @@ import hashlib
 import inspect
 import io
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -108,7 +109,7 @@ class AuditedModel(torch.nn.Module):
 def main() -> int:
     # Parse only the shared flags needed for a pre-timing audit.
     from lassi_x import measure_worker  # noqa: PLC0415
-    from lassi_x.runner import PRECISIONS, load_module  # noqa: PLC0415
+    from lassi_x.candidate_runner import PRECISIONS, load_module  # noqa: PLC0415
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--module", type=Path)
@@ -118,6 +119,10 @@ def main() -> int:
     parser.add_argument("--fixture", type=Path)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--audit-baseline", type=Path)
+    if "--input-contract" in sys.argv:
+        from lassi_x.input_contract import add_input_check_arguments  # noqa: PLC0415
+
+        add_input_check_arguments(parser)
     args, _ = parser.parse_known_args()
     report: dict[str, Any] = {"passed": True, "skipped": "high-precision control"}
     source_hash = hashlib.sha256(args.module.read_bytes()).hexdigest()
@@ -136,12 +141,18 @@ def main() -> int:
                 kwargs["fixture"] = args.fixture
             inputs = module.build_inputs(**kwargs)
             model = module.make_model().to(args.device).eval()
+            if getattr(args, "input_contract", None):
+                from lassi_x.input_contract import check_worker_inputs  # noqa: PLC0415
+
+                check_worker_inputs(model, inputs, args)
             report = {"passed": True, "violations": []}
             if args.audit_baseline:
                 baseline = load_module(args.audit_baseline)
                 baseline_model = baseline.make_model().to(args.device).eval()
                 build_kwargs = {**kwargs, "dtype": torch.float32}
                 baseline_inputs = baseline.build_inputs(**build_kwargs)
+                if getattr(args, "input_contract", None):
+                    check_worker_inputs(baseline_model, baseline_inputs, args, precision="fp32")
                 with torch.no_grad():
                     for scale in (0.9, 1.1):
                         supplied = tuple(
@@ -209,8 +220,6 @@ def main() -> int:
             measure_worker.load_module = guarded_loader
         # Strip wrapper-only flags before delegating to the installed worker.
         if args.audit_baseline:
-            import sys  # noqa: PLC0415
-
             index = sys.argv.index("--audit-baseline")
             del sys.argv[index : index + 2]
         with contextlib.redirect_stdout(capture):

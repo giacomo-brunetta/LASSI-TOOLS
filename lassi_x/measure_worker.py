@@ -13,8 +13,9 @@ from typing import cast
 import numpy as np
 import torch
 
-from .runner import PRECISIONS
-from .runner import load_module as load_module
+from .candidate_runner import PRECISIONS
+from .candidate_runner import load_module as load_module
+from .input_contract import add_input_check_arguments, check_worker_inputs
 from .validation import compare_outputs, load_reference_output
 
 ARCHITECTURAL_TIMING_PROTOCOL = "architectural-single-call-v1"
@@ -56,6 +57,32 @@ def _time_single_call(
     return output, time.perf_counter() - start_s
 
 
+def _time_host_to_host_call(
+    model: torch.nn.Module,
+    device_inputs: tuple[torch.Tensor, ...],
+    host_inputs: tuple[torch.Tensor, ...],
+    host_outputs: tuple[torch.Tensor, ...],
+    *,
+    device: str,
+) -> float:
+    """Measure a completed call using preallocated host and device buffers.
+
+    Copies and graph replay use the current stream on the selected device.
+    The final synchronization includes both transfers and execution; input
+    construction, allocation, graph capture, and output validation are setup.
+    """
+    torch.cuda.synchronize(device)
+    start_ns = time.perf_counter_ns()
+    for destination, source in zip(device_inputs, host_inputs, strict=True):
+        destination.copy_(source, non_blocking=True)
+    output = model(*device_inputs)
+    outputs = output if isinstance(output, tuple) else (output,)
+    for destination, source in zip(host_outputs, outputs, strict=True):
+        destination.copy_(source, non_blocking=True)
+    torch.cuda.synchronize(device)
+    return (time.perf_counter_ns() - start_ns) * 1e-9
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--module", type=Path, required=True)
@@ -69,9 +96,11 @@ def main() -> int:
     parser.add_argument("--rtol", type=float, default=1e-3)
     parser.add_argument("--atol", type=float, default=1e-6)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--include-transfers", action="store_true")
     parser.add_argument("--require-equivalence", action="store_true")
     parser.add_argument("--invariant")
     parser.add_argument("--invariant-threshold", type=float)
+    add_input_check_arguments(parser)
     args = parser.parse_args()
     if args.precision != "fp64" and not globals().get("_PRECISION_AUDIT_ACTIVE", False):
         from .precision_audit_worker import main as audit_main  # noqa: PLC0415
@@ -81,6 +110,10 @@ def main() -> int:
     try:
         torch.manual_seed(args.seed)
         module = load_module(args.module)
+        if args.include_transfers and not args.device.startswith("cuda"):
+            raise ValueError("--include-transfers requires a CUDA device")
+        if args.device.startswith("cuda:"):
+            torch.cuda.set_device(args.device)
         dtype = PRECISIONS[args.precision]
         kwargs = {"device": args.device, "dtype": dtype}
         if args.fixture and "fixture" in inspect.signature(module.build_inputs).parameters:
@@ -119,6 +152,14 @@ def main() -> int:
         with torch.no_grad():
             torch.manual_seed(args.seed)
             inputs = build_inputs(args.dataset)
+            phase = "inputs"
+            input_check = check_worker_inputs(model, inputs, args)
+            # Freeze canonical host values before warmup/capture can touch inputs.
+            host_inputs = (
+                tuple(value.detach().cpu().pin_memory() for value in inputs)
+                if args.include_transfers
+                else ()
+            )
             phase = "evaluation_warmup"
             for _ in range(args.warmup):
                 model(*inputs)
@@ -147,6 +188,66 @@ def main() -> int:
                 raise RuntimeError(
                     "candidate is stateful or nondeterministic across identical evaluation inputs"
                 )
+            host_timing = None
+            if args.include_transfers:
+                phase = "host_to_host_setup"
+                host_outputs = tuple(
+                    torch.empty_like(value, device="cpu", pin_memory=True) for value in tensors
+                )
+                for _ in range(args.warmup):
+                    _time_host_to_host_call(
+                        model, inputs, host_inputs, host_outputs, device=args.device
+                    )
+                phase = "host_to_host_benchmark"
+                host_samples = [
+                    _time_host_to_host_call(
+                        model, inputs, host_inputs, host_outputs, device=args.device
+                    )
+                    for _ in range(args.iterations)
+                ]
+                host_flat, _ = flatten(host_outputs)
+                if not np.array_equal(flat, host_flat, equal_nan=True):
+                    raise RuntimeError("transfer-inclusive output differs from resident output")
+                host_timing = {
+                    "protocol": "host-to-host-single-call-v1",
+                    "kind": "measured",
+                    "scope": "host_to_host",
+                    "source": "torch_cuda_graph_host_transfers",
+                    "clock": "time.perf_counter_ns",
+                    "median_s": statistics.median(host_samples),
+                    "min_s": min(host_samples),
+                    "warmup_count": args.warmup,
+                    "sample_count": len(host_samples),
+                    "invocations_per_sample": 1,
+                    "samples_s": host_samples,
+                    "physical_device_count": 1,
+                    "input_residency": "host",
+                    "output_residency_at_stop": "host",
+                    "host_memory": "pinned",
+                    "input_bytes": sum(v.numel() * v.element_size() for v in host_inputs),
+                    "output_bytes": sum(v.numel() * v.element_size() for v in host_outputs),
+                    "includes": [
+                        "host_to_device",
+                        "invocation",
+                        "execution",
+                        "device_to_host",
+                        "synchronization",
+                    ],
+                    "excludes": [
+                        "input_construction",
+                        "buffer_allocation",
+                        "compilation",
+                        "graph_capture",
+                        "device_attach",
+                        "executable_load",
+                        "orchestration_queue",
+                        "output_validation",
+                    ],
+                    "output_matches_resident": True,
+                    "output_sha256": hashlib.sha256(
+                        np.ascontiguousarray(host_flat).tobytes()
+                    ).hexdigest(),
+                }
         phase = "evaluation_comparison"
         oracle = load_reference_output(args.oracle)
         ok, diagnostic, metrics = compare_outputs(
@@ -215,6 +316,7 @@ def main() -> int:
                 "metadata_source": "candidate_declared" if precision else "inferred",
             },
             "source_hash": hashlib.sha256(args.module.read_bytes()).hexdigest(),
+            "input_check": input_check,
             "datasets": {
                 "evaluation": args.dataset,
             },
@@ -227,6 +329,17 @@ def main() -> int:
                 "accuracy_source": "timed_iteration",
             },
         }
+        if host_timing is not None:
+            payload["timings"] = {
+                "resident_execution": {
+                    **payload["timing"],
+                    "kind": "measured",
+                    "median_s": payload["median_s"],
+                    "min_s": payload["min_s"],
+                    "output_sha256": payload["evaluation_output"]["sha256"],
+                },
+                "host_to_host": host_timing,
+            }
         print(json.dumps(payload))
         return 0
     except Exception as exc:

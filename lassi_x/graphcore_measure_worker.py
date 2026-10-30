@@ -173,6 +173,12 @@ def main() -> int:
         help="IPU tile clock used to convert PopART hardware cycles to seconds.",
     )
     parser.add_argument("--require-equivalence", action="store_true")
+    if "--input-contract" in sys.argv:
+        from lassi_input_contract import (  # type: ignore[import-not-found]  # noqa: PLC0415
+            add_input_check_arguments,
+        )
+
+        add_input_check_arguments(parser)
     args = parser.parse_args()
 
     payload: dict[str, Any]
@@ -189,6 +195,11 @@ def main() -> int:
             model.eval()
         if hasattr(model, "to"):
             model.to(dtype=dtype)
+        if getattr(args, "input_contract", None):
+            from lassi_input_contract import check_worker_inputs  # noqa: PLC0415
+
+            phase = "inputs"
+            check_worker_inputs(model, inputs, args)
 
         if not np.isfinite(args.clock_hz) or args.clock_hz <= 0:
             raise ValueError("--clock-hz must be finite and positive")

@@ -13,6 +13,26 @@ The current end-to-end system is summarized in the paper-ready, 3:1
 order, scheduler boundaries, checkpoint semantics, and architectural-timing policy implemented
 by the pipeline.
 
+## Repository layout
+
+- [`benchmarks/`](benchmarks/README.md): C reference kernels, input fixtures, precision headers, and regression modules.
+- [`experiments/`](experiments/README.md): campaign runners and model/backend configurations.
+- `lassi_x/`: the reusable framework; `tests/`: verification.
+- [`lassi_x/execution/`](lassi_x/execution/README.md): local, Docker, and Academy execution, workers, and workspace operations.
+- `docs/`: methodology and historical experiment reports.
+- `docker/`: execution images and endpoint templates.
+
+Framework modules use descriptive names: `candidate_generation` plans and generates
+translations, `candidate_runner` executes them, `generation_metrics` reports success
+rates, `compile_checks` checks target compilation, and `compatibility_repair` repairs
+target-specific failures. Operator support tools live in `lassi_x/compatibility/`.
+These replace the former `arena`, `runner`, `accuracy`, `qualification`, `accelerator`
+and `compat` module paths. Update external imports and worker installations together.
+The `lassi-x-compat` and `lassi-x-compat-wiki` commands retain their names.
+
+The former `examples/` directory has been removed. Benchmark sources are now
+self-contained; the CPU suite defaults to `benchmarks/polybench`.
+
 ## Installation
 
 ```bash
@@ -40,7 +60,7 @@ pytest
 
 ## Run
 
-Copy [examples/run.yaml](examples/run.yaml), set the project path, reference build/run
+Copy [experiments/run.yaml](experiments/run.yaml), set the project path, reference build/run
 commands, models, and backends, then run:
 
 ```bash
@@ -239,11 +259,11 @@ lassi-x execution doctor --config my-run.yaml
 
 The annotated examples cover a first remote deployment: Endpoint 4.x's
 endpoint-level
-[config.yaml.example](examples/globus-endpoint/config.yaml.example), its
+[config.yaml.example](docker/globus-endpoint/config.yaml.example), its
 standalone/Slurm worker
-[user_config_template.yaml.j2.example](examples/globus-endpoint/user_config_template.yaml.j2.example),
+[user_config_template.yaml.j2.example](docker/globus-endpoint/user_config_template.yaml.j2.example),
 and the matching harness-side run configuration in
-[examples/run-remote-node.yaml.example](examples/run-remote-node.yaml.example).
+[experiments/run-remote-node.yaml.example](experiments/run-remote-node.yaml.example).
 
 The doctor launches one execution agent per resource and reports the measured
 host facts (accelerators, toolchain, torch and lassi-x versions) that also land
@@ -297,8 +317,8 @@ conda activate lassi-globus-compute
 globus-compute-endpoint start lassi-x
 
 # Harness
-lassi-x execution doctor --config examples/polybench-3mm/run-sol-groq.yaml
-lassi-x run examples/polybench-3mm/run-sol-groq.yaml
+lassi-x execution doctor --config experiments/polybench-3mm/run-sol-groq.yaml
+lassi-x run experiments/polybench-3mm/run-sol-groq.yaml
 ```
 
 Direct Groq measurements are serialized as complete stage-submit-poll
@@ -514,9 +534,9 @@ provide the matching evaluation oracle explicitly:
 For the recorded 33-kernel A100 campaign, a model-free LARGE evaluator is available:
 
 ```bash
-python examples/cpu-ablation-suite/evaluate_a100_large.py --execute --detach
+python experiments/gpu-evaluation/evaluate_a100_large.py --execute --detach
 # Continue an interrupted evaluation without remeasuring completed cells:
-python examples/cpu-ablation-suite/evaluate_a100_large.py --resume --execute --detach
+python experiments/gpu-evaluation/evaluate_a100_large.py --resume --execute --detach
 ```
 
 It selects accepted MINI sources per precision, creates separate size specializations,
@@ -569,7 +589,7 @@ accuracy/latency pair are mandatory. New configurations should use `evaluation_d
 valid frontier point is enough. Compatibility repair uses `models.compatibility` when configured
 and otherwise reuses the failed candidate's model.
 
-Compiler-only targets are packaged under `lassi_x/compat/targets`. Each qualification compiles the
+Compiler-only targets are packaged under `lassi_x/compatibility/targets`. Each qualification compiles the
 complete candidate with the target checker and is recorded separately from measurement. The TOSA
 entry models Torch-MLIR-to-TOSA as its own accelerator/compiler target; it is not an A100 result and
 does not create a latency point. Numerical variants that pass GPU screening and CPU revalidation
@@ -614,6 +634,14 @@ localizes range, significance, cancellation, conditioning, function, and nondete
 rounded implementations from being treated as equivalent claims. The literature review and
 technique backlog are in [docs/fp-error-literature.md](docs/fp-error-literature.md).
 
+## Roofline tooling
+
+Estimate forward FLOPs and tensor read/write volumes directly from Torch candidates,
+bind those counts to existing device timings, and export roofline PDF/SVG/PNG figures.
+The [roofline guide](docs/roofline.md) covers shape-only analysis, batch manifests,
+A100 HBM counter capture, and sourced A100/Groq/Graphcore/Cerebras hardware profiles.
+See the [31-model coverage check and measured A100 example](docs/experiments/roofline-tooling-20261024/README.md).
+
 ## Useful commands
 
 ```bash
@@ -642,6 +670,11 @@ backend's `stale_request_s` interval.
 
 ## Trust boundary
 
+Configure multiple required reference workloads with `arena.correctness_tests`.
+Every workload must pass on the current candidate revision; repair feedback and
+`suite.json` list passed, failed, and unexecuted tests individually. See
+[correctness suites](docs/correctness-suites.md) for configuration and failure handling.
+
 CPU candidate execution and agent-issued commands can be isolated using
 [`execution.mode: docker`](docker/cpu/README.md). This leaves the orchestrator,
 model worker and trusted C oracle on the host; it does not sandbox the entire pipeline.
@@ -663,12 +696,12 @@ timeout/shutdown; no in-process code can guarantee cleanup if the orchestrator r
 ## PolyBench 3mm reproduction
 
 The former LASSI-TOOLS MINI 3mm arena has a dedicated reproduction under
-[`examples/polybench-3mm`](examples/polybench-3mm). It preserves the three
+[`experiments/polybench-3mm`](experiments/polybench-3mm). It preserves the three
 candidates and two repair turns, uses a high-fidelity serialization of the
 original C FP64 oracle, and measures CPU and CUDA low-precision error.
 
 For broader model comparisons through CPU verification, see the
-[`CPU ablation suite`](examples/cpu-ablation-suite/README.md): 24 representative
+[`CPU generation suite`](experiments/cpu-generation/README.md): 24 representative
 PolyBench kernels plus nine scientific kernels, optionally all 30 PolyBench kernels.
 It provides campaign configuration generation, C-only oracle checks, CPU-only batch
 launching, outcome CSVs and frozen-baseline accelerator follow-up instructions.

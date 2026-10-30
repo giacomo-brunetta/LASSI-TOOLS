@@ -1,9 +1,56 @@
 # Experiment result status
 
+The [combined accelerator results](accelerator-combined-results-20261028/README.md)
+merge the retained previous and additional candidates after ignoring duplicates:
+62 starting sources, 82 numerical passes in 186 evaluations, with available timings, source provenance and
+measurement gaps. The narrower 32 immediate FP16 plus 13 FP16 repair cohort has
+45 entries and 68 numerical passes in 135 accelerator evaluations; the combined
+report separates it from BF16 repairs and other historical sources. Duplicates
+are excluded from all main totals.
+
+**Start with the [current results handoff](RESULTS-HANDOFF.md)** for retention,
+exclusion, corrected-source decisions and the current model scope. It supersedes
+older status prose below where they conflict. The Luna/Terra/SOL C-to-Torch
+corrections are complete; GPU/numerical continuations remain separate. OSS is
+restarted for seven C-to-Torch CPU corrections and 27 pending eligible accuracy
+continuations, preserving existing valid results and shared-baseline holds.
+The handoff links a source-hashed CPU decision ledger and the
+live GPU validity overlays; older frozen snapshots need subsequent holds applied.
+
 The replacement campaigns use the [numerical accuracy policy](numerical-accuracy-policy.md) for
 error bands, catastrophic exclusion, repair eligibility, and error/latency frontiers.
 
 ## Current clean results
+
+The [conservative LARGE paper subset](paper-usable-snapshot-20261021T181420Z/README.md)
+freezes usable baseline and repair observations, separates integer algorithms and
+partial improvements, and excludes known semantic counterexamples. Its counts
+supersede unfiltered continuation totals for paper use. In particular, Lorenz c1
+and its inherited repairs fail a same-size alternate-input C test because their
+time step is derived from supplied data; see the frozen counterexample evidence.
+
+The [October 20 retrospective validity audit](result-validity-audit-20261020/README.md)
+provides per-candidate retention and exclusion lists for the main CPU campaign,
+current LARGE precision baselines and repairs, and the earlier MINI FP16 inventory.
+It distinguishes valid target measurements from results that also pass the new
+input checks on recorded FP64/FP32 controls. Historical gate acceptance must not
+be read as acceptance under the extended checks.
+
+The [corrected-input LARGE continuation](input-corrected-large-20261020/README.md)
+revalidates saved implementations with C-derived input fixtures and no model calls.
+It reports pending work, newly measured results, and conditional agent retries
+separately. Originals and their traces and costs remain preserved; the continuation
+does not reconstruct the original agents' counterfactual retry trajectories.
+
+The [October 21 agent repair continuation](input-corrected-agent-repairs-20261021/README.md)
+runs verified retry targets with the extended checks, preserving original trials
+and recording new model usage separately. The original GPT-OSS repair campaign
+has now completed all 59 targets (236/236 trials across its four model arms).
+
+All historical numerical-repair results have been
+[retired to legacy](numerical-repairs-retired-20261017.md), including all 52 main
+LARGE repair variants. No historical repair subset remains valid. CPU translation
+results and current strict GPU porting/validation are separate and remain preserved.
 
 The [frozen CPU results](cpu-results-frozen-20261016.md) report the original
 33-kernel Luna, Terra, and GPT-OSS campaigns, with a hashed evidence index.

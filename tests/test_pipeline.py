@@ -14,9 +14,9 @@ import lassi_x.pipeline as pipeline
 import lassi_x.run_record as run_record
 from lassi_x.cli import build_parser
 from lassi_x.compensation import CompensationVariant
+from lassi_x.compile_checks import QualificationResult
 from lassi_x.config import ExecutionConfig, RunConfig
 from lassi_x.execution import ExecutionContext
-from lassi_x.qualification import QualificationResult
 from lassi_x.scheduler import PipelineScheduler
 from lassi_x.types import Candidate, Measurement, Status
 from lassi_x.validation import OracleResult

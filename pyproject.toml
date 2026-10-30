@@ -31,6 +31,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+roofline = [
+  "matplotlib>=3.9",
+]
 globus = [
   "globus-compute-sdk>=3.0",
 ]
@@ -49,23 +52,22 @@ dev = [
 
 [project.scripts]
 lassi-x = "lassi_x.cli:main"
-lassi-x-compat = "lassi_x.compat.cli:main"
-lassi-x-compat-wiki = "lassi_x.compat.query_wiki:main"
+lassi-x-compat = "lassi_x.compatibility.cli:main"
+lassi-x-compat-wiki = "lassi_x.compatibility.query_wiki:main"
 
 [tool.setuptools]
 packages = [
   "lassi_x",
-  "lassi_x.compat",
-  "lassi_x.compat.checkers",
+  "lassi_x.compatibility",
+  "lassi_x.compatibility.checkers",
   "lassi_x.execution",
   "lassi_x.measurement",
-  "lassi_x.remote",
 ]
 include-package-data = false
 
 [tool.setuptools.package-data]
 lassi_x = ["resources/**/*"]
-"lassi_x.compat" = ["README.md", "inventory_data/*", "targets/**/*"]
+"lassi_x.compatibility" = ["README.md", "inventory_data/*", "targets/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -97,7 +99,7 @@ select = [
 
 [tool.mypy]
 python_version = "3.12"
-files = ["lassi_x", "tests", "examples/polybench-3mm/golden_candidate.py"]
+files = ["lassi_x", "tests", "benchmarks/polybench-3mm/reference_mini.py"]
 exclude = ["build/", "runs/"]
 strict = true
 warn_return_any = true
@@ -118,8 +120,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-  "lassi_x.compat.checkers.cerebras",
-  "lassi_x.compat.checkers.poptorch",
+  "lassi_x.compatibility.checkers.cerebras",
+  "lassi_x.compatibility.checkers.poptorch",
 ]
 # These modules intentionally bind optional compiler SDKs at runtime. Their
 # public, SDK-independent compatibility API remains checked under strict mode.
