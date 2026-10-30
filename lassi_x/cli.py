@@ -22,6 +22,8 @@ import numpy as np
 
 from . import __version__
 from .artifacts import atomic_write, write_json
+from .campaign import add_parser as add_campaign_parser
+from .campaign import command_campaign
 from .compensation import TECHNIQUE_SUMMARY
 from .config import RunConfig
 from .execution import ExecutionContext, LocalExecutionBackend
@@ -638,6 +640,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Log level for lassi_x records (default: INFO, or $LASSI_LOG_LEVEL).",
     )
     sub = parser.add_subparsers(dest="command", required=True)
+    add_campaign_parser(sub)
 
     run = sub.add_parser("run")
     run.add_argument("config", type=Path)
@@ -827,6 +830,8 @@ def main() -> int:
 def _dispatch() -> int:
     args = build_parser().parse_args()
     configure_logging(args.log_level)
+    if args.command == "campaign":
+        return command_campaign(args)
     if args.command == "run":
         try:
             code, run_dir = asyncio.run(

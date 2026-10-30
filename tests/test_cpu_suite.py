@@ -123,7 +123,7 @@ def test_campaign_rejects_overwrite_and_tampering(campaign: Path) -> None:
     result = cli(
         "prepare",
         "--models-config",
-        str(REPO / "experiments/polybench-3mm/run.yaml"),
+        str(REPO / "experiments/cpu-generation/models/luna.yaml"),
         "--output",
         str(campaign),
     )

@@ -1,5 +1,10 @@
 # Experiments
 
+New campaigns should use the [frozen campaign workflow](../docs/campaigns.md)
+and `lassi-x campaign`. The scripts listed below are retained historical workflows;
+their campaign-specific selection and resume rules have not been migrated to the
+shared runner. Do not use their directory discovery as a template for new campaigns.
+
 Campaign orchestration and run configurations live here; reference sources live
 in [benchmarks](../benchmarks/README.md). These files were moved from `examples/`;
 the move does not establish a new experimental protocol or validate old results.
@@ -12,9 +17,7 @@ the move does not establish a new experimental protocol or validate old results.
 | `precision-audits/` | Inspect precision use and quarantine invalid promotion cells |
 | `holdout-validation/` | Prepare, execute, inspect and report independent holdout checks |
 | `reporting/` | Plot campaign summaries |
-| `cpu-generation/models/` | Model configurations used by campaign tools |
-| `polybench-3mm/` | Existing per-backend 3mm run configurations and historical notes |
-| `polybench-jacobi-2d/` | Existing Jacobi run configurations |
+| `cpu-generation/models/` | Luna, Sol and Terra profiles still used by campaign tools |
 | `run.yaml` | General run configuration template |
 | `run-remote-node.yaml.example` | Remote node configuration template |
 

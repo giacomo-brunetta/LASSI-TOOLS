@@ -34,7 +34,7 @@ existing one:
 
 ```sh
 python experiments/cpu-generation/suite.py prepare \
-  --models-config experiments/polybench-jacobi-2d/run-luna-a100.yaml \
+  --models-config experiments/cpu-generation/models/luna.yaml \
   --execution docker --output runs/cpu-suite-mini-luna-docker
 python experiments/cpu-generation/suite.py run \
   runs/cpu-suite-mini-luna-docker/suite.json --execute \

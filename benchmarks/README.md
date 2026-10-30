@@ -8,8 +8,6 @@ Generated results belong in the configured output directory, outside these sourc
 | --- | --- |
 | `polybench/` | All 30 PolyBench/C 4.2.1 kernels, shared utilities, and upstream license |
 | `scientific/` | Eight deterministic scientific C fixtures plus mutual information |
-| `polybench-3mm/` | MINI/MEDIUM precision headers and PyTorch regression fixtures |
-| `polybench-jacobi-2d/` | Precision header for the Jacobi configuration |
 
 The CPU suite selects 24 PolyBench kernels and nine scientific kernels by default
 (33 total); `--full-polybench` includes all 39. See the

@@ -1,4 +1,4 @@
-"""Auditable PolyBench/C 4.2.1 3mm MINI translation for pipeline reproduction."""
+"""PolyBench/C 4.2.1 3mm MINI fixture for framework regression tests."""
 
 from __future__ import annotations
 

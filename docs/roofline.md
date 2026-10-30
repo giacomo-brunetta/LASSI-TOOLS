@@ -13,7 +13,7 @@ Use the project's Python environment. Only figure export needs the optional
 
 ```sh
 .venv/bin/python -m lassi_x.roofline analyze \
-  --module benchmarks/polybench-3mm/reference_mini.py \
+  --module tests/fixtures/three_mm.py \
   --precision fp16 --setup fake --output /tmp/3mm-cost.json
 
 .venv/bin/python -m lassi_x.roofline batch \

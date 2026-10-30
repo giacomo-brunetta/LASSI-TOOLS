@@ -15,7 +15,7 @@ by the pipeline.
 
 ## Repository layout
 
-- [`benchmarks/`](benchmarks/README.md): C reference kernels, input fixtures, precision headers, and regression modules.
+- [`benchmarks/`](benchmarks/README.md): C reference kernels and shared benchmark utilities.
 - [`experiments/`](experiments/README.md): campaign runners and model/backend configurations.
 - `lassi_x/`: the reusable framework; `tests/`: verification.
 - [`lassi_x/execution/`](lassi_x/execution/README.md): local, Docker, and Academy execution, workers, and workspace operations.
@@ -317,8 +317,8 @@ conda activate lassi-globus-compute
 globus-compute-endpoint start lassi-x
 
 # Harness
-lassi-x execution doctor --config experiments/polybench-3mm/run-sol-groq.yaml
-lassi-x run experiments/polybench-3mm/run-sol-groq.yaml
+lassi-x execution doctor --config my-run.yaml
+lassi-x run my-run.yaml
 ```
 
 Direct Groq measurements are serialized as complete stage-submit-poll
@@ -531,7 +531,9 @@ device output changes the cell to `diverged` with `failure_kind: missing_accurac
 If accelerator evaluation uses the CPU-validation dataset, it reuses the main oracle. Otherwise,
 provide the matching evaluation oracle explicitly:
 
-For the recorded 33-kernel A100 campaign, a model-free LARGE evaluator is available:
+For historical reproduction of the recorded 33-kernel A100 campaign, a model-free
+LARGE evaluator is retained. It uses the old campaign-specific source selection;
+new campaigns should use the [explicit campaign workflow](docs/campaigns.md):
 
 ```bash
 python experiments/gpu-evaluation/evaluate_a100_large.py --execute --detach
@@ -695,14 +697,13 @@ the same device workload used to obtain latency, so every accepted performance p
 own device-derived accuracy result. Child processes are isolated into process groups and cleaned up on handled
 timeout/shutdown; no in-process code can guarantee cleanup if the orchestrator receives `SIGKILL`.
 
-## PolyBench 3mm reproduction
+## CPU generation campaigns
 
-The former LASSI-TOOLS MINI 3mm arena has a dedicated reproduction under
-[`experiments/polybench-3mm`](experiments/polybench-3mm). It preserves the three
-candidates and two repair turns, uses a high-fidelity serialization of the
-original C FP64 oracle, and measures CPU and CUDA low-precision error.
+For new multi-stage experiments, use the [frozen campaign workflow](docs/campaigns.md).
+It records explicit artifact handoffs, stage verdicts and bounded attempts through
+`lassi-x campaign prepare`, `run`, `status` and `retry`.
 
-For broader model comparisons through CPU verification, see the
+The existing CPU campaign launcher is documented in the
 [`CPU generation suite`](experiments/cpu-generation/README.md): 24 representative
 PolyBench kernels plus nine scientific kernels, optionally all 30 PolyBench kernels.
 It provides campaign configuration generation, C-only oracle checks, CPU-only batch

@@ -37,7 +37,7 @@ def test_gemm_and_tensor_traffic(execution: str) -> None:
 
 
 def test_three_mm_matches_closed_form() -> None:
-    report = analyze_module(Path("benchmarks/polybench-3mm/reference_mini.py"), setup="fake")
+    report = analyze_module(Path("tests/fixtures/three_mm.py"), setup="fake")
     assert report["complete"]
     assert report["totals"]["flops"] == 2 * (16 * 20 * 18 + 18 * 24 * 22 + 16 * 18 * 22)
     assert report["totals"]["tensor_bytes"] == 2 * (

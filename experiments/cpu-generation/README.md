@@ -1,5 +1,9 @@
 # CPU experiment suite
 
+This is the existing CPU suite launcher. For the shared orchestration protocol
+for future campaigns, see [Campaign workflow](../../docs/campaigns.md). This
+launcher has not yet been converted to campaign stage adapters.
+
 The default campaign covers **24 of the 30 PolyBench/C 4.2.1 kernels plus nine
 scientific kernels**. It stops at local FP64 CPU verification and publishes an
 immutable CPU baseline for each successful run. No accelerator endpoint is needed.
@@ -39,7 +43,7 @@ local unsandboxed execution; C-only oracle checks always execute on the host.
 
 ```sh
 python experiments/cpu-generation/suite.py prepare \
-  --models-config experiments/polybench-jacobi-2d/run-luna-a100.yaml \
+  --models-config experiments/cpu-generation/models/luna.yaml \
   --output runs/cpu-suite-mini-luna
 
 python experiments/cpu-generation/suite.py run \
