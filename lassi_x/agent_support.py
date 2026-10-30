@@ -70,6 +70,11 @@ async def stage_reference_bundle(
         destination = f"reference/{source.name}"
         await execution.stage_bytes(workspace, destination, source.read_bytes())
         staged.append(destination)
+    if config.oracle.fixture_spec is not None:
+        source = config.resolve_project_path(config.oracle.fixture_spec)
+        destination = "reference/input-spec.yaml"
+        await execution.stage_bytes(workspace, destination, source.read_bytes())
+        staged.append(destination)
     fixture = fixture_relative_path(config)
     if fixture is not None and config.oracle.input_fixture is not None:
         source = config.resolve_project_path(config.oracle.input_fixture)

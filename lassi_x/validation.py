@@ -102,6 +102,10 @@ class OracleResult:
 
 
 async def build_oracle(config: RunConfig, run_dir: Path) -> OracleResult:
+    if config.oracle.fixture_spec is not None:
+        from .c_fixtures import build_fixture_oracle  # noqa: PLC0415
+
+        return await build_fixture_oracle(config, run_dir)
     oracle_dir = run_dir / "oracle"
     oracle_dir.mkdir(parents=True, exist_ok=True)
     output = oracle_dir / config.oracle.output.name
@@ -582,7 +586,8 @@ async def _validate_correctness(
                 case_config.oracle = test.oracle
                 case_config.arena.timeout_s = min(test.timeout_s, remaining)
                 case_config.arena.input_check.enabled = True
-                case_config.arena.input_check.contracts[test.dataset] = test.input_contract
+                if test.input_contract is not None:
+                    case_config.arena.input_check.contracts[test.dataset] = test.input_contract
                 # References are rebuilt by the trusted harness, never by the candidate.
                 case_oracle = await build_oracle(case_config, case_dir)
             fixture = fixture_relative_path(case_config)
@@ -709,6 +714,9 @@ async def _validate_single_candidate(
             None,
         )
     input_contract = oracle.input_contract_path
+    if input_contract is None and config.oracle.fixture_spec is not None:
+        rebuilt = await build_oracle(config, artifact_dir / "fixture-oracle")
+        input_contract = rebuilt.input_contract_path
     if config.arena.input_check.enabled and input_contract is None:
         from .c_inputs import build_input_contract  # noqa: PLC0415
 
@@ -732,7 +740,9 @@ async def _validate_single_candidate(
         precision="fp64",
         device="cpu",
         artifact_path=artifact_dir / "fp64.npy",
-        input_contract=input_contract if config.arena.input_check.enabled else None,
+        input_contract=input_contract
+        if config.arena.input_check.enabled or config.oracle.fixture_spec is not None
+        else None,
     )
     if diagnostic or output is None:
         return ValidationResult(False, diagnostic, None)
@@ -772,7 +782,7 @@ async def validate_fp32_collapse(
 
     """
     input_contract = None
-    if config.arena.input_check.enabled:
+    if config.arena.input_check.enabled or config.oracle.fixture_spec is not None:
         from .c_inputs import build_input_contract  # noqa: PLC0415
 
         supplied = config.arena.input_check.contracts.get(config.kernel.validation_dataset)

@@ -154,6 +154,8 @@ def _baseline_contract(config: RunConfig) -> dict[str, Any]:
     files = [config.kernel.reference, *config.kernel.context]
     if config.oracle.input_fixture is not None:
         files.append(config.oracle.input_fixture)
+    if config.oracle.fixture_spec is not None:
+        files.append(config.oracle.fixture_spec)
     return {
         "kernel": config.kernel.model_dump(mode="json"),
         "oracle": config.oracle.model_dump(mode="json"),

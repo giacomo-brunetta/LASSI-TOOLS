@@ -700,6 +700,8 @@ timeout/shutdown; no in-process code can guarantee cleanup if the orchestrator r
 ## CPU generation campaigns
 
 For new multi-stage experiments, use the [frozen campaign workflow](docs/campaigns.md).
+For correctness tests with inputs supplied directly from executed C initialization,
+see the [C fixture interface](docs/c-fixtures.md).
 It records explicit artifact handoffs, stage verdicts and bounded attempts through
 `lassi-x campaign prepare`, `run`, `status` and `retry`.
 

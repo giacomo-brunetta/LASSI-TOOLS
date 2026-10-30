@@ -32,6 +32,8 @@ class OracleConfig(StrictModel):
     capture: Literal["file", "stdout", "stderr"] = "file"
     format: Literal["numeric", "polybench"] = "numeric"
     input_fixture: Path | None = None
+    fixture_spec: Path | None = None
+    """Explicit C export/import and forward argument specification."""
     timeout_s: float = 600.0
     determinism_runs: int = Field(default=2, ge=1, le=10)
 
@@ -65,8 +67,14 @@ class CorrectnessTestConfig(StrictModel):
     id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
     dataset: str
     oracle: OracleConfig
-    input_contract: Path
+    input_contract: Path | None = None
     timeout_s: float = Field(default=600.0, gt=0.0)
+
+    @model_validator(mode="after")
+    def requires_inputs(self) -> CorrectnessTestConfig:
+        if self.input_contract is None and self.oracle.fixture_spec is None:
+            raise ValueError("correctness tests require input_contract or oracle.fixture_spec")
+        return self
 
 
 class ArenaConfig(StrictModel):

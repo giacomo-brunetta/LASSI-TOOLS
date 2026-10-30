@@ -182,6 +182,12 @@ def parse_capture(text: str) -> dict[str, np.ndarray]:
 
 async def build_input_contract(config: RunConfig, directory: Path) -> Path:
     """Compile initialization using the same build command as the output oracle."""
+    if config.oracle.fixture_spec is not None:
+        from .c_fixtures import build_fixture_oracle  # noqa: PLC0415
+
+        result = await build_fixture_oracle(config, directory)
+        assert result.input_contract_path is not None
+        return result.input_contract_path
     from .validation import _format_command, _run  # noqa: PLC0415
 
     reference = config.resolve_project_path(config.kernel.reference)

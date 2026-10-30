@@ -7,7 +7,7 @@ import inspect
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -51,20 +51,39 @@ def run_module(
     inputs_only: bool = False,
 ) -> tuple[np.ndarray, str]:
     module = load_module(module_path)
-    if not callable(getattr(module, "build_inputs", None)):
-        raise TypeError("candidate must define callable build_inputs(device, dtype)")
-    if not callable(getattr(module, "make_model", None)):
-        raise TypeError("candidate must define callable make_model()")
     dtype = PRECISIONS[precision]
-    kwargs = {"device": device, "dtype": dtype}
-    if fixture is not None and "fixture" in inspect.signature(module.build_inputs).parameters:
-        kwargs["fixture"] = fixture
-    if "dataset" in inspect.signature(module.build_inputs).parameters:
-        kwargs["dataset"] = dataset
-    inputs = module.build_inputs(**kwargs)
-    if not isinstance(inputs, tuple):
-        raise TypeError("build_inputs must return a tuple")
-    model = module.make_model()
+    direct = False
+    arguments: dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
+    if input_contract is not None:
+        from .input_contract import load_contract, supplied_fixture_inputs  # noqa: PLC0415
+
+        _, metadata = load_contract(input_contract)
+        direct = metadata.get("schema_version") == 2
+        if direct:
+            arguments, metadata = supplied_fixture_inputs(
+                input_contract, device=device, dtype=dtype
+            )
+    if callable(getattr(module, "make_model", None)):
+        model = module.make_model()
+    elif direct and callable(getattr(module, "forward", None)):
+        model = module.forward
+    else:
+        raise TypeError("candidate must define make_model() or a fixture-backed forward()")
+    inputs = ()
+    if direct:
+        inspect.signature(model.forward if hasattr(model, "forward") else model).bind(**arguments)
+    else:
+        if not callable(getattr(module, "build_inputs", None)):
+            raise TypeError("candidate must define callable build_inputs(device, dtype)")
+        kwargs = {"device": device, "dtype": dtype}
+        if fixture is not None and "fixture" in inspect.signature(module.build_inputs).parameters:
+            kwargs["fixture"] = fixture
+        if "dataset" in inspect.signature(module.build_inputs).parameters:
+            kwargs["dataset"] = dataset
+        inputs = module.build_inputs(**kwargs)
+        if not isinstance(inputs, tuple):
+            raise TypeError("build_inputs must return a tuple")
     if hasattr(model, "eval"):
         model.eval()
     if hasattr(model, "to"):
@@ -72,16 +91,39 @@ def run_module(
     if input_contract is not None:
         from .input_contract import InputContractError, check_model_inputs  # noqa: PLC0415
 
-        report = check_model_inputs(
-            model,
-            inputs,
-            input_contract,
-            bindings=input_bindings,
-            rtol=input_rtol,
-            atol=input_atol,
-            snapshot_path=input_snapshot,
-            precision=precision,
-        )
+        if direct:
+            from .input_contract import compare_input_arrays  # noqa: PLC0415
+
+            actual: dict[str, Any] = {
+                name: value.detach().cpu().double().numpy()
+                if isinstance(value, torch.Tensor) and value.dtype == torch.bfloat16
+                else value.detach().cpu().numpy().copy()
+                if isinstance(value, torch.Tensor)
+                else np.asarray(value)
+                for name, value in arguments.items()
+            }
+            expected, metadata = load_contract(input_contract)
+            # Python integer scalars have no storage width; C arrays do.
+            for name, item in metadata["inputs"].items():
+                if item["scalar"]:
+                    actual[item["argument"]] = np.asarray(
+                        actual[item["argument"]], dtype=expected[name].dtype
+                    )
+            if input_snapshot is not None:
+                input_snapshot.parent.mkdir(parents=True, exist_ok=True)
+                np.savez(input_snapshot, **actual)
+            report = compare_input_arrays(actual, expected, metadata, precision=precision)
+        else:
+            report = check_model_inputs(
+                model,
+                inputs,
+                input_contract,
+                bindings=input_bindings,
+                rtol=input_rtol,
+                atol=input_atol,
+                snapshot_path=input_snapshot,
+                precision=precision,
+            )
         if input_report is not None:
             input_report.parent.mkdir(parents=True, exist_ok=True)
             input_report.write_text(json.dumps(report, indent=2) + "\n")
@@ -91,8 +133,18 @@ def run_module(
         if input_contract is None:
             raise ValueError("--inputs-only requires --input-contract")
         return np.empty(0), ""
+    protected = {
+        item["argument"]: arguments[item["argument"]].clone()
+        for item in metadata.get("inputs", {}).values()
+        if direct
+        and item["access"] == "read_only"
+        and isinstance(arguments[item["argument"]], torch.Tensor)
+    }
     with torch.no_grad():
-        output = model(*inputs)
+        output = model(**arguments) if direct else model(*inputs)
+    for name, original in protected.items():
+        if not torch.equal(arguments[name], original):
+            raise InputContractError(f"candidate modified read-only argument {name}")
     tensors = output if isinstance(output, tuple) else (output,)
     flattened: list[np.ndarray] = []
     output_dtype = ""

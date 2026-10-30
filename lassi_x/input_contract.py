@@ -6,6 +6,7 @@ Candidate declarations never supply the expected values or binding rules.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import re
@@ -25,6 +26,9 @@ class InputContractError(ValueError):
 def save_contract(path: Path, arrays: dict[str, np.ndarray], metadata: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = dict(arrays)
+    metadata = dict(metadata)
+    if metadata.get("schema_version") == 2:
+        metadata["fixture_sha256"] = fixture_digest(arrays, metadata)
     payload["__metadata__"] = np.asarray(json.dumps(metadata))
     np.savez(path, **payload)
 
@@ -33,7 +37,20 @@ def load_contract(path: Path) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     with np.load(path, allow_pickle=False) as archive:
         metadata = json.loads(str(archive["__metadata__"].item()))
         arrays = {name: archive[name].copy() for name in archive.files if name != "__metadata__"}
+    if metadata.get("schema_version") == 2 and metadata.get("fixture_sha256") != fixture_digest(
+        arrays, metadata
+    ):
+        raise InputContractError("C fixture checksum mismatch")
     return arrays, metadata
+
+
+def fixture_digest(arrays: dict[str, np.ndarray], metadata: dict[str, Any]) -> str:
+    identity = {key: value for key, value in metadata.items() if key != "fixture_sha256"}
+    digest = hashlib.sha256(json.dumps(identity, sort_keys=True).encode())
+    for name, array in sorted(arrays.items()):
+        digest.update(json.dumps([name, array.dtype.str, array.shape]).encode())
+        digest.update(array.tobytes(order="C"))
+    return digest.hexdigest()
 
 
 def _normalized(name: str) -> str:
@@ -76,12 +93,17 @@ def compare_input_arrays(
     absent. Every required data array must be represented by a checked argument.
     """
     kernel = metadata["kernel"]
+    if metadata.get("schema_version") == 2:
+        bindings = {item["argument"]: name for name, item in metadata["inputs"].items()}
     checked: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     covered: set[str] = set()
     for name, value in actual.items():
         value = np.asarray(value)
-        target = (bindings or {}).get(name) or _binding(name, kernel, expected)
+        explicit = metadata.get("schema_version") == 2
+        target = (bindings or {}).get(name)
+        if target is None and not explicit:
+            target = _binding(name, kernel, expected)
         sources: list[str] = []
         if target is not None:
             transpose = target.endswith(".T")
@@ -93,10 +115,10 @@ def compare_input_arrays(
                 continue
             reference = expected[key].T if transpose else expected[key]
             sources = [key]
-        elif kernel == "polybench-gesummv" and name == "M":
+        elif not explicit and kernel == "polybench-gesummv" and name == "M":
             reference = np.stack([expected["A"], expected["B"]])
             sources = ["A", "B"]
-        elif kernel == "polybench-doitgen" and name == "weight":
+        elif not explicit and kernel == "polybench-doitgen" and name == "weight":
             reference = expected["C4"].T
             sources = ["C4"]
         else:
@@ -109,7 +131,13 @@ def compare_input_arrays(
             reference = round_input_values(reference, precision)
         # Squeezing singleton dimensions accommodates NCHW stencils without
         # permitting arbitrary flattening, permutations, or broadcasting.
-        left, right = np.squeeze(value), np.squeeze(reference)
+        if metadata.get("schema_version") == 2:
+            left, right = value, reference
+            if integral and value.dtype != reference.dtype:
+                errors.append({"argument": name, "reason": "integer dtype mismatch"})
+                continue
+        else:
+            left, right = np.squeeze(value), np.squeeze(reference)
         if left.shape != right.shape:
             errors.append(
                 {
@@ -122,7 +150,9 @@ def compare_input_arrays(
             continue
         finite = bool(np.isfinite(left).all())
         # Integer-valued C inputs are compared exactly, independently of tolerances.
-        exact_required = precision != "fp64" or integral or bool(np.equal(right, 0).all())
+        exact_required = (
+            explicit or precision != "fp64" or integral or bool(np.equal(right, 0).all())
+        )
         close = (
             np.equal(left, right)
             if exact_required
@@ -239,6 +269,37 @@ def round_input_values(values: np.ndarray, precision: str) -> np.ndarray:
     if not np.isfinite(rounded).all():
         raise InputContractError(f"C inputs are not finite in {precision} after the storage cast")
     return rounded
+
+
+def supplied_fixture_inputs(
+    path: Path, *, device: str, dtype: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Construct fresh arguments from C bytes; never call candidate input builders."""
+    import torch  # noqa: PLC0415
+
+    arrays, metadata = load_contract(path)
+    if metadata.get("schema_version") != 2:
+        raise InputContractError(
+            "direct fixture execution requires an explicit input specification"
+        )
+    arguments = {}
+    for name, item in metadata["inputs"].items():
+        value = arrays[name].copy()
+        if item["scalar"]:
+            if value.shape:
+                raise InputContractError(f"scalar field {name} has an array shape")
+            arguments[item["argument"]] = (
+                torch.from_numpy(value).to(dtype=dtype).item()
+                if value.dtype.kind == "f"
+                else value.item()
+            )
+        else:
+            tensor = torch.from_numpy(value)
+            # Integral arrays keep their declared C storage type.
+            arguments[item["argument"]] = tensor.to(
+                device=device, dtype=dtype if tensor.is_floating_point() else tensor.dtype
+            )
+    return arguments, metadata
 
 
 def add_input_check_arguments(parser: argparse.ArgumentParser) -> None:

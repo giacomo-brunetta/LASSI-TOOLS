@@ -474,6 +474,15 @@ Compiler compatibility preflight (required):
 - A canonical operator compile can still fail in full-model compilation or placement; do not
   claim compatibility until whole-model qualification or hardware measurement passes.
 """
+    input_interface = (
+        "- Read reference/input-spec.yaml. The harness supplies its exact named arguments "
+        "from executed C initialization. Implement those forward arguments and access policies; "
+        "build_inputs is not used for acceptance."
+        if config.oracle.fixture_spec is not None
+        else f'- Define build_inputs(device="cpu", dtype=torch.float64, fixture=None, '
+        f'dataset="default") returning a tuple for `{config.kernel.validation_dataset}` '
+        f"and `{config.evaluation_dataset}` as described by the kernel task."
+    )
     return f"""Implement arena candidate {candidate_id}.
 
 Workspace toolset: {toolset} (all paths below are workspace-relative)
@@ -491,10 +500,7 @@ Mandatory contract:
 - Write one complete Python module to candidate.py using write_file.
 - Write candidate.py on the default machine (omit the resource argument for write_file);
   other machines are for exploration and scratch commands only.
-- Define build_inputs(device="cpu", dtype=torch.float64, fixture=None, dataset="default")
-  returning a tuple. It must support the validation profile
-  `{config.kernel.validation_dataset}` and accelerator evaluation profile
-  `{config.evaluation_dataset}` exactly as described by the kernel task.
+{input_interface}
 - Define make_model() returning torch.nn.Module.
 - make_model() and forward() must work for both dataset profiles without editing the module.
 - forward(*inputs) returns a tensor or tuple of tensors in canonical reference order.
@@ -509,6 +515,8 @@ Return a short plain-text implementation summary after writing the file.
 
 
 def _input_contract_prompt(config: RunConfig) -> str:
+    if config.oracle.fixture_spec is not None:
+        return "- Acceptance uses harness-owned inputs; return the specified outputs in order."
     if not config.arena.input_check.enabled:
         return ""
     return (

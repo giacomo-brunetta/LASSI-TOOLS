@@ -41,6 +41,11 @@ async def stage_measurement_input_check(
     precision: str,
     artifact: Path,
 ) -> tuple[list[str], MeasurementInputCheck | None]:
+    if config.oracle.fixture_spec is not None:
+        raise ValueError(
+            "C fixture specifications currently support correctness execution; "
+            "measurement workers require migration to the direct-input interface"
+        )
     if not config.arena.input_check.enabled:
         return [], None
     contract = await input_contract_for_dataset(config, oracle, config.evaluation_dataset)

@@ -24,8 +24,11 @@ authority.
 3. Map the assigned strategy onto those semantics. If the strategy conflicts with the source,
    preserve the source and explain the deviation in the final summary.
 4. Write only the explicitly assigned target module.
-5. Define `build_inputs(device="cpu", dtype=torch.float64, fixture=None) -> tuple`. Reproduce the
-   reference initialization or load only the configured fixture; never load oracle output.
+5. When `reference/input-spec.yaml` is supplied, use its exact argument mapping in `forward`.
+   The harness supplies fresh tensors, integer inputs and scalar parameters from executed C;
+   do not define or call `build_inputs` for acceptance. Respect each input's access policy.
+   Otherwise define `build_inputs(device="cpu", dtype=torch.float64, fixture=None) -> tuple`.
+   Reproduce the reference initialization or load only the configured fixture; never load oracle output.
 6. Define `make_model() -> torch.nn.Module`. Its `forward(*inputs)` must return a tensor or tuple
    of tensors in canonical reference-output order.
 7. Define `LASSI_PRECISION` with honest `storage`, `operator`, `accumulator`, and `output` fields.
