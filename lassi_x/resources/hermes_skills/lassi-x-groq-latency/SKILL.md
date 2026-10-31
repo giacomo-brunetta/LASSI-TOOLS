@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Groq, Accelerator, Benchmarking, Remote-Queue]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Measure on Groq
 

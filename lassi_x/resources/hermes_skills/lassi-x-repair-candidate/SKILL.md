@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Debugging, Numerical-Verification, Translation]
-    requires_toolsets: [file, terminal]
+    requires_toolsets: [skills]
 ---
 # Repair a Rejected Candidate
 

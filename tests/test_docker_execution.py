@@ -120,7 +120,7 @@ def test_cpu_stop_preserves_docker_backend(tmp_path: Path, monkeypatch: pytest.M
         observed.append(config.execution)
         raise RuntimeError("stop after inspecting selected backend")
 
-    monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
+    monkeypatch.setattr(pipeline, "require_bundled_skills", lambda: None)
     monkeypatch.setattr(ExecutionContext, "start", fake_start)
     assert asyncio.run(pipeline.run_pipeline(config_path, until="cpu-verified"))[0] == 1
     assert observed[0].mode == "docker"

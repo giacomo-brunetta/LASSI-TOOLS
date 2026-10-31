@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [PyTorch, Scientific-Computing, Translation]
-    requires_toolsets: [file, terminal]
+    requires_toolsets: [skills]
 ---
 # Translate a Scientific Kernel
 

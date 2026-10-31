@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Benchmarking, Performance, Measurement]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Run a Stable Benchmark
 

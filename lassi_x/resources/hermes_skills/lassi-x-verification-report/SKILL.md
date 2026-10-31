@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Reporting, Verification, Audit]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Produce a Verification Report
 

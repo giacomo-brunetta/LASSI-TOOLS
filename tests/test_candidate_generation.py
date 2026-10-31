@@ -410,3 +410,29 @@ def test_a_retired_tolerant_resource_still_ends_the_run(tmp_path: Path) -> None:
     )
     with pytest.raises(ResourceUnavailableError):
         arena._execution_health(config, context, "c1")
+
+
+@pytest.mark.parametrize("fixture", [False, True])
+def test_planner_uses_configured_input_interface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fixture: bool
+) -> None:
+    data = minimal_config(tmp_path)
+    if fixture:
+        data["oracle"]["fixture_spec"] = "spec.yaml"
+        (tmp_path / "spec.yaml").write_text("inputs: {A: {argument: a, access: read_only}}")
+    (tmp_path / "tiny.c").write_text(C_REFERENCE)
+    config = RunConfig.model_validate(data)
+
+    class Planner(FakeHermesSession):
+        async def send(self, prompt: str) -> HermesTurn:
+            if fixture:
+                assert "exact named forward arguments" in prompt
+                assert "build_inputs is not used for acceptance" in prompt
+                assert "access: read_only" in prompt
+                assert "the build_inputs(device, dtype, dataset) /" not in prompt
+            else:
+                assert "the build_inputs(device, dtype, dataset) / make_model()" in prompt
+            return HermesTurn('[{"name":"direct","plan":"vectorized"}]', Usage())
+
+    monkeypatch.setattr(arena, "HermesSession", Planner)
+    asyncio.run(arena.plan_strategies(config, tmp_path))

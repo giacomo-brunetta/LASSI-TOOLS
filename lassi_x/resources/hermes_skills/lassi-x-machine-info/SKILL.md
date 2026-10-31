@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Hardware, System, Capability-Audit]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Inspect Machine Capabilities
 

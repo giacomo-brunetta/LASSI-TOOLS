@@ -12,6 +12,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from lassi_x.instruction_provenance import assembled_system_prompt
 from lassi_x.protocol import (
     MAX_FRAME_BYTES,
     TurnUsage,
@@ -23,7 +24,6 @@ from lassi_x.protocol import (
     WorkerTurn,
     parse_worker_request,
 )
-from lassi_x.skills import automation_skill_prompt
 
 PROTOCOL_STREAM = sys.stdout
 
@@ -205,10 +205,11 @@ def create_agent(request: WorkerInit, api_key: str | None) -> Any:
         skip_memory=request.memory is None,
         skip_context_files=True,
         save_trajectories=False,
-        ephemeral_system_prompt=(
-            (request.system_prompt or "") + "\n\n" + automation_skill_prompt(request.role)
-            if "skills" in request.toolsets
-            else request.system_prompt
+        ephemeral_system_prompt=assembled_system_prompt(
+            request.system_prompt or "",
+            request.role,
+            list(request.toolsets),
+            Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser().resolve(),
         ),
     )
 

@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [FP16, BF16, Diagnostics, Numerical-Analysis]
-    requires_toolsets: [file, terminal]
+    requires_toolsets: [skills]
 ---
 # Diagnose Low-Precision Error
 

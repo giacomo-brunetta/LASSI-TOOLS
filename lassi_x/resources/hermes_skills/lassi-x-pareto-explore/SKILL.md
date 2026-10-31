@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Pareto, Performance, Accuracy, Decision-Analysis]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Explore the Pareto Frontier
 

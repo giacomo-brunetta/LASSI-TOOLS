@@ -10,7 +10,7 @@ from pydantic import field_validator
 from . import __version__
 from .config import StrictModel
 from .pareto import valid_point
-from .skills import AUTOMATION_SKILLS, source_root
+from .skills import source_root
 from .types import Candidate, Measurement
 
 if TYPE_CHECKING:
@@ -72,11 +72,12 @@ def skill_records() -> list[dict[str, str]]:
     bundle_version = __version__
     return [
         {
-            "name": name,
+            "name": str(path.relative_to(root)),
             "version": bundle_version,
-            "sha256": hashlib.sha256((root / name / "SKILL.md").read_bytes()).hexdigest(),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
-        for name in AUTOMATION_SKILLS
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and not path.name.startswith(".")
     ]
 
 

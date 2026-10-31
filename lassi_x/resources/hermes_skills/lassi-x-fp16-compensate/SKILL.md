@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [FP16, BF16, Mixed-Precision, Numerical-Methods, Pareto]
-    requires_toolsets: [file, terminal]
+    requires_toolsets: [skills]
 ---
 # Compensate FP16/BF16 Error
 

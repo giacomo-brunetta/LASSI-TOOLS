@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Numeric, Diagnostics, Data-Quality]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Summarize Numeric Output
 

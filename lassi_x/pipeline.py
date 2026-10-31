@@ -37,7 +37,7 @@ from .measurement import Backend, build_backends, measure_compensation_variants,
 from .pareto import frontier_indices, valid_point
 from .run_record import RunRecord, evaluate_acceptance, render_summary, skill_records
 from .scheduler import PipelineScheduler
-from .skills import require_automation_skills
+from .skills import require_bundled_skills
 from .types import Candidate, Diagnostic, Measurement, PruningDecision, Status
 from .validation import OracleResult, build_oracle, load_reference_output
 from .visualization import write_pareto_visualizations
@@ -1742,7 +1742,7 @@ async def run_pipeline(
         raise ValueError("--from-cpu-baseline cannot be combined with --resume or --until")
     if allow_adaptations and from_cpu_baseline is None:
         raise ValueError("--allow-adaptations requires --from-cpu-baseline")
-    require_automation_skills()
+    require_bundled_skills()
     config = RunConfig.load(config_path)
     if retry_numerical_repairs and config.screening_backend is None:
         raise ValueError("numerical retry requires the GPU screening flow")

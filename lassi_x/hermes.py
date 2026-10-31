@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from .instruction_provenance import save_instruction_snapshot
 from .protocol import (
     MAX_FRAME_BYTES,
     MemorySettings,
@@ -131,6 +132,18 @@ class HermesSession:
             if plugins.is_dir():
                 (profile / "plugins").symlink_to(plugins, target_is_directory=True)
             install_skills(profile)
+            save_instruction_snapshot(
+                self.cwd,
+                system=self.system_prompt,
+                role=self.role,
+                toolsets=self.toolsets
+                + (
+                    ["memory"]
+                    if self._memory_settings() is not None and "memory" not in self.toolsets
+                    else []
+                ),
+                home=profile,
+            )
             env["HERMES_HOME"] = str(profile)
             self._stderr_tail.clear()
             package_root = str(Path(__file__).resolve().parents[1])

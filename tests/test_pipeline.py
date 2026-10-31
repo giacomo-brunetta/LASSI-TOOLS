@@ -143,7 +143,7 @@ def test_pipeline_compensates_single_high_error_survivor(tmp_path: Path, monkeyp
             callback(result)
         return [result]
 
-    monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
+    monkeypatch.setattr(pipeline, "require_bundled_skills", lambda: None)
     monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
     monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
     monkeypatch.setattr(pipeline, "plan_strategies", fake_plan)
@@ -237,7 +237,7 @@ def test_pipeline_graph_takes_compensation_bypass_when_no_point_is_weak(
         assert specs == []
         return []
 
-    monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
+    monkeypatch.setattr(pipeline, "require_bundled_skills", lambda: None)
     monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
     monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
     monkeypatch.setattr(pipeline, "plan_strategies", fake_plan)
@@ -479,7 +479,6 @@ def test_skill_records_fingerprint_the_bundle_used_by_isolated_workers(
     )
     monkeypatch.setattr(run_record, "source_root", lambda: root)
     monkeypatch.setattr(run_record, "__version__", "1.2.3")
-    monkeypatch.setattr(run_record, "AUTOMATION_SKILLS", ("one",))
     assert run_record.skill_records()[0]["version"] == "1.2.3"
 
 
@@ -605,7 +604,7 @@ def test_cpu_verified_pause_and_resume(
         kwargs["on_result"](point)
         return [point]
 
-    monkeypatch.setattr(pipeline, "require_automation_skills", lambda: None)
+    monkeypatch.setattr(pipeline, "require_bundled_skills", lambda: None)
     monkeypatch.setattr(pipeline, "_skill_records", lambda: [])
     monkeypatch.setattr(ExecutionContext, "start", fake_start)
     monkeypatch.setattr(pipeline, "build_oracle", fake_oracle)
@@ -742,3 +741,18 @@ def test_cpu_verified_pause_and_resume(
     assert len(resumed["candidates"]) == 3
     assert len(resumed["measurements"]) == passing_candidates
     assert "finalize" in resumed["checkpoint"]["completed_stages"]
+
+
+def test_skill_provenance_changes_with_auxiliary_resources(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    root = tmp_path / "skills"
+    reference = root / "one/references/techniques.md"
+    reference.parent.mkdir(parents=True)
+    reference.write_text("first technique")
+    monkeypatch.setattr(run_record, "source_root", lambda: root)
+    before = run_record.skill_records()
+    reference.write_text("different technique")
+    after = run_record.skill_records()
+    assert before[0]["name"] == "one/references/techniques.md"
+    assert before[0]["sha256"] != after[0]["sha256"]

@@ -64,3 +64,31 @@ counts, and finite latency values. Malformed worker evidence becomes an explicit
 `worker_protocol` failure. Compiler targets, checkpoints, and restored candidate
 and measurement records are validated at their boundaries. Checkpoints retain the
 fixture contract path and verify the recorded oracle checksum before resuming.
+
+## Skill and instruction provenance
+
+Pipeline startup validates the packaged skill bundle. It does not require an
+installation in the user's global Hermes home: each worker installs the package
+into its own temporary profile. `skills doctor` and `skills sync` continue to
+manage explicit user installations. Sync preserves conflicting local edits across
+repeated attempts; those edits are never adopted as an installation baseline or
+removed by uninstall.
+
+Skills advertise the `skills` toolset so Hermes can discover them with custom
+workspace MCP tools. Their instructions do not grant extra tool access: the
+session's assigned tools and file scope still apply. The planner receives the
+configured input interface and the explicit C input specification when present.
+
+Each session initialization saves a content-addressed JSON file under
+`agent-instructions/` in its working directory, including resumed initializations.
+It contains the exact harness-supplied system instructions, their hash, enabled
+toolsets, role, Hermes/package versions, and hashes of all bundled skill resources
+and prompt source modules. Worker assembly and snapshot assembly share one helper.
+`run.json` also fingerprints every bundled skill file, including references and
+scripts. Snapshot records contain no provider configuration or credential files.
+
+These snapshots cover harness-supplied instructions. Hermes adds its own SDK
+identity, tool guidance, and any configured external memory; the snapshot does
+not claim to capture that complete dynamic context. Preserve the locked environment
+alongside run artifacts when reproducing an experiment. A passing prompt test
+establishes assembly behavior, not whether a model follows those instructions.

@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [GPU, Hardware, Capability-Audit]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Inspect GPU Capabilities
 

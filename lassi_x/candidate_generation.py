@@ -157,6 +157,8 @@ def _source_context(config: RunConfig) -> str:
 
     """
     paths = [config.kernel.reference, *config.kernel.context]
+    if config.oracle.fixture_spec is not None:
+        paths.append(config.oracle.fixture_spec)
     blocks: list[str] = []
     for relative in paths:
         path = config.resolve_project_path(relative)
@@ -332,6 +334,13 @@ Compiler compatibility context:
   uncertain operators against each applicable target before finalizing the implementation.
 - Compile-only targets such as Torch-MLIR/TOSA are qualification gates and make no latency claim.
 """
+    input_interface = (
+        "the make_model() module contract with exact named forward arguments and access "
+        "policies from the supplied input specification. The harness supplies fresh inputs "
+        "from executed C initialization; build_inputs is not used for acceptance"
+        if config.oracle.fixture_spec is not None
+        else "the build_inputs(device, dtype, dataset) / make_model() module contract"
+    )
     prompt = f"""Create up to {count} materially distinct PyTorch translation strategies.
 
 Kernel: {config.kernel.name}
@@ -339,7 +348,7 @@ Task: {config.kernel.task}
 
 The implementations will be generated concurrently, one model session per strategy.
 Every strategy must preserve initialization, operation semantics, output ordering, and
-the build_inputs(device, dtype, dataset) / make_model() module contract. Each strategy
+{input_interface}. Each strategy
 must support CPU-validation dataset `{config.kernel.validation_dataset}` and merged accelerator
 evaluation dataset `{config.evaluation_dataset}` in one dimension-flexible module.
 {compatibility_context}

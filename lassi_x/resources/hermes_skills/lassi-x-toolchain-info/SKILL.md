@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Toolchain, Reproducibility, Environment]
-    requires_toolsets: [terminal]
+    requires_toolsets: [skills]
 ---
 # Inspect the Toolchain
 

@@ -5,7 +5,7 @@ license: MIT
 metadata:
   hermes:
     tags: [Elementary-Functions, Correct-Rounding, Approximation, PyTorch]
-    requires_toolsets: [file, terminal]
+    requires_toolsets: [skills]
 ---
 # Audit Elementary Functions
 

@@ -84,7 +84,7 @@ def install_skills(home: Path | None = None, *, sync: bool = False) -> dict[str,
             if target_hash == source_hash:
                 unchanged.append(relative)
                 continue
-            if sync and old_hash and target_hash != old_hash:
+            if sync and target_hash != old_hash:
                 conflicts.append(relative)
                 continue
             if not sync:
@@ -93,11 +93,11 @@ def install_skills(home: Path | None = None, *, sync: bool = False) -> dict[str,
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         installed.append(relative)
-    hashes = {
-        relative: _hash(destination / relative)
-        for relative in source_files
-        if (destination / relative).is_file()
-    }
+    # Conflicts remain unowned (or retain their last installed baseline). Never
+    # adopt a local edit as the baseline: a later sync would overwrite it.
+    hashes = dict(old_hashes)
+    for relative in installed + unchanged:
+        hashes[relative] = _hash(source_files[relative])
     manifest = {
         "schema_version": 1,
         "lassi_x_version": __version__,
@@ -166,7 +166,18 @@ def require_automation_skills(home: Path | None = None) -> None:
         )
 
 
-def automation_skill_prompt(role: str) -> str:
+def require_bundled_skills() -> None:
+    """Validate the package copied into workers, independently of global installs."""
+    root = source_root()
+    missing = [name for name in SKILL_NAMES if not (root / name / "SKILL.md").is_file()]
+    if missing:
+        raise RuntimeError("Bundled Hermes skills are incomplete: " + ", ".join(missing))
+    # Required inline references must also be present before a run starts.
+    for role in ("planner", "c1", "compensation-check", "compatibility-check"):
+        automation_skill_prompt(role)
+
+
+def automation_skill_prompt(role: str, home: Path | None = None) -> str:
     """Supply full task-relevant instructions without relying on voluntary skill loading.
 
     Other installed skills remain available through the skill tool. Required numerical
@@ -203,8 +214,11 @@ def automation_skill_prompt(role: str) -> str:
         "Required skill instructions (supplied in full by the harness):\n"
         "The experiment's explicit precision contract overrides generic wider-arithmetic "
         "examples or capability-based recommendations in these skills.\n"
-        f"Installed skill root: {install_root()}\n"
-        "Use the enabled skills tool for other skills, references and scripts."
+        f"Installed skill root: {install_root(home)}\n"
+        "Use the enabled skills tool for other skills, references and scripts.\n"
+        "Use only the assigned tools. A skill does not grant additional tools or file scope. "
+        "If a required command or capability is unavailable, report that limitation; "
+        "do not substitute another machine or toolset without authorization."
     ]
     for relative in resources:
         path = root / relative
