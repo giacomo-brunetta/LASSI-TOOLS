@@ -190,3 +190,54 @@ def test_sync_updates_owned_unmodified_files(
     assert result["installed"] == ["SKILL.md"]
     assert (home / "skills/lassi-x/SKILL.md").read_text() == "updated"
     assert uninstall_skills(home)["ok"]
+
+
+@pytest.mark.parametrize("modified", [False, True])
+def test_sync_retires_resources_and_preserves_local_edits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, modified: bool
+) -> None:
+    import lassi_x.skills as skills  # noqa: PLC0415
+
+    source = tmp_path / "source"
+    source.mkdir()
+    retired = source / "old.md"
+    retired.write_text("original")
+    monkeypatch.setattr(skills, "source_root", lambda: source)
+    home = tmp_path / "home"
+    install_skills(home)
+    target = home / "skills/lassi-x/old.md"
+    if modified:
+        target.write_text("local edits")
+    retired.rename(source / "new.md")
+    for _ in range(2):
+        result = install_skills(home, sync=True)
+        assert result["ok"] is not modified
+        assert target.exists() is modified
+        if modified:
+            assert "old.md" in result["conflicts"]
+            assert target.read_text() == "local edits"
+    assert (home / "skills/lassi-x/new.md").read_text() == "original"
+
+
+def test_resource_inventory_matches_installation_and_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import lassi_x.skills as skills  # noqa: PLC0415
+    from lassi_x.run_record import skill_records  # noqa: PLC0415
+
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in ("SKILL.md", ".hidden", "cached.pyc", "__pycache__/module.pyc", ".cache/file"):
+        path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(name)
+    monkeypatch.setattr(skills, "source_root", lambda: source)
+    home = tmp_path / "home"
+    installed = install_skills(home)
+    snapshot = save_instruction_snapshot(
+        tmp_path, system="policy", role="test", toolsets=[], home=home
+    )
+    expected = {"SKILL.md": hashlib.sha256(b"SKILL.md").hexdigest()}
+    assert installed["installed"] == ["SKILL.md"]
+    assert json.loads(snapshot.read_text())["skill_files"] == expected
+    assert {item["name"]: item["sha256"] for item in skill_records()} == expected

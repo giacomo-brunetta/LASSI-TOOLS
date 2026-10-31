@@ -10,7 +10,7 @@ from pydantic import field_validator
 from . import __version__
 from .config import StrictModel
 from .pareto import valid_point
-from .skills import source_root
+from .skills import skill_files
 from .types import Candidate, Measurement
 
 if TYPE_CHECKING:
@@ -68,16 +68,14 @@ class RunRecord(StrictModel):
 def skill_records() -> list[dict[str, str]]:
     """Fingerprint the bundled skills installed into isolated worker profiles."""
 
-    root = source_root()
     bundle_version = __version__
     return [
         {
-            "name": str(path.relative_to(root)),
+            "name": relative,
             "version": bundle_version,
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
-        for path in sorted(root.rglob("*"))
-        if path.is_file() and not path.name.startswith(".")
+        for relative, path in skill_files().items()
     ]
 
 

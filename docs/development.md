@@ -92,3 +92,18 @@ identity, tool guidance, and any configured external memory; the snapshot does
 not claim to capture that complete dynamic context. Preserve the locked environment
 alongside run artifacts when reproducing an experiment. A passing prompt test
 establishes assembly behavior, not whether a model follows those instructions.
+
+Skill installation, run records, and instruction snapshots share one sorted resource
+inventory that excludes hidden files and Python bytecode caches. Skill sync removes
+retired package resources only when their installed hashes are unchanged; modified
+retired resources remain conflicts across repeated syncs.
+
+Each worker initialization also writes an attempt record under
+`agent-instructions/attempts/`, linking its snapshot hash to a session identifier,
+initialization index, timestamps, and initialization outcome. An interrupted process
+can leave an `initializing` record. Failure records store exception types rather than
+provider error text.
+
+Fixture-spec runs must use `--until cpu-verified` until the downstream compiler,
+precision-audit, and measurement adapters support direct inputs. Full runs and resumes
+reject this configuration before allocating resources or contacting models.

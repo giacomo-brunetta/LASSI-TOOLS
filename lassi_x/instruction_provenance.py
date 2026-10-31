@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __version__
 from .artifacts import atomic_write
-from .skills import automation_skill_prompt, source_root
+from .skills import automation_skill_prompt, skill_files
 
 
 def assembled_system_prompt(system: str, role: str, toolsets: list[str], home: Path) -> str:
@@ -22,7 +22,6 @@ def save_instruction_snapshot(
 ) -> Path:
     """Keep immutable per-initialization snapshots, including resumed sessions."""
     supplied = assembled_system_prompt(system, role, toolsets, home)
-    root = source_root()
     record = {
         "schema_version": 1,
         "scope": "harness-supplied instructions; Hermes adds SDK guidance and optional memory",
@@ -33,9 +32,8 @@ def save_instruction_snapshot(
         "system_prompt": supplied,
         "system_sha256": hashlib.sha256(supplied.encode()).hexdigest(),
         "skill_files": {
-            str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in sorted(root.rglob("*"))
-            if path.is_file()
+            relative: hashlib.sha256(path.read_bytes()).hexdigest()
+            for relative, path in skill_files().items()
         },
         "prompt_sources": {
             name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()

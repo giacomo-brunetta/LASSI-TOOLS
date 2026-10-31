@@ -1744,6 +1744,12 @@ async def run_pipeline(
         raise ValueError("--allow-adaptations requires --from-cpu-baseline")
     require_bundled_skills()
     config = RunConfig.load(config_path)
+    if config.oracle.fixture_spec is not None and until != "cpu-verified":
+        raise ValueError(
+            "C fixture specifications currently support CPU correctness only; "
+            "use --until cpu-verified. Compilation, precision auditing, and measurement "
+            "require migration to the direct-input interface before a full run or resume."
+        )
     if retry_numerical_repairs and config.screening_backend is None:
         raise ValueError("numerical retry requires the GPU screening flow")
     run_root = (

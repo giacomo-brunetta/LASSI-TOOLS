@@ -60,9 +60,17 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _source_files() -> dict[str, Path]:
+def skill_files() -> dict[str, Path]:
     root = source_root()
-    return {str(path.relative_to(root)): path for path in root.rglob("*") if path.is_file()}
+    return {
+        str(path.relative_to(root)): path
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and not any(
+            part.startswith(".") or part == "__pycache__" for part in path.relative_to(root).parts
+        )
+        and path.suffix not in {".pyc", ".pyo"}
+    }
 
 
 def install_skills(home: Path | None = None, *, sync: bool = False) -> dict[str, Any]:
@@ -70,7 +78,7 @@ def install_skills(home: Path | None = None, *, sync: bool = False) -> dict[str,
     manifest_path = destination / ".lassi-x-manifest.json"
     old_manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
     old_hashes = old_manifest.get("files") or {}
-    source_files = _source_files()
+    source_files = skill_files()
     installed: list[str] = []
     unchanged: list[str] = []
     conflicts: list[str] = []
@@ -98,6 +106,17 @@ def install_skills(home: Path | None = None, *, sync: bool = False) -> dict[str,
     hashes = dict(old_hashes)
     for relative in installed + unchanged:
         hashes[relative] = _hash(source_files[relative])
+    removed: list[str] = []
+    if sync:
+        for relative in sorted(set(old_hashes) - set(source_files)):
+            target = destination / relative
+            if target.is_file():
+                if _hash(target) != old_hashes[relative]:
+                    conflicts.append(relative)
+                    continue
+                target.unlink()
+                removed.append(relative)
+            hashes.pop(relative, None)
     manifest = {
         "schema_version": 1,
         "lassi_x_version": __version__,
@@ -108,6 +127,7 @@ def install_skills(home: Path | None = None, *, sync: bool = False) -> dict[str,
         "ok": not conflicts,
         "root": str(destination),
         "installed": installed,
+        "removed": removed,
         "unchanged": unchanged,
         "conflicts": conflicts,
     }
@@ -130,7 +150,7 @@ def doctor_skills(home: Path | None = None) -> dict[str, Any]:
             found.append(name)
     stale_files = [
         relative
-        for relative, source in _source_files().items()
+        for relative, source in skill_files().items()
         if not (root / relative).is_file() or _hash(root / relative) != _hash(source)
     ]
     return {
@@ -154,7 +174,7 @@ def require_automation_skills(home: Path | None = None) -> None:
         )
     stale = [
         relative
-        for relative, source in _source_files().items()
+        for relative, source in skill_files().items()
         if relative.split("/", 1)[0] in AUTOMATION_SKILLS
         and (not (root / relative).is_file() or _hash(root / relative) != _hash(source))
     ]

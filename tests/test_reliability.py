@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import json
 import os
 import pickle
 import signal
@@ -505,3 +506,35 @@ def test_numeric_errors_are_typed_without_discarding_divergence() -> None:
     assert validate_worker_result(payload)["phase"] == "worker_protocol"
     payload["metrics"]["relative_l2"] = float("inf")  # type: ignore[index]
     assert validate_worker_result(payload)["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_initialization_attempts_link_snapshots_and_outcomes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_worker(
+        monkeypatch,
+        'import sys;sys.stdin.readline();print(\'{"kind":"ready"}\', flush=True);sys.stdin.read()',
+    )
+    session = session_at(tmp_path, turn_timeout_s=2)
+    await session.start()
+    await session.close()
+    monkeypatch.undo()
+    fake_worker(
+        monkeypatch,
+        'import sys;sys.stdin.readline();print(\'{"kind":"error","error":"failed"}\', flush=True)',
+    )
+    with pytest.raises((RuntimeError, ValueError)):
+        await session.start()
+    records = sorted(
+        (
+            json.loads(path.read_text())
+            for path in (tmp_path / "agent-instructions/attempts").glob("*.json")
+        ),
+        key=lambda record: record["initialization_index"],
+    )
+    assert [record["status"] for record in records] == ["ready", "failed"]
+    assert records[0]["session_id"] == records[1]["session_id"]
+    assert [record["initialization_index"] for record in records] == [0, 1]
+    for record in records:
+        assert (tmp_path / "agent-instructions" / f"{record['snapshot_sha256']}.json").is_file()

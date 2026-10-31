@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pytest
@@ -12,6 +12,7 @@ import yaml
 
 import lassi_x.pipeline as pipeline
 import lassi_x.run_record as run_record
+import lassi_x.skills as skills
 from lassi_x.cli import build_parser
 from lassi_x.compensation import CompensationVariant
 from lassi_x.compile_checks import QualificationResult
@@ -477,7 +478,7 @@ def test_skill_records_fingerprint_the_bundle_used_by_isolated_workers(
     (root / ".lassi-x-manifest.json").write_text(
         json.dumps({"schema_version": 1, "lassi_x_version": "9.8.7"})
     )
-    monkeypatch.setattr(run_record, "source_root", lambda: root)
+    monkeypatch.setattr(skills, "source_root", lambda: root)
     monkeypatch.setattr(run_record, "__version__", "1.2.3")
     assert run_record.skill_records()[0]["version"] == "1.2.3"
 
@@ -750,9 +751,33 @@ def test_skill_provenance_changes_with_auxiliary_resources(
     reference = root / "one/references/techniques.md"
     reference.parent.mkdir(parents=True)
     reference.write_text("first technique")
-    monkeypatch.setattr(run_record, "source_root", lambda: root)
+    monkeypatch.setattr(skills, "source_root", lambda: root)
     before = run_record.skill_records()
     reference.write_text("different technique")
     after = run_record.skill_records()
     assert before[0]["name"] == "one/references/techniques.md"
     assert before[0]["sha256"] != after[0]["sha256"]
+
+
+@pytest.mark.parametrize("until", [None, "cpu-verified"])
+def test_fixture_capability_checked_before_execution(
+    tmp_path: Path, monkeypatch: Any, until: Literal["cpu-verified"] | None
+) -> None:
+    data = minimal_config(tmp_path)
+    data["oracle"]["fixture_spec"] = "spec.yaml"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(data))
+
+    class ExecutionReached(BaseException):
+        pass
+
+    async def unexpected_start(*args: Any, **kwargs: Any) -> None:
+        raise ExecutionReached
+
+    monkeypatch.setattr(ExecutionContext, "start", unexpected_start)
+    if until is None:
+        with pytest.raises(ValueError, match="--until cpu-verified"):
+            asyncio.run(pipeline.run_pipeline(config_path))
+    else:
+        with pytest.raises(ExecutionReached):
+            asyncio.run(pipeline.run_pipeline(config_path, until=until))

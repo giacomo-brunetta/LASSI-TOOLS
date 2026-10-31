@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime as dt
 import logging
 import os
 import random
@@ -10,12 +11,14 @@ import signal
 import sys
 import tempfile
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from .artifacts import write_json
 from .instruction_provenance import save_instruction_snapshot
 from .protocol import (
     MAX_FRAME_BYTES,
@@ -86,6 +89,8 @@ class HermesSession:
                 identifier so stored facts are attributable per agent.
 
         """
+        self._session_id = uuid.uuid4().hex
+        self._initialization_index = 0
         self.model = model
         self.cwd = cwd
         self.system_prompt = system_prompt
@@ -116,6 +121,18 @@ class HermesSession:
         from .skills import hermes_home as resolve_home  # noqa: PLC0415
         from .skills import install_skills  # noqa: PLC0415
 
+        attempt = self.cwd / "agent-instructions" / "attempts" / f"{uuid.uuid4().hex}.json"
+        record: dict[str, str | int | None] = {
+            "schema_version": 1,
+            "session_id": self._session_id,
+            "role": self.role,
+            "initialization_index": self._initialization_index,
+            "started_at": dt.datetime.now(dt.UTC).isoformat(),
+            "status": "initializing",
+            "snapshot_sha256": None,
+        }
+        self._initialization_index += 1
+        write_json(attempt, record)
         try:
             env = os.environ.copy()
             self._profile = tempfile.TemporaryDirectory(prefix="lassi-hermes-")
@@ -132,7 +149,7 @@ class HermesSession:
             if plugins.is_dir():
                 (profile / "plugins").symlink_to(plugins, target_is_directory=True)
             install_skills(profile)
-            save_instruction_snapshot(
+            snapshot = save_instruction_snapshot(
                 self.cwd,
                 system=self.system_prompt,
                 role=self.role,
@@ -144,6 +161,8 @@ class HermesSession:
                 ),
                 home=profile,
             )
+            record["snapshot_sha256"] = snapshot.stem
+            write_json(attempt, record)
             env["HERMES_HOME"] = str(profile)
             self._stderr_tail.clear()
             package_root = str(Path(__file__).resolve().parents[1])
@@ -192,8 +211,17 @@ class HermesSession:
                     raise RuntimeError(
                         f"unexpected worker initialization response: {response.kind}"
                     )
-        except BaseException:
-            await self.close()
+            record["status"] = "ready"
+            record["finished_at"] = dt.datetime.now(dt.UTC).isoformat()
+            write_json(attempt, record)
+        except BaseException as exc:
+            record["status"] = "cancelled" if isinstance(exc, asyncio.CancelledError) else "failed"
+            record["error_type"] = type(exc).__name__
+            record["finished_at"] = dt.datetime.now(dt.UTC).isoformat()
+            try:
+                write_json(attempt, record)
+            finally:
+                await self.close()
             raise
 
     async def _drain_stderr(self, stream: asyncio.StreamReader) -> None:
