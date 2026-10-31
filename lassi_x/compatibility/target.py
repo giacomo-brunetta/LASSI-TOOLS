@@ -3,41 +3,47 @@
 from __future__ import annotations
 
 import importlib
-import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yaml
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lassi_x.compatibility.fixtures import PRECISION_DTYPES
 
-TARGET_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+class TargetConfig(BaseModel):
+    """Fail early on malformed compiler settings instead of coercing them."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+    schema_version: Literal[1]
+    target_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    family: str = Field(min_length=1)
+    description: str = ""
+    checker: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
+    precisions: list[str] = Field(min_length=1)
+    timeout_s: float = Field(default=300.0, gt=0)
+    max_workers: int = Field(default=1, gt=0)
+    options: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("precisions")
+    @classmethod
+    def known_precisions(cls, values: list[str]) -> list[str]:
+        if set(values) - set(PRECISION_DTYPES):
+            raise ValueError("unknown target precisions")
+        if len(values) != len(set(values)):
+            raise ValueError("duplicate target precisions")
+        return values
 
 
 def load_target(path: str | Path) -> dict[str, Any]:
     target_path = Path(path)
     if target_path.is_dir():
         target_path = target_path / "target.yaml"
-    payload = yaml.safe_load(target_path.read_text(encoding="utf-8")) or {}
-    required = ("schema_version", "target_id", "family", "checker", "precisions")
-    missing = [name for name in required if name not in payload]
-    if missing:
-        raise ValueError("target config is missing: " + ", ".join(missing))
-    if payload["schema_version"] != 1:
-        raise ValueError("unsupported target schema_version")
-    if not TARGET_ID_RE.fullmatch(str(payload["target_id"])):
-        raise ValueError("target_id must contain only lowercase letters, digits, '.', '_' or '-'")
-    precisions = payload["precisions"]
-    if not isinstance(precisions, list) or not precisions:
-        raise ValueError("target precisions must be a non-empty list")
-    unknown = sorted(set(precisions) - set(PRECISION_DTYPES))
-    if unknown:
-        raise ValueError("unknown target precisions: " + ", ".join(unknown))
-    payload.setdefault("timeout_s", 300.0)
-    payload.setdefault("max_workers", 1)
-    payload.setdefault("options", {})
-    if float(payload["timeout_s"]) <= 0 or int(payload["max_workers"]) <= 0:
-        raise ValueError("target timeout_s and max_workers must be positive")
+    payload = TargetConfig.model_validate(
+        yaml.safe_load(target_path.read_text(encoding="utf-8"))
+    ).model_dump()
     payload["config_path"] = str(target_path.resolve())
     return payload
 

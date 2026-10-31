@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..config import BackendConfig
 from ..types import Measurement, Status
+from ..worker_results import TimingEvidence
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,42 +32,22 @@ _ARCHITECTURAL_TIMING_EXCLUDES = {
 def _timing_fields(timing: dict[str, Any]) -> dict[str, Any]:
     """Map worker timing evidence into the stable measurement schema."""
 
-    raw_samples = timing.get("samples_s") or []
-    try:
-        samples = [float(value) for value in raw_samples]
-    except (TypeError, ValueError):
-        samples = []
-    raw_excludes = timing.get("excludes") or []
-    excludes = (
-        [str(value) for value in raw_excludes]
-        if isinstance(raw_excludes, (list, tuple, set))
-        else []
-    )
-
-    def optional_int(name: str) -> int | None:
-        value = timing.get(name)
-        try:
-            return None if value is None else int(value)
-        except (TypeError, ValueError):
-            return None
-
+    evidence = TimingEvidence.model_validate(timing)
     return {
-        "latency_scope": str(timing.get("scope") or ""),
-        "latency_source": str(timing.get("source") or ""),
-        "latency_clock": str(timing.get("clock") or ""),
-        "timing_protocol": str(timing.get("protocol") or ""),
-        "timing_warmup_count": optional_int("warmup_count"),
-        "timing_sample_count": optional_int("sample_count"),
-        "timing_invocations_per_sample": optional_int("invocations_per_sample"),
-        "timing_samples_s": samples,
-        "timing_physical_device_count": optional_int("physical_device_count"),
-        "timing_input_residency": str(timing.get("input_residency") or ""),
-        "timing_output_residency_at_stop": str(timing.get("output_residency_at_stop") or ""),
-        "timing_excludes": excludes,
-        "latency_includes_input_construction": bool(
-            timing.get("includes_input_construction", False)
-        ),
-        "latency_cuda_synchronized": bool(timing.get("cuda_synchronized", False)),
+        "latency_scope": evidence.scope,
+        "latency_source": evidence.source,
+        "latency_clock": evidence.clock,
+        "timing_protocol": evidence.protocol,
+        "timing_warmup_count": evidence.warmup_count,
+        "timing_sample_count": evidence.sample_count,
+        "timing_invocations_per_sample": evidence.invocations_per_sample,
+        "timing_samples_s": evidence.samples_s,
+        "timing_physical_device_count": evidence.physical_device_count,
+        "timing_input_residency": evidence.input_residency,
+        "timing_output_residency_at_stop": evidence.output_residency_at_stop,
+        "timing_excludes": evidence.excludes,
+        "latency_includes_input_construction": evidence.includes_input_construction,
+        "latency_cuda_synchronized": evidence.cuda_synchronized,
     }
 
 

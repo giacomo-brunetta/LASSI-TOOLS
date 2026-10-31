@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from lassi_x.protocol import (
+    MAX_FRAME_BYTES,
     TurnUsage,
     WorkerFailure,
     WorkerInit,
@@ -250,10 +251,14 @@ def main() -> int:
     history: list[dict[str, Any]] | None = None
     previous_usage = (0, 0, 0.0)
     secrets: list[str] = []
-    for line in sys.stdin:
+    stream = getattr(sys.stdin, "buffer", sys.stdin)
+    while line := stream.readline(MAX_FRAME_BYTES + 1):
+        if len(line) > MAX_FRAME_BYTES:
+            emit(WorkerFailure(error="worker protocol frame exceeds byte limit"))
+            break
         try:
             request = parse_worker_request(line)
-        except ValidationError as exc:
+        except (ValidationError, ValueError) as exc:
             emit(WorkerFailure(error=f"ValidationError: {exc}"))
             continue
         try:

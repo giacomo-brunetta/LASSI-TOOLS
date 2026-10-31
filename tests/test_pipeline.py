@@ -467,7 +467,9 @@ def test_acceptance_requires_every_configured_accelerator(tmp_path: Path) -> Non
     assert acceptance["passed"] is True
 
 
-def test_skill_record_version_comes_from_install_manifest(tmp_path: Path, monkeypatch: Any) -> None:
+def test_skill_records_fingerprint_the_bundle_used_by_isolated_workers(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
     root = tmp_path / "skills"
     skill = root / "one" / "SKILL.md"
     skill.parent.mkdir(parents=True)
@@ -475,9 +477,10 @@ def test_skill_record_version_comes_from_install_manifest(tmp_path: Path, monkey
     (root / ".lassi-x-manifest.json").write_text(
         json.dumps({"schema_version": 1, "lassi_x_version": "9.8.7"})
     )
-    monkeypatch.setattr(run_record, "install_root", lambda: root)
+    monkeypatch.setattr(run_record, "source_root", lambda: root)
+    monkeypatch.setattr(run_record, "__version__", "1.2.3")
     monkeypatch.setattr(run_record, "AUTOMATION_SKILLS", ("one",))
-    assert run_record.skill_records()[0]["version"] == "9.8.7"
+    assert run_record.skill_records()[0]["version"] == "1.2.3"
 
 
 def test_candidate_journal_rejects_unknown_schema(tmp_path: Path) -> None:
@@ -628,7 +631,9 @@ def test_cpu_verified_pause_and_resume(
     )
     assert code == (0 if passing_candidates else 1)
     assert context_configs[0].execution.mode == "local"
-    assert context_configs[0].execution.resources == {}
+    assert set(context_configs[0].execution.resources) == {"remote"}
+    assert context_configs[0].execution.resources["remote"].endpoint_id is None
+    assert context_configs[0].execution.resources["remote"].workspace_root is None
     assert sorted(calls) == (
         ["generate-3"]
         if interrupted

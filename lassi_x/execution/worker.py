@@ -84,7 +84,7 @@ class ExecutionWorker(Agent):
             Digest and size of the bytes written.
 
         """
-        return workspace_ops.put_file(self.workspace_root, request)
+        return await self.agent_run_sync(workspace_ops.put_file, self.workspace_root, request)
 
     @action
     async def get_file(self, request: FileGet) -> FileContent:
@@ -97,7 +97,7 @@ class ExecutionWorker(Agent):
             The file payload as UTF-8 text or base64.
 
         """
-        return workspace_ops.get_file(self.workspace_root, request)
+        return await self.agent_run_sync(workspace_ops.get_file, self.workspace_root, request)
 
     @action
     async def list_dir(self, request: ListDir) -> DirListing:
@@ -110,4 +110,4 @@ class ExecutionWorker(Agent):
             Sorted entries with file sizes.
 
         """
-        return workspace_ops.list_dir(self.workspace_root, request)
+        return await self.agent_run_sync(workspace_ops.list_dir, self.workspace_root, request)

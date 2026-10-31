@@ -232,6 +232,7 @@ loss of the parent's device accuracy; do not claim success before those gates re
         toolsets=["skills", toolset],
         role=f"compatibility-{slug}",
         memory=config.memory,
+        hermes_home=execution.hermes_home,
     )
     target_measurement: Measurement | None = None
     if previous is not None:

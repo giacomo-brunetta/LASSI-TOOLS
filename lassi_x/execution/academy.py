@@ -15,6 +15,7 @@ from academy.exchange.cloud.client import (
     HttpExchangeFactory,
     HttpExchangeTransport,
 )
+from academy.message import ActionRequest
 
 from .base import ExecutionBackend
 
@@ -78,6 +79,11 @@ class PersistentHttpExchangeTransport(HttpExchangeTransport):
         transport errors are retried; mailbox and authorization errors are not.
         A 504 can follow an accepted send, so duplicate responses are possible.
         """
+        # An accepted action whose acknowledgement was lost must never be replayed.
+        # Academy 0.4 dispatches each delivery, even when tags are identical.
+        if isinstance(message.get_body(), ActionRequest):
+            await super().send(message)
+            return
         delay = SEND_RETRY_BASE_DELAY_S
         for attempt in range(1, SEND_RETRY_ATTEMPTS + 1):
             try:

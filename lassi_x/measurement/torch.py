@@ -11,6 +11,7 @@ from ..execution import RemoteCallTimeoutError, put_bytes
 from ..protocol import ExecRequest
 from ..types import Measurement, Status
 from ..validation import fixture_relative_path
+from ..worker_results import validate_worker_result
 from .common import (
     Backend,
     _attach_precision_evidence,
@@ -341,6 +342,7 @@ class TorchBackend(Backend[TorchBackendConfig]):
             payload = json.loads(result.stdout.strip().splitlines()[-1])
         except (json.JSONDecodeError, IndexError):
             payload = {"ok": False, "error": (result.stderr or result.stdout)[-2000:]}
+        payload = validate_worker_result(payload)
         checked = await verify_measurement_input_check(
             _base_measurement(
                 config,

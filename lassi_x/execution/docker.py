@@ -115,7 +115,8 @@ class DockerExecutionBackend(LocalExecutionBackend):
         command = self.command(request, name)
         try:
             return await workspace_ops.run_exec(
-                self.workspace_root, request.model_copy(update={"argv": command, "env": {}})
+                self.workspace_root,
+                ExecRequest.model_validate({**request.model_dump(), "argv": command, "env": {}}),
             )
         finally:
             # Clean up after normal exit, timeout, cancellation or failed client launch.
@@ -132,4 +133,4 @@ class DockerExecutionBackend(LocalExecutionBackend):
         if not result.ok:
             raise RuntimeError(f"Docker CPU runtime unavailable: {result.stderr or result.stdout}")
         report = HandshakeReport.model_validate_json(result.stdout.strip())
-        return report.model_copy(update={"resource": self.resource})
+        return HandshakeReport.model_validate({**report.model_dump(), "resource": self.resource})

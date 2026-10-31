@@ -38,7 +38,9 @@ class Diagnostic:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> Diagnostic:
-        return cls(**value)
+        from .persisted import restore_record  # noqa: PLC0415
+
+        return restore_record(cls, value)
 
     def for_agent(self) -> str:
         lines = [f"Gate: {self.gate}", f"Failure: {self.message}"]
@@ -74,7 +76,9 @@ class Usage:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> Usage:
-        return cls(**value)
+        from .persisted import restore_record  # noqa: PLC0415
+
+        return restore_record(cls, value)
 
 
 @dataclass(slots=True)
@@ -102,14 +106,9 @@ class Candidate:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> Candidate:
-        from pathlib import Path  # noqa: PLC0415
+        from .persisted import restore_record  # noqa: PLC0415
 
-        data = dict(value)
-        data["module_path"] = Path(data["module_path"])
-        data["status"] = Status(data["status"])
-        data["diagnostics"] = [Diagnostic.from_dict(item) for item in data["diagnostics"]]
-        data["usage"] = Usage.from_dict(data["usage"])
-        return cls(**data)
+        return restore_record(cls, value)
 
 
 @dataclass(slots=True)
@@ -242,8 +241,9 @@ class Measurement:
         data.pop("frontier_eligible", None)
         data.pop("precision_eligible", None)
         data.pop("stable_success", None)
-        data["status"] = Status(data["status"])
-        return cls(**data)
+        from .persisted import restore_record  # noqa: PLC0415
+
+        return restore_record(cls, data)
 
 
 @dataclass(frozen=True, slots=True)

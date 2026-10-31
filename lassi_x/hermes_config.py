@@ -217,3 +217,28 @@ def registered_lassi_servers(home: Path | None = None) -> Mapping[str, Any]:
     if not isinstance(servers, dict):
         return {}
     return {name: entry for name, entry in servers.items() if name.startswith(SERVER_PREFIX)}
+
+
+def prepare_run_home(home: Path | None) -> None:
+    """Seed an isolated run home without copying stale workspace registrations."""
+    from .skills import install_skills  # noqa: PLC0415
+
+    if home is None:
+        return
+    home.mkdir(parents=True, exist_ok=True)
+    source = hermes_home()
+    if home.resolve() == source:
+        return
+    destination = home / "config.yaml"
+    if not destination.exists():
+        data = _load(source / "config.yaml")
+        servers = data.get("mcp_servers", {})
+        if isinstance(servers, dict):
+            data["mcp_servers"] = {
+                name: entry for name, entry in servers.items() if not name.startswith(SERVER_PREFIX)
+            }
+        atomic_write(destination, yaml.safe_dump(data))
+    plugins = source / "plugins"
+    if plugins.is_dir() and not (home / "plugins").exists():
+        (home / "plugins").symlink_to(plugins, target_is_directory=True)
+    install_skills(home)

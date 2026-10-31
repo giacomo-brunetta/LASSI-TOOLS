@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import contextlib
 import hashlib
 import os
 import platform
@@ -100,7 +101,10 @@ def _clip(data: bytes) -> tuple[str, bool]:
 
     """
     truncated = len(data) > MAX_TEXT_BYTES
-    return data[:MAX_TEXT_BYTES].decode(errors="replace"), truncated
+    text = data[:MAX_TEXT_BYTES].decode(errors="replace")
+    # Replacement characters can expand invalid bytes; enforce the encoded limit too.
+    clipped = text.encode()[:MAX_TEXT_BYTES].decode(errors="ignore")
+    return clipped, truncated or clipped != text
 
 
 async def run_exec(root: Path, request: ExecRequest) -> ExecResult:
@@ -157,6 +161,14 @@ async def run_exec(root: Path, request: ExecRequest) -> ExecResult:
             process.communicate(stdin_data), timeout=request.timeout_s
         )
         timed_out = False
+    except asyncio.CancelledError:
+        with contextlib.suppress(ProcessLookupError):
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        await process.communicate()
+        raise
     except TimeoutError:
         if os.name == "posix":
             os.killpg(process.pid, signal.SIGKILL)

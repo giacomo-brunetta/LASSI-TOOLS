@@ -38,7 +38,9 @@ class QualificationResult:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> QualificationResult:
-        return cls(**value)
+        from .persisted import restore_record  # noqa: PLC0415
+
+        return restore_record(cls, value)
 
 
 async def qualify_candidate(

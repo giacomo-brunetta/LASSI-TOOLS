@@ -18,6 +18,8 @@ Rules for every model defined here:
 
 from __future__ import annotations
 
+import base64
+import binascii
 import posixpath
 from typing import Annotated, Literal
 
@@ -31,10 +33,14 @@ from pydantic import (
     model_validator,
 )
 
+from .immutable import freeze
+
 PROTOCOL_VERSION = 1
 
 MAX_INLINE_BYTES = 4 * 1024 * 1024
 """Largest payload allowed inline in a single message (file content, stdin)."""
+
+MAX_FRAME_BYTES = 32 * 1024 * 1024
 
 MAX_TEXT_BYTES = 256 * 1024
 """Largest stdout/stderr excerpt returned inline; the remainder is spilled."""
@@ -43,9 +49,15 @@ MAX_TEXT_BYTES = 256 * 1024
 class WireModel(BaseModel):
     """Base class for every message that crosses a process or network boundary."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False, strict=True)
 
     schema_version: Literal[1] = 1
+
+    @model_validator(mode="after")
+    def immutable_collections(self) -> WireModel:
+        for name in type(self).model_fields:
+            object.__setattr__(self, name, freeze(getattr(self, name)))
+        return self
 
 
 WorkspaceName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")]
@@ -93,7 +105,7 @@ class MemorySettings(BaseModel):
     a self-hosted Mem0 server may run with authentication disabled.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False, strict=True)
 
     host: str
     api_key_env: str | None = None
@@ -186,6 +198,27 @@ WorkerResponse = Annotated[WorkerReady | WorkerTurn | WorkerFailure, Field(discr
 _worker_response_adapter: TypeAdapter[WorkerResponse] = TypeAdapter(WorkerResponse)
 
 
+def _check_frame(line: str | bytes) -> None:
+    if len(line.encode() if isinstance(line, str) else line) > MAX_FRAME_BYTES:
+        raise ValueError("worker protocol frame exceeds byte limit")
+
+
+def _check_text_bytes(value: str | None, limit: int) -> str | None:
+    if value is not None and len(value.encode()) > limit:
+        raise ValueError(f"text exceeds {limit} UTF-8 bytes")
+    return value
+
+
+def _decode_binary(value: str) -> bytes:
+    try:
+        data = base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise ValueError("malformed base64 payload") from exc
+    if len(data) > MAX_INLINE_BYTES:
+        raise ValueError("decoded payload exceeds byte limit")
+    return data
+
+
 def parse_worker_request(line: str | bytes) -> WorkerRequest:
     """Decode and validate one worker request line.
 
@@ -199,6 +232,7 @@ def parse_worker_request(line: str | bytes) -> WorkerRequest:
         pydantic.ValidationError: If the line is not a valid worker request.
 
     """
+    _check_frame(line)
     return _worker_request_adapter.validate_json(line)
 
 
@@ -215,6 +249,7 @@ def parse_worker_response(line: str | bytes) -> WorkerResponse:
         pydantic.ValidationError: If the line is not a valid worker response.
 
     """
+    _check_frame(line)
     return _worker_response_adapter.validate_json(line)
 
 
@@ -237,6 +272,11 @@ class ExecRequest(WireModel):
     stdin_text: str | None = Field(default=None, max_length=MAX_INLINE_BYTES)
     timeout_s: float = Field(default=600.0, gt=0.0, le=24 * 3600.0)
     env: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("stdin_text")
+    @classmethod
+    def stdin_fits(cls, value: str | None) -> str | None:
+        return _check_text_bytes(value, MAX_INLINE_BYTES)
 
     @field_validator("cwd")
     @classmethod
@@ -264,6 +304,12 @@ class ExecResult(WireModel):
     stdout_truncated: bool = False
     stderr_truncated: bool = False
     duration_s: float = Field(ge=0.0)
+
+    @field_validator("stdout", "stderr")
+    @classmethod
+    def output_fits(cls, value: str) -> str:
+        _check_text_bytes(value, MAX_TEXT_BYTES)
+        return value
 
     @property
     def ok(self) -> bool:
@@ -295,6 +341,9 @@ class FilePut(WireModel):
     @model_validator(mode="after")
     def exactly_one_payload(self) -> FilePut:
         """Require exactly one payload representation."""
+        _check_text_bytes(self.text, MAX_INLINE_BYTES)
+        if self.content_b64 is not None:
+            _decode_binary(self.content_b64)
         if (self.text is None) == (self.content_b64 is None):
             raise ValueError("provide exactly one of text or content_b64")
         return self
@@ -342,6 +391,18 @@ class FileContent(WireModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     size_bytes: int = Field(ge=0)
     truncated: bool = False
+
+    @model_validator(mode="after")
+    def payload_fits(self) -> FileContent:
+        if self.encoding == "base64":
+            data = _decode_binary(self.content)
+            if len(data) != self.size_bytes:
+                raise ValueError("payload size does not match size_bytes")
+        else:
+            _check_text_bytes(self.content, MAX_INLINE_BYTES)
+            if len(self.content.encode()) != self.size_bytes:
+                raise ValueError("payload size does not match size_bytes")
+        return self
 
 
 class DirEntry(WireModel):

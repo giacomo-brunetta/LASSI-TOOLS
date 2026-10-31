@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import field_validator
+
+from . import __version__
 from .config import StrictModel
 from .pareto import valid_point
-from .skills import AUTOMATION_SKILLS, install_root
+from .skills import AUTOMATION_SKILLS, source_root
+from .types import Candidate, Measurement
 
 if TYPE_CHECKING:
     from .config import RunConfig
-    from .types import Measurement
 
 
 class RunRecord(StrictModel):
@@ -48,14 +50,26 @@ class RunRecord(StrictModel):
     frontier: list[dict[str, Any]]
     visualizations: dict[str, Any]
 
+    @field_validator("candidates", "compatibility_candidates", "numerical_candidates")
+    @classmethod
+    def candidate_records(cls, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        for value in values:
+            Candidate.from_dict(value)
+        return values
+
+    @field_validator("measurements", "frontier")
+    @classmethod
+    def measurement_records(cls, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        for value in values:
+            Measurement.from_dict(value)
+        return values
+
 
 def skill_records() -> list[dict[str, str]]:
-    """Fingerprint every installed automation skill used by a run."""
+    """Fingerprint the bundled skills installed into isolated worker profiles."""
 
-    root = install_root()
-    manifest_path = root / ".lassi-x-manifest.json"
-    manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
-    bundle_version = str(manifest.get("lassi_x_version") or "unknown")
+    root = source_root()
+    bundle_version = __version__
     return [
         {
             "name": name,

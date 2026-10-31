@@ -1,14 +1,30 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, validate_assignment=True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # An after-validator can fail after Pydantic has assigned the new field.
+        # Preserve the last valid state when rejecting such a change.
+        previous = self.__dict__.copy()
+        fields_set = self.__pydantic_fields_set__.copy()
+        try:
+            super().__setattr__(name, value)
+        except ValidationError:
+            object.__setattr__(self, "__dict__", previous)
+            object.__setattr__(self, "__pydantic_fields_set__", fields_set)
+            raise
+
+    def validated_update(self, **updates: Any) -> Self:
+        """Reconstruct changes through all field and cross-section validators."""
+        return type(self).model_validate({**self.model_dump(), **updates})
 
 
 class ProjectConfig(StrictModel):

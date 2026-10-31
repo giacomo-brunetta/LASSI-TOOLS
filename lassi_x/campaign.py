@@ -208,7 +208,7 @@ def prepare(source: Path, root: Path) -> None:
         path = root / "files" / (name + Path(artifact.path).suffix)
         path.parent.mkdir(exist_ok=True)
         path.write_bytes(data)
-        files[name] = artifact.model_copy(update={"path": str(path.relative_to(root))})
+        files[name] = artifact.validated_update(path=str(path.relative_to(root)))
     frozen = Frozen(plan=plan, files=files)
     write_json(root / "plan.json", frozen.model_dump())
     (root / "plan.sha256").write_text(digest((root / "plan.json").read_bytes()) + "\n")

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .academy import (
@@ -18,8 +21,8 @@ from .local import LocalExecutionBackend
 from .transfer import fetch_bytes, put_bytes
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from concurrent.futures import Executor
-    from pathlib import Path
 
     from academy.handle import Handle
 
@@ -79,6 +82,8 @@ class ExecutionContext:
         self.mcp = LassiMCPServer(backends, default_resource=default_resource)
         self.runner = MCPServerRunner(self.mcp)
         self.registered_servers: list[str] = []
+        self._profile: tempfile.TemporaryDirectory[str] | None = None
+        self._executors: list[Executor] = []
         self._manager: object | None = None
         self._memory_active = False
         self._memory_previous: str | None = None
@@ -127,74 +132,91 @@ class ExecutionContext:
             """Keep the first retirement reason for a resource."""
             dead_resources.setdefault(resource, detail)
 
-        if execution.mode == "docker":
-            backends = {
-                name: DockerExecutionBackend(mirror_root, execution.docker, name)
-                for name in resources
-            }
-            # Fail before planner/model calls if the daemon or prebuilt image is unavailable.
-            for backend in backends.values():
-                await backend.cached_handshake()
-        elif execution.mode == "local":
-            backends = {
-                name: LocalExecutionBackend(spec.workspace_root or mirror_root, name)
-                for name, spec in resources.items()
-            }
-        else:
-            from academy.exchange import LocalExchangeFactory  # noqa: PLC0415
-            from academy.handle import Handle  # noqa: PLC0415
-            from academy.manager import Manager  # noqa: PLC0415
-
-            from .worker import ExecutionWorker  # noqa: PLC0415
-
-            executors: dict[str, Executor | None] = {
-                name: _resource_executor(name, spec) for name, spec in resources.items()
-            }
-            if execution.exchange_url is None:
-                manager = await Manager.from_exchange_factory(
-                    factory=LocalExchangeFactory(), executors=executors
+        context: ExecutionContext | None = None
+        owned_executors: list[Executor] = []
+        profile: tempfile.TemporaryDirectory[str] | None = None
+        try:
+            if execution.mode == "docker":
+                backends.update(
+                    {
+                        name: DockerExecutionBackend(mirror_root, execution.docker, name)
+                        for name in resources
+                    }
+                )
+                # Fail before planner/model calls if the daemon or prebuilt image is unavailable.
+                for backend in backends.values():
+                    await backend.cached_handshake()
+            elif execution.mode == "local":
+                backends.update(
+                    {
+                        name: LocalExecutionBackend(spec.workspace_root or mirror_root, name)
+                        for name, spec in resources.items()
+                    }
                 )
             else:
-                manager = await Manager.from_exchange_factory(
-                    factory=PersistentHttpExchangeFactory(
-                        execution.exchange_url,
-                        auth_method="globus" if execution.auth == "globus" else None,
-                    ),
-                    executors=executors,
-                )
-            for name, spec in resources.items():
-                agent_root = spec.workspace_root or mirror_root
-                launched = await manager.launch(
-                    ExecutionWorker,
-                    args=(str(agent_root), name),
-                    executor=name,
-                )
-                # Bind the exchange client explicitly: backend calls happen in
-                # HTTP-handler tasks that never enter the manager context.
-                handle: Handle[ExecutionWorker] = Handle(
-                    launched.agent_id, exchange=manager.exchange_client
-                )
-                backends[name] = AcademyExecutionBackend(
-                    handle,
-                    name,
-                    call_timeout_s=execution.call_timeout_s,
-                    dead_after_timeouts=execution.dead_after_timeouts,
-                    on_dead=record_dead,
-                    heartbeat_interval_s=execution.heartbeat_interval_s,
-                    heartbeat_misses=execution.heartbeat_misses,
-                    pause_max_s=execution.pause_max_s,
-                )
-        context = cls(
-            backends=backends,
-            default_resource=default_resource,
-            mirror_root=mirror_root,
-            mcp_timeout_s=execution.mcp_timeout_s,
-            hermes_home=hermes_home,
-            enable_memory=config.memory.enabled,
-            dead_resources=dead_resources,
-        )
-        context._manager = manager
-        try:
+                from academy.exchange import LocalExchangeFactory  # noqa: PLC0415
+                from academy.handle import Handle  # noqa: PLC0415
+                from academy.manager import Manager  # noqa: PLC0415
+
+                from .worker import ExecutionWorker  # noqa: PLC0415
+
+                executors: dict[str, Executor | None] = {}
+                for name, spec in resources.items():
+                    executor = _resource_executor(name, spec)
+                    owned_executors.append(executor)
+                    executors[name] = executor
+                if execution.exchange_url is None:
+                    manager = await Manager.from_exchange_factory(
+                        factory=LocalExchangeFactory(), executors=executors
+                    )
+                else:
+                    manager = await Manager.from_exchange_factory(
+                        factory=PersistentHttpExchangeFactory(
+                            execution.exchange_url,
+                            auth_method="globus" if execution.auth == "globus" else None,
+                        ),
+                        executors=executors,
+                    )
+                for name, spec in resources.items():
+                    agent_root = spec.workspace_root or mirror_root
+                    launched = await manager.launch(
+                        ExecutionWorker,
+                        args=(str(agent_root), name),
+                        executor=name,
+                    )
+                    # Bind the exchange client explicitly: backend calls happen in
+                    # HTTP-handler tasks that never enter the manager context.
+                    handle: Handle[ExecutionWorker] = Handle(
+                        launched.agent_id, exchange=manager.exchange_client
+                    )
+                    backends[name] = AcademyExecutionBackend(
+                        handle,
+                        name,
+                        call_timeout_s=execution.call_timeout_s,
+                        dead_after_timeouts=execution.dead_after_timeouts,
+                        on_dead=record_dead,
+                        heartbeat_interval_s=execution.heartbeat_interval_s,
+                        heartbeat_misses=execution.heartbeat_misses,
+                        pause_max_s=execution.pause_max_s,
+                    )
+            if hermes_home is None:
+                profile = tempfile.TemporaryDirectory(prefix="lassi-run-hermes-")
+                hermes_home = Path(profile.name)
+            context = cls(
+                backends=backends,
+                default_resource=default_resource,
+                mirror_root=mirror_root,
+                mcp_timeout_s=execution.mcp_timeout_s,
+                hermes_home=hermes_home,
+                enable_memory=config.memory.enabled,
+                dead_resources=dead_resources,
+            )
+            context._profile = profile
+            context._manager = manager
+            context._executors = owned_executors
+            from ..hermes_config import prepare_run_home  # noqa: PLC0415
+
+            prepare_run_home(context.hermes_home)
             for backend in backends.values():
                 await backend.start_keepalive()
             await context.runner.start()
@@ -204,7 +226,15 @@ class ExecutionContext:
                 context._memory_previous = enable_memory_provider(home=context.hermes_home)
                 context._memory_active = True
         except BaseException:
-            await context.close()
+            if context is not None:
+                await context.close()
+            else:
+                await cls._close_manager(manager)
+                for executor in owned_executors:
+                    with cls._cleanup_step("shutdown executor"):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                if profile is not None:
+                    profile.cleanup()
             raise
         return context
 
@@ -359,19 +389,36 @@ class ExecutionContext:
         )
 
         if self.registered_servers:
-            unregister_workspace_servers(self.registered_servers, home=self.hermes_home)
+            with self._cleanup_step("unregister Hermes servers"):
+                unregister_workspace_servers(self.registered_servers, home=self.hermes_home)
             self.registered_servers = []
         if self._memory_active:
-            restore_memory_provider(self._memory_previous, home=self.hermes_home)
+            with self._cleanup_step("restore memory provider"):
+                restore_memory_provider(self._memory_previous, home=self.hermes_home)
             self._memory_active = False
             self._memory_previous = None
         # Before the manager goes, so a probe cannot outlive the exchange it
         # talks through and log a spurious miss during teardown.
         for backend in self.backends.values():
-            await backend.stop_keepalive()
-        await self.runner.stop()
+            with self._cleanup_step("stop keepalive"):
+                await backend.stop_keepalive()
+        with self._cleanup_step("stop MCP server"):
+            await self.runner.stop()
         manager = self._manager
         self._manager = None
+        await self._close_manager(manager)
+        for executor in self._executors:
+            with self._cleanup_step("shutdown executor"):
+                executor.shutdown(wait=False, cancel_futures=True)
+        self._executors.clear()
+        if self._profile is not None:
+            with self._cleanup_step("remove Hermes run profile"):
+                self._profile.cleanup()
+            self._profile = None
+
+    @staticmethod
+    async def _close_manager(manager: object | None) -> None:
+        """Close a manager even when startup never produced a context."""
         if manager is not None:
             from academy.handle import exchange_context  # noqa: PLC0415
             from academy.manager import Manager  # noqa: PLC0415
@@ -394,6 +441,17 @@ class ExecutionContext:
                 logger.warning("execution manager shutdown failed: %s: %s", type(exc).__name__, exc)
             finally:
                 exchange_context.reset(token)
+                with ExecutionContext._cleanup_step("close exchange"):
+                    await asyncio.wait_for(manager.exchange_client.close(), SHUTDOWN_TIMEOUT_S)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _cleanup_step(description: str) -> Iterator[None]:
+        """Keep independent teardown failures from masking the original error."""
+        try:
+            yield
+        except Exception:
+            logger.warning("Failed to %s", description, exc_info=True)
 
     async def __aenter__(self) -> ExecutionContext:
         """Enter the asynchronous context.

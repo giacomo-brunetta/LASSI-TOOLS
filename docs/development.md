@@ -29,3 +29,38 @@ are included before staging; deleted files are omitted.
 CI runs on Ubuntu 24.04. Local macOS results do not establish Linux compatibility.
 For changes to dependencies, packaging, paths, or platform behavior, also run the
 checks in a clean checkout and verify the GitHub Actions result after pushing.
+
+## Reliability boundaries
+
+Hermes sessions drain stderr continuously into a bounded diagnostic buffer. Each
+turn attempt bounds initialization, request writing, and response reading together;
+standalone initialization is bounded too. Shutdown drains stdout and escalates from
+a graceful close to process-group termination. Execution cancellation kills and
+reaps its command group before propagating cancellation.
+
+Execution contexts use temporary Hermes homes by default, and each Hermes worker
+receives its own temporary profile with an explicit `HERMES_HOME`. Workspace MCP
+registrations are copied from that run's configuration. Credentials are resolved
+from the environment or the selected/default Hermes home; credential files are
+copied only into temporary worker profiles, never into run artifacts. Bundled
+skills are installed into each profile and their source hashes are recorded in
+run provenance. An explicit Hermes-home override should be unique to its run.
+
+Academy transport retries exclude action requests: a lost acknowledgement cannot
+prove that the remote command did not execute. Callers must reconcile ambiguous
+submissions before issuing work again. File actions use Academy's synchronous
+worker executor so shared-storage operations do not block heartbeat handling.
+Startup owns resources as they are acquired, and independent cleanup steps continue
+when another cleanup step fails.
+
+Configuration rejects nonfinite values and validates assignments. Use
+`validated_update(...)` to change related fields together; `model_copy(update=...)`
+does not validate updates. Wire-model collections reject mutation and retain their
+JSON and pickle representation. Inline text limits count UTF-8 bytes, binary limits
+count decoded bytes, and worker JSONL frames are bounded.
+
+Measurement evidence uses strict field types, including boolean flags, timing
+counts, and finite latency values. Malformed worker evidence becomes an explicit
+`worker_protocol` failure. Compiler targets, checkpoints, and restored candidate
+and measurement records are validated at their boundaries. Checkpoints retain the
+fixture contract path and verify the recorded oracle checksum before resuming.

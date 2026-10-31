@@ -222,6 +222,8 @@ def test_saved_repair_revalidates_against_staged_baseline_without_model_turn(
             raise AssertionError("a valid saved edit must not consume a model turn")
 
     class Execution:
+        hermes_home = tmp_path / "hermes-home"
+
         def workspace_dir(self, slug: str) -> Path:
             return tmp_path / slug
 

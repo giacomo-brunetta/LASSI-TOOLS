@@ -16,6 +16,7 @@ from ..config import BackendConfig, GroqBackendConfig, GroqRuntimeConfig
 from ..execution import RemoteCallTimeoutError, fetch_bytes, put_bytes
 from ..protocol import ExecRequest
 from ..types import Measurement, Status
+from ..worker_results import validate_worker_result
 from .common import (
     Backend,
     _attach_precision_evidence,
@@ -326,6 +327,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
                         Status.CRASHED,
                         notes=f"invalid Groq completion record: {type(exc).__name__}: {exc}",
                     )
+                payload = validate_worker_result(payload, queued=True)
                 status_raw = payload.get("status", "crashed")
                 try:
                     status = Status(status_raw)
@@ -894,6 +896,7 @@ class GroqBackend(Backend[GroqBackendConfig]):
         Returns:
             Structured measurement populated from the worker payload.
         """
+        payload = validate_worker_result(payload)
         if not isinstance(payload, dict):
             return _base_measurement(
                 config,

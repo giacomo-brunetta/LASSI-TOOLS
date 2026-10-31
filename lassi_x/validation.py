@@ -582,8 +582,16 @@ async def _validate_correctness(
             case_dir.mkdir(parents=True, exist_ok=True)
             if index:
                 test = config.arena.correctness_tests[index - 1]
-                case_config.kernel.validation_dataset = test.dataset
-                case_config.oracle = test.oracle
+                case_config = case_config.validated_update(
+                    kernel=case_config.kernel.validated_update(validation_dataset=test.dataset),
+                    oracle=test.oracle,
+                    measure=case_config.measure.validated_update(
+                        evaluation_dataset=test.dataset,
+                        performance_dataset="default",
+                        evaluation_oracle=None,
+                        performance_oracle=None,
+                    ),
+                )
                 case_config.arena.timeout_s = min(test.timeout_s, remaining)
                 case_config.arena.input_check.enabled = True
                 if test.input_contract is not None:

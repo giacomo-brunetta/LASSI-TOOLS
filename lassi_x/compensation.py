@@ -5,7 +5,6 @@ import asyncio
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .agent_support import (
@@ -26,6 +25,7 @@ from .validation import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     from .config import BackendConfig, RunConfig
     from .execution import ExecutionContext
@@ -143,14 +143,9 @@ class CompensationVariant:
         data = dict(value)
         data.pop("target_precision_verified", None)
         data.pop("stable_success", None)
-        data["module_path"] = Path(data["module_path"])
-        data["status"] = Status(data["status"])
-        data["diagnostics"] = [Diagnostic.from_dict(item) for item in data["diagnostics"]]
-        data["usage"] = Usage.from_dict(data["usage"])
-        data["target_measurements"] = [
-            Measurement.from_dict(item) for item in data["target_measurements"]
-        ]
-        return cls(**data)
+        from .persisted import restore_record  # noqa: PLC0415
+
+        return restore_record(cls, data)
 
 
 def select_weak_points(
@@ -547,6 +542,7 @@ After editing and byte-compiling the target, return JSON only:
         toolsets=["skills", toolset],
         role=f"compensation-{slug}",
         memory=config.memory,
+        hermes_home=execution.hermes_home,
     )
     try:
         if previous is None or not has_saved_edit:

@@ -115,6 +115,7 @@ class FakeHermesSession:
         toolsets: list[str],
         role: str,
         memory: object | None = None,
+        hermes_home: Path | None = None,
     ) -> None:
         del model, system_prompt, toolsets, memory
         self.cwd = Path(cwd)

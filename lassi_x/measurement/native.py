@@ -12,6 +12,7 @@ from ..execution import RemoteCallTimeoutError, fetch_bytes, put_bytes
 from ..protocol import ExecRequest
 from ..types import Measurement, Status
 from ..validation import fixture_relative_path
+from ..worker_results import validate_worker_result
 from .common import (
     Backend,
     _attach_precision_evidence,
@@ -225,7 +226,8 @@ class NativeBackend(Backend[NativeBackendConfig]):
     ) -> Measurement:
         """Validate one native worker record and convert it to a measurement."""
 
-        if not isinstance(payload, dict) or not payload.get("ok"):
+        payload = validate_worker_result(payload)
+        if not payload.get("ok"):
             detail = payload if isinstance(payload, dict) else {}
             return _base_measurement(
                 config,

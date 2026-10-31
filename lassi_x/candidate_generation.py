@@ -278,7 +278,9 @@ def _parse_strategies(text: str, expected_count: int) -> list[dict[str, object]]
     return matches[0]
 
 
-async def plan_strategies(config: RunConfig, workspace: Path) -> tuple[list[str], dict[str, Any]]:
+async def plan_strategies(
+    config: RunConfig, workspace: Path, hermes_home: Path | None = None
+) -> tuple[list[str], dict[str, Any]]:
     """Ask the planner model for the configured number of translation strategies.
 
     The raw planner response is saved before parsing so malformed model output remains
@@ -362,6 +364,7 @@ Source context:
         toolsets=["skills"],
         role="planner",
         memory=config.memory,
+        hermes_home=hermes_home,
     ) as session:
         for attempt in range(config.arena.planner_format_retries + 1):
             request = (
@@ -649,6 +652,7 @@ async def generate_candidate(
         toolsets=["skills", toolset],
         role=candidate_id,
         memory=config.memory,
+        hermes_home=execution.hermes_home,
     )
     logger.info(
         "candidate %s start model=%s effort=%s strategy=%r",

@@ -15,6 +15,7 @@ from pathlib import Path
 from types import NoneType
 from typing import Any, Literal, Protocol, TypeVar
 
+from pydantic import Field
 from pydantic_graph import GraphBuilder
 
 from .artifacts import atomic_write, create_run_dir, write_json, write_resolved_config
@@ -27,7 +28,7 @@ from .compensation import (
     select_weak_points,
 )
 from .compile_checks import QualificationResult, qualify_candidate
-from .config import ExecutionConfig, RunConfig
+from .config import ExecutionConfig, RunConfig, StrictModel
 from .execution import ExecutionContext
 from .execution.preflight import native_runtime_checks
 from .generation_metrics import candidate_accuracy
@@ -42,6 +43,37 @@ from .validation import OracleResult, build_oracle, load_reference_output
 from .visualization import write_pareto_visualizations
 
 logger = logging.getLogger(__name__)
+
+
+class OracleCheckpoint(StrictModel):
+    output_path: str
+    build_stdout: str = ""
+    run_stdout: str = ""
+    source_sha256: str = ""
+    output_sha256: str = ""
+    determinism_runs: int = Field(default=1, ge=1)
+    input_contract_path: str | None = None
+
+
+class CheckpointRecord(StrictModel):
+    schema_version: Literal[1]
+    config_sha256: str
+    started_at: str
+    updated_at: str = ""
+    wall_seconds: float = Field(default=0, ge=0)
+    completed_stages: list[str] = Field(default_factory=list)
+    completed_candidate_ids: list[str] = Field(default_factory=list)
+    oracle: OracleCheckpoint | None = None
+    strategies: list[str] = Field(default_factory=list)
+    planner_record: dict[str, Any] = Field(default_factory=dict)
+    candidates: list[dict[str, Any]] = Field(default_factory=list)
+    valid_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    compatibility_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    numerical_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    compensation_variants: list[dict[str, Any]] = Field(default_factory=list)
+    qualifications: list[dict[str, Any]] = Field(default_factory=list)
+    pruning: list[dict[str, Any]] = Field(default_factory=list)
+    measurements: list[dict[str, Any]] = Field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -297,6 +329,9 @@ def _checkpoint_payload(state: PipelineState, deps: PipelineDeps) -> dict[str, A
             "source_sha256": state.oracle.source_sha256,
             "output_sha256": state.oracle.output_sha256,
             "determinism_runs": state.oracle.determinism_runs,
+            "input_contract_path": (
+                str(state.oracle.input_contract_path) if state.oracle.input_contract_path else None
+            ),
         }
     return {
         "schema_version": 1,
@@ -336,7 +371,7 @@ def _load_checkpoint(run_dir: Path, config: RunConfig) -> tuple[PipelineState, s
     path = run_dir / "checkpoint.json"
     if not path.is_file():
         return PipelineState(), dt.datetime.now(dt.UTC).isoformat(), 0.0
-    payload = json.loads(path.read_text())
+    payload = CheckpointRecord.model_validate_json(path.read_bytes(), strict=True).model_dump()
     if payload.get("schema_version") != 1:
         raise ValueError("unsupported pipeline checkpoint schema")
     if payload.get("config_sha256") != _config_hash(config):
@@ -345,6 +380,12 @@ def _load_checkpoint(run_dir: Path, config: RunConfig) -> tuple[PipelineState, s
     oracle = None
     if oracle_payload:
         output_path = Path(oracle_payload["output_path"])
+        expected_digest = oracle_payload.get("output_sha256")
+        if (
+            expected_digest
+            and hashlib.sha256(output_path.read_bytes()).hexdigest() != expected_digest
+        ):
+            raise ValueError("checkpoint oracle checksum mismatch")
         oracle = OracleResult(
             output_path=output_path,
             values=load_reference_output(output_path),
@@ -352,7 +393,12 @@ def _load_checkpoint(run_dir: Path, config: RunConfig) -> tuple[PipelineState, s
             run_stdout=oracle_payload.get("run_stdout", ""),
             source_sha256=oracle_payload.get("source_sha256", ""),
             output_sha256=oracle_payload.get("output_sha256", ""),
-            determinism_runs=int(oracle_payload.get("determinism_runs", 1)),
+            determinism_runs=oracle_payload["determinism_runs"],
+            input_contract_path=(
+                Path(oracle_payload["input_contract_path"])
+                if oracle_payload.get("input_contract_path")
+                else None
+            ),
         )
     state = PipelineState(
         oracle=oracle,
@@ -1224,7 +1270,9 @@ async def _build_oracle_step(ctx: PipelineStepContext[None]) -> None:
 async def _plan_strategies_step(ctx: PipelineStepContext[None]) -> None:
     if "plan_strategies" not in ctx.state.completed_stages:
         ctx.state.strategies, ctx.state.planner_record = await ctx.deps.scheduler.run_model(
-            partial(plan_strategies, ctx.deps.config, ctx.deps.run_dir)
+            partial(
+                plan_strategies, ctx.deps.config, ctx.deps.run_dir, ctx.deps.execution.hermes_home
+            )
         )
         _save_checkpoint(ctx.state, ctx.deps, "plan_strategies")
 
@@ -1734,8 +1782,12 @@ async def run_pipeline(
         execution_config = (
             config
             if until is None or config.execution.mode == "docker"
-            else config.model_copy(
-                update={"execution": ExecutionConfig(mcp_timeout_s=config.execution.mcp_timeout_s)}
+            else config.validated_update(
+                execution=ExecutionConfig(
+                    mcp_timeout_s=config.execution.mcp_timeout_s,
+                    resources={name: {} for name in config.execution.resources},
+                    default_resource=config.execution.default_resource,
+                )
             )
         )
         async with await ExecutionContext.start(execution_config, run_dir) as execution:

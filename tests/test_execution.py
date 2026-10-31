@@ -757,3 +757,26 @@ def test_execution_context_activates_and_restores_memory_provider(tmp_path: Path
         assert safe_load((home / "config.yaml").read_text())["memory"]["provider"] == "honcho"
 
     asyncio.run(run())
+
+
+def test_academy_does_not_replay_ambiguous_action_submission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def run() -> None:
+        async with _retry_transport(monkeypatch, [_http_error(504)]) as (
+            transport,
+            message,
+            sent,
+        ):
+            from academy.message import ActionRequest  # noqa: PLC0415
+
+            action = Message.create(
+                src=message.src,
+                dest=message.dest,
+                body=ActionRequest(action="execute", pargs=(), kargs={}),
+            )
+            with pytest.raises(aiohttp.ClientResponseError):
+                await transport.send(action)
+            assert sent == []
+
+    asyncio.run(run())
