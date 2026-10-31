@@ -29,12 +29,16 @@ the kernel. A seed in a case ID is descriptive: the harness does not automatical
 randomize a kernel's initialization. Prepare deterministic fixtures and matching
 trusted reference commands for each seed.
 
-Additional workloads require a harness-owned input contract in the format
-described in [input-validation.md](input-validation.md), with matching dataset
-metadata. Input parity is enforced for every additional workload. The primary
-workload retains the configured `arena.input_check` policy; enable it for new
-campaigns. Candidate-authored inputs are checked against the trusted contract;
-passing outputs alone cannot bypass input parity. Reference output generation
+Additional workloads using the historical builder interface require a harness-owned
+input contract in the format described in [input-validation.md](input-validation.md),
+with matching dataset metadata. Cases using `oracle.fixture_spec` obtain their
+contract from executed C initialization and can omit a separate `input_contract`;
+see [c-fixtures.md](c-fixtures.md). Input parity is enforced for every additional
+workload. For the historical builder interface, the primary workload retains the
+configured `arena.input_check` policy; enable it for new campaigns. Fixture-spec
+validation supplies harness-owned inputs regardless of that legacy opt-in.
+Candidate-authored inputs on the historical path are checked against the trusted
+contract; passing outputs alone cannot bypass input parity. Reference output generation
 also checks determinism and rejects nonfinite outputs.
 
 Use different values as well as sizes, valid edge cases, and awkward dimensions

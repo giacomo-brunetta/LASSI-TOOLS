@@ -1,5 +1,9 @@
 # Experiments
 
+Start with the [experiment driver guide](../docs/experiment-driver-guide.md) and
+[plan and handoff template](../docs/experiment-plan-template.md). They explain which
+workflow to use and what evidence to preserve before launching or resuming work.
+
 New campaigns should use the [frozen campaign workflow](../docs/campaigns.md)
 and `lassi-x campaign`. The scripts listed below are retained historical workflows;
 their campaign-specific selection and resume rules have not been migrated to the

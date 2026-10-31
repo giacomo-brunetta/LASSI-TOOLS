@@ -13,6 +13,14 @@ The current end-to-end system is summarized in the paper-ready, 3:1
 order, scheduler boundaries, checkpoint semantics, and architectural-timing policy implemented
 by the pipeline.
 
+## Driving experiments
+
+Agents planning or continuing experiments should start with the
+[experiment driver guide](docs/experiment-driver-guide.md) and the
+[plan and handoff template](docs/experiment-plan-template.md). They cover supported
+workflows, input contracts, concurrency, finite budgets, recovery, validation gates,
+and the remaining campaign/accelerator fixture integration work.
+
 ## Repository layout
 
 - [`benchmarks/`](benchmarks/README.md): C reference kernels and shared benchmark utilities.
@@ -52,11 +60,12 @@ and compensation roles independent model selections.
 Run the same quality gates used in CI before committing:
 
 ```bash
-ruff check .
-ruff format --check .
-mypy
-pytest
+uv sync --locked --extra dev --extra globus --extra roofline
+uv run --locked --extra dev --extra globus --extra roofline python tools/check_quality.py
 ```
+
+See [development checks](docs/development.md) for environment requirements and
+which files the checks include.
 
 ## Run
 
