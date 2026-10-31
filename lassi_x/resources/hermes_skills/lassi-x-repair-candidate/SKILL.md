@@ -37,15 +37,10 @@ repair the root cause with the smallest coherent change.
    required paths are available. Treat every correction as a fresh full-gate validation.
 7. Report the diagnosed cause, exact change, and checks actually run.
 
-## Bounded diagnostics
+## Diagnostics
 
-- Do not return complete validation logs, stack traces, source files, or diffs. Preserve complete
-  output in the diagnostic artifact directory and inspect only the earliest/root failure plus a
-  short relevant excerpt.
-- Start with `git diff --stat` or a file-specific summary. Inspect only the changed hunk needed to
-  verify the repair, with at most 100 lines or 8 KiB per tool response.
-- For compiler graphs and numerical outputs, follow the bounded graph and tensor rules from the
-  relevant compatibility or output-comparison skill.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Inspect the earliest failure and the changed hunk that resolves it.
 
 ## Evidence standard
 

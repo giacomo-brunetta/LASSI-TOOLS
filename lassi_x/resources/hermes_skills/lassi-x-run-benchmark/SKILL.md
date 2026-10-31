@@ -27,11 +27,10 @@ the implementation, overlapping device work, or separating speed from numerical 
 5. Compare median latency using equivalent protocols. Use minimum latency as supporting evidence,
    not the primary result.
 
-## Bounded diagnostics
+## Diagnostics
 
-Return benchmark metadata and aggregate timing/error statistics, not every raw sample or numerical
-output. Keep full samples and device logs as artifacts. If diagnosing an outlier, inspect only a
-small selected subset and keep each tool response under 100 lines and 8 KiB.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Report protocol metadata and aggregate timing/error statistics; inspect selected samples only to diagnose an outlier.
 
 ## Evidence standard
 

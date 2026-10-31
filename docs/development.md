@@ -107,3 +107,11 @@ provider error text.
 Fixture-spec runs must use `--until cpu-verified` until the downstream compiler,
 precision-audit, and measurement adapters support direct inputs. Full runs and resumes
 reject this configuration before allocating resources or contacting models.
+
+Worker prompts inline essential role skills and the shared diagnostic output policy once.
+Coder prompts route rejected candidates, numerical comparisons, elementary approximations,
+and accelerator targets to their relevant skills on demand. Compensation workers receive
+core diagnosis and compensation instructions; technique examples and platform tables remain
+linked resources. Bundle validation checks these resources before startup, and provenance
+continues to hash every resource whether or not it is inlined. Standalone skills link the
+same diagnostic policy installed alongside them.

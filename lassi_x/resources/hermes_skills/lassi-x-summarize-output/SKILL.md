@@ -23,11 +23,10 @@ finite, then use summary statistics to guide diagnosis without mistaking them fo
 5. If validation is required, follow with an elementwise comparison against the authoritative
    reference output.
 
-## Bounded diagnostics
+## Diagnostics
 
-Never print or read the raw numeric artifact into the conversation. Use the summarizer's compact
-statistics; if values must be inspected, request only a deliberately selected small slice. Keep
-each tool response under 100 lines and approximately 8 KiB.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Use compact statistics first; select a small indexed slice only when needed.
 
 ## Evidence standard
 

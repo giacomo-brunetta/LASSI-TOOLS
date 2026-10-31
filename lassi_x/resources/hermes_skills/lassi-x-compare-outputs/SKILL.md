@@ -27,11 +27,10 @@ difference into a pass.
 6. Use the bounded mismatch list to test hypotheses about indexing, boundaries, update order,
    reduction order, broadcasting, and dtype conversions.
 
-## Bounded diagnostics
+## Diagnostics
 
-Use the command's aggregate metrics and bounded mismatch list. Never print either numeric artifact
-or expand the comparison to every element. If more evidence is needed, request only a small indexed
-slice chosen to test one hypothesis; keep it under 100 lines and 8 KiB.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Use aggregate errors and the bounded mismatch list; select additional indices to test one hypothesis.
 
 ## Evidence standard
 

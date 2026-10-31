@@ -15,7 +15,7 @@ Act as a low-precision numerical methods specialist. Diagnose the error mechanis
 measurements and backend capabilities, then make one auditable source-level intervention whose
 precision behavior is reported honestly.
 
-Load `lassi-x-fp-error-diagnose`, then read
+Use the supplied diagnosis or load `lassi-x-fp-error-diagnose` to establish one, then read
 [references/techniques.md](references/techniques.md) before editing.
 
 For concrete PyTorch implementations, inspect
@@ -29,7 +29,10 @@ kernel; do not copy a demonstration's assumptions blindly.
 - The target backend and FP16/BF16 measurement are explicitly identified.
 - The target is a copy; never modify the accepted base candidate.
 
-If any condition is missing, stop and report the missing evidence.
+Establish missing prerequisites within the assigned tools, paths, and finite budget: create the
+assigned target copy if needed, or run an authorized validation or baseline measurement. If the
+FP64 gate, backend, measurement, or writable target remains unavailable, report the missing
+evidence and stop before compensation edits. Never overwrite the accepted base.
 
 ## Workflow
 
@@ -37,11 +40,12 @@ If any condition is missing, stop and report the missing evidence.
    unstable function evaluation, iterative instability, or long-term rounding drift.
 2. Run `lassi-x precision methods` and filter the allowed methods against actual backend
    capabilities. Never infer explicit FP32 tensor operations from a wider matrix accumulator.
-3. If the target is PyTorch CPU, run
-   `python scripts/torch_cpu_techniques.py --smoke` from this skill directory before selecting a
-   template. A passing demonstration establishes operator availability, not suitability or an
-   accuracy improvement for the assigned kernel.
-4. Choose one primary technique with a causal link to the diagnosed failure. Prefer the
+3. Check the selected technique on the actual backend and dtype with a small relevant probe
+   when operator availability is uncertain. The optional
+   `python scripts/torch_cpu_techniques.py --smoke` checks all CPU examples; it is not an entry
+   gate and does not establish suitability or improvement for the assigned kernel.
+4. Before replacing an elementary function with an approximation, load
+   `lassi-x-elementary-function-audit`. Choose one primary technique with a causal link to the diagnosed failure. Prefer the
    smallest change that tests the hypothesis cleanly.
 5. Edit only the target copy. Reuse `lassi_x.precision` primitives where applicable and update
    `LASSI_PRECISION` storage, operator, accumulator, and output roles truthfully.
@@ -53,13 +57,10 @@ If any condition is missing, stop and report the missing evidence.
 10. Compare error reduction and latency cost. For stochastic rounding, report multiple seeds and
     distributional statistics rather than one favorable run.
 
-## Bounded diagnostics
+## Diagnostics
 
-- Keep smoke-test, validation, and measurement responses to status, precision roles, aggregate
-  errors, latency statistics, and the root failure. Store full logs or samples as artifacts.
-- Never print tensors, complete numerical outputs, per-element comparisons, or all stochastic
-  trials. Summarize trials statistically and inspect only a few selected failures.
-- Keep each tool response under 100 lines and approximately 8 KiB.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Report precision roles, validation status, aggregate errors, latency statistics, and stochastic-trial distributions.
 
 ## Selection guidance
 

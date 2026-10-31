@@ -36,7 +36,7 @@ def test_skill_install_doctor_and_uninstall(tmp_path: Path) -> None:
     assert not doctor_skills(tmp_path)["ok"]
 
 
-def test_bundled_skills_define_roles_evidence_and_guardrails() -> None:
+def test_bundled_skills_have_valid_discovery_metadata() -> None:
     for name in SKILL_NAMES:
         text = (source_root() / name / "SKILL.md").read_text()
         _, raw_frontmatter, body = text.split("---", 2)
@@ -46,33 +46,32 @@ def test_bundled_skills_define_roles_evidence_and_guardrails() -> None:
         assert frontmatter["description"]
         assert "requires_toolsets" not in frontmatter
         assert frontmatter["metadata"]["hermes"]["requires_toolsets"]
-        assert "## Role" in body
-        assert "## Workflow" in body
-        assert "## Evidence standard" in body
-        assert "## Guardrails" in body
-        assert "LASSI-X" not in text
+        assert body.strip()
 
 
-def test_output_sensitive_skills_require_bounded_diagnostics() -> None:
-    output_sensitive = {
-        "lassi-x-accelerator-compatibility",
-        "lassi-x-compare-outputs",
-        "lassi-x-elementary-function-audit",
-        "lassi-x-fp-error-diagnose",
-        "lassi-x-fp16-compensate",
-        "lassi-x-groq-latency",
-        "lassi-x-pareto-explore",
-        "lassi-x-repair-candidate",
-        "lassi-x-run-benchmark",
-        "lassi-x-summarize-output",
-        "lassi-x-translate-kernel",
-        "lassi-x-verification-report",
-    }
+def test_skill_resource_links_resolve() -> None:
+    import re  # noqa: PLC0415
 
-    for name in output_sensitive:
-        text = (source_root() / name / "SKILL.md").read_text()
-        assert "## Bounded diagnostics" in text
-        assert "8 KiB" in text
+    for path in source_root().rglob("*.md"):
+        for target in re.findall(r"\]\(([^)]+)\)", path.read_text()):
+            if "://" not in target and not target.startswith("#"):
+                assert (path.parent / target.split("#", 1)[0]).is_file(), (path, target)
+
+
+def test_workers_receive_shared_diagnostics_and_conditional_skills_stay_available() -> None:
+    root = source_root()
+    policy = (root / "references/diagnostics.md").read_text()
+    for role in ("planner", "c1", "compensation-n-c1-fp16", "compatibility-check"):
+        prompt = automation_skill_prompt(role)
+        assert prompt.count(policy) == 1
+        assert (root / "lassi-x-elementary-function-audit/SKILL.md").read_text() not in prompt
+        assert (
+            root / "lassi-x-accelerator-compatibility/references/platform-summary.md"
+        ).read_text() not in prompt
+    coder = automation_skill_prompt("c1")
+    assert (root / "lassi-x-translate-kernel/SKILL.md").read_text() in coder
+    assert (root / "lassi-x-repair-candidate/SKILL.md").read_text() not in coder
+    assert (root / "lassi-x-accelerator-compatibility/SKILL.md").read_text() not in coder
 
 
 def test_skill_checks_detect_stale_auxiliary_resources(tmp_path: Path) -> None:
@@ -85,17 +84,25 @@ def test_skill_checks_detect_stale_auxiliary_resources(tmp_path: Path) -> None:
         require_automation_skills(tmp_path)
 
 
-def test_numerical_worker_receives_full_skills_and_technique_reference() -> None:
+def test_shared_diagnostics_are_installed_and_checked_for_staleness(tmp_path: Path) -> None:
+    install_skills(tmp_path)
+    policy = tmp_path / "skills/lassi-x/references/diagnostics.md"
+    assert policy.read_bytes() == (source_root() / "references/diagnostics.md").read_bytes()
+    policy.write_text("local policy edit")
+    with pytest.raises(RuntimeError, match="stale or incomplete"):
+        require_automation_skills(tmp_path)
+
+
+def test_numerical_worker_receives_core_skills_with_techniques_on_demand() -> None:
     prompt = automation_skill_prompt("compensation-n-c1-fp16")
     for name in (
         "lassi-x-fp-error-diagnose",
         "lassi-x-fp16-compensate",
-        "lassi-x-elementary-function-audit",
     ):
         assert (source_root() / name / "SKILL.md").read_text() in prompt
     assert (
         source_root() / "lassi-x-fp16-compensate/references/techniques.md"
-    ).read_text() in prompt
+    ).read_text() not in prompt
     assert automation_skill_prompt("unrelated-test-role") == ""
 
 

@@ -39,14 +39,10 @@ do not prescribe compensation from an aggregate error metric alone.
    and the smallest intervention that would falsify the diagnosis. Then hand off to
    `lassi-x-fp16-compensate`.
 
-## Bounded diagnostics
+## Diagnostics
 
-- Never print complete tensors, output arrays, iteration histories, or per-element errors.
-- Report shape, dtype, device, finite/zero/subnormal counts, range, norms, quantiles, aggregate
-  errors, and at most a few deliberately selected values or worst indices.
-- Aggregate repeated trials and stochastic seeds into counts and distribution statistics. Save
-  complete samples to an artifact and inspect only a targeted subset when necessary.
-- Keep each displayed diagnostic under 100 lines and approximately 8 KiB.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Report ranges, finite/zero/subnormal counts, norms, and selected worst indices. Aggregate repeated trials and seeds statistically.
 
 ## Evidence standard
 

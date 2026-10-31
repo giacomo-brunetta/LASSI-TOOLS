@@ -29,8 +29,8 @@ The stochastic helper acts only at explicit casts and uses ordinary PyTorch over
 The skill's [`scripts/torch_cpu_techniques.py`](../scripts/torch_cpu_techniques.py) adds runnable
 PyTorch templates for zero-centering, power-of-two scaling, equilibration, mixed refinement,
 precision ramping, residual carry, Ozaki-style operand splitting, and stable reformulation, plus
-wrappers for the shipped helpers. Its smoke test must execute all advertised techniques with
-FP16 tensors on CPU. These examples establish PyTorch operator support; they do not establish
+wrappers for the shipped helpers. Its optional smoke test exercises all advertised techniques with
+FP16 tensors on CPU; use a focused backend/dtype probe for the selected method when needed. These examples establish PyTorch operator support; they do not establish
 that a technique improves an arbitrary kernel.
 
 ## PyTorch CPU implementations

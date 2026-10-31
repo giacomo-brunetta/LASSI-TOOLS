@@ -39,17 +39,16 @@ authority.
    precision, A100, or the `torch-mlir-tosa` compiler target.
 9. Preserve FP64 behavior first. Avoid accidental broadcasting, reassociation, aliasing, and
    premature low-precision initialization.
-10. Run `python -m py_compile TARGET` and review the target's structure and changed sections once
+10. If external validation rejects the candidate, load `lassi-x-repair-candidate`. For numeric
+    mismatch analysis, load `lassi-x-compare-outputs`. Before introducing an elementary-function
+    approximation, load `lassi-x-elementary-function-audit`.
+11. Run `python -m py_compile TARGET` and review the target's structure and changed sections once
     more without printing the complete file into the conversation.
 
-## Bounded diagnostics
+## Diagnostics
 
-- Read source files in targeted sections and do not reread unchanged content already present in
-  the conversation. Use symbol searches, line ranges, and summaries rather than whole-file output.
-- Do not print complete graphs, tensors, generated files, validation logs, or large diffs. Save
-  complete diagnostics as artifacts and inspect excerpts under 100 lines and 8 KiB.
-- Inventory expected operators from source structure or a compact operator histogram; never dump a
-  complete traced or exported graph.
+Follow the [diagnostic output policy](../references/diagnostics.md).
+Inspect relevant source sections and expected operator histograms.
 
 ## Evidence standard
 

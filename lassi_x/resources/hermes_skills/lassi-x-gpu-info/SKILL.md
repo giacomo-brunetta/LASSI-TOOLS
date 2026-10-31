@@ -25,8 +25,8 @@ configuration.
 
 ## Evidence standard
 
-Report the command result and the exact capability relevant to the decision. Treat unavailable
-vendor tooling as an unsupported backend, not as a failure of unrelated pipeline stages.
+Report the command result and the exact capability relevant to the decision. When vendor tooling is unavailable, report the probe as unavailable and runtime support as
+unverified unless a separate runtime probe establishes usability or lack of support.
 
 ## Guardrails
 
