@@ -420,7 +420,7 @@ class ExecutionContext:
     async def _close_manager(manager: object | None) -> None:
         """Close a manager even when startup never produced a context."""
         if manager is not None:
-            from academy.handle import exchange_context  # noqa: PLC0415
+            from academy.exchange.client import exchange_context  # noqa: PLC0415
             from academy.manager import Manager  # noqa: PLC0415
 
             assert isinstance(manager, Manager)

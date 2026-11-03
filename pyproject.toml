@@ -10,10 +10,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 dependencies = [
-  # Pinned exactly: both sides of a run must agree on the wire schema, and the
-  # hosted exchange (exchange.academy-agents.org) rejects 0.5.0 messages with
-  # HTTP 400. Bump only after verifying a self-ping against the exchange.
-  "academy-py==0.4.0",
+  # Keep harness and execution workers on the same Academy wire protocol.
+  "academy-py==1.0.0",
   "hermes-agent==0.19.0",
   # Direct dependency of the model endpoint preflight, not just a transitive
   # one of mcp: model_doctor imports it and its MockTransport backs the tests.
@@ -22,9 +20,9 @@ dependencies = [
   # streamable-HTTP API and request envelope, so the major versions cannot mix.
   "mcp==1.29.0",
   "numpy>=2.0",
-  "pydantic>=2.10",
+  "pydantic>=2.14.2,<3",
   # GraphBuilder is the non-deprecated Pydantic Graph orchestration API.
-  "pydantic-graph>=1.107,<2",
+  "pydantic-graph>=2.65,<3",
   "PyYAML>=6.0",
   "torch>=2.5",
   "uvicorn>=0.52.1",
@@ -35,12 +33,13 @@ roofline = [
   "matplotlib>=3.9",
 ]
 globus = [
-  "globus-compute-sdk>=3.0",
+  "globus-compute-sdk>=4.19,<5",
+  "globus-sdk>=4.10,<5",
 ]
 # For the remote node only: runs the Globus Compute endpoint daemon inside the
 # same venv as lassi-x, so workers can deserialize the execution agent.
 endpoint = [
-  "globus-compute-endpoint>=3.0",
+  "globus-compute-endpoint>=4.19,<5",
 ]
 dev = [
   "mypy>=1.10",
@@ -126,3 +125,9 @@ module = [
 # These modules intentionally bind optional compiler SDKs at runtime. Their
 # public, SDK-independent compatibility API remains checked under strict mode.
 ignore_errors = true
+
+[tool.uv]
+# Hermes 0.19 pins 2.13.4. Validate this override with the worker/session suite;
+# Globus 4.19/SDK 4.10 also require newer cryptography and CA certificates
+# than Hermes pins. Remove these overrides when Hermes relaxes its pins.
+override-dependencies = ["pydantic>=2.14.2,<3", "cryptography>=50,<51", "certifi>=2026.10.19"]

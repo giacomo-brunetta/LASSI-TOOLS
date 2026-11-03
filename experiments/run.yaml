@@ -164,7 +164,7 @@ success:
 # lassi-x version. Verify connectivity with: lassi-x execution doctor --config run.yaml
 # execution:
 #   mode: academy
-#   exchange_url: https://exchange.academy-agents.org
+#   exchange_url: https://exchange.academy-agents.org/v1
 #   auth: globus
 #   default_resource: nvidia
 #   resources:

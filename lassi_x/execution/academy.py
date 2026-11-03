@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 import aiohttp
 from academy.exchange.cloud.client import (
+    DEFAULT_EXCHANGE_URL,
+    HttpAgentRegistration,
     HttpExchangeFactory,
     HttpExchangeTransport,
 )
@@ -69,18 +71,20 @@ class PersistentHttpExchangeTransport(HttpExchangeTransport):
             additional_headers=dict(self._info.additional_headers or {}),
             request_timeout_s=self._info.request_timeout_s,
             ssl_verify=self._info.ssl_verify,
+            auth_method=self._auth_method,
+            client_timeout=self._info.client_timeout,
         )
 
     async def send(self, message: Message[Any]) -> None:
         """Retry transient send failures before Academy loses an action response.
 
-        Academy 0.4 does not retry its shielded response sends. A 5xx can
+        Upstream blanket retries are disabled by our factory. A 5xx can
         therefore strand a caller until its operation deadline. Only transient
         transport errors are retried; mailbox and authorization errors are not.
         A 504 can follow an accepted send, so duplicate responses are possible.
         """
         # An accepted action whose acknowledgement was lost must never be replayed.
-        # Academy 0.4 dispatches each delivery, even when tags are identical.
+        # A message tag is not an exactly-once execution guarantee.
         if isinstance(message.get_body(), ActionRequest):
             await super().send(message)
             return
@@ -115,31 +119,30 @@ class PersistentHttpExchangeTransport(HttpExchangeTransport):
 
 
 class PersistentHttpExchangeFactory(HttpExchangeFactory):
-    """Create deadline-free exchange transports locally and on remote agents.
+    """Preserve selective retries and public session settings across agent copies."""
 
-    Academy 0.4's ``HttpExchangeTransport.factory()`` returns the base factory,
-    which silently drops subclasses when the manager copies its exchange
-    client for remote agents. The matching transport above retains this
-    factory across that copy and across serialization.
-    """
+    def __init__(self, url: str = DEFAULT_EXCHANGE_URL, **kwargs: Any) -> None:
+        # Academy 1.0 retries every HTTP request by default, including actions.
+        # Keep retries exclusively in send(), where actions are excluded.
+        kwargs["retries"] = 0
+        kwargs.setdefault("client_timeout", aiohttp.ClientTimeout(total=None, sock_connect=60))
+        if url.rstrip("/") == "https://exchange.academy-agents.org":
+            url = DEFAULT_EXCHANGE_URL
+        super().__init__(url, **kwargs)
 
     async def _create_transport(
         self,
         mailbox_id: EntityId | None = None,
         *,
         name: str | None = None,
-        registration: AgentRegistration[Any] | None = None,  # noqa: ARG002
+        registration: HttpAgentRegistration[Any] | AgentRegistration[Any] | None = None,  # noqa: ARG002
     ) -> PersistentHttpExchangeTransport:
         """Create a transport without aiohttp's five-minute SSE deadline."""
         transport = await PersistentHttpExchangeTransport.new(
             connection_info=self._info,
             mailbox_id=mailbox_id,
             name=name,
-        )
-        # Academy 0.4 uses aiohttp's five-minute default for the SSE listener.
-        # Keep explicit per-operation deadlines in AcademyExecutionBackend.
-        transport._session._timeout = aiohttp.ClientTimeout(  # noqa: SLF001
-            total=None, sock_connect=60, sock_read=None
+            auth_method=self._auth_method,
         )
         return transport
 

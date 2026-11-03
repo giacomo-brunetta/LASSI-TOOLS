@@ -21,6 +21,7 @@ from academy.exchange.cloud.client import HttpExchangeTransport
 from academy.identifier import UserId
 from academy.manager import Manager
 from academy.message import Message, PingRequest
+from academy.serialize import SerializationStrategy
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
@@ -103,6 +104,7 @@ def test_academy_manager_copy_preserves_remote_stream_timeout() -> None:
         user_id = UserId.new()
         manager_transport = await factory._create_transport(mailbox_id=user_id)
         try:
+            assert manager_transport._info.retries == 0
             assert manager_transport._session.timeout.total is None
             assert manager_transport._session.timeout.sock_connect == 60
             client = UserExchangeClient[HttpExchangeTransport](
@@ -116,6 +118,7 @@ def test_academy_manager_copy_preserves_remote_stream_timeout() -> None:
 
             agent_transport = await copied_factory._create_transport(mailbox_id=UserId.new())
             try:
+                assert agent_transport._info.retries == 0
                 assert agent_transport._session.timeout.total is None
                 assert agent_transport._session.timeout.sock_read is None
                 assert isinstance(agent_transport.factory(), PersistentHttpExchangeFactory)
@@ -773,10 +776,55 @@ def test_academy_does_not_replay_ambiguous_action_submission(
             action = Message.create(
                 src=message.src,
                 dest=message.dest,
-                body=ActionRequest(action="execute", pargs=(), kargs={}),
+                body=ActionRequest(
+                    action="execute",
+                    pargs=(),
+                    kargs={},
+                    serialization=SerializationStrategy.PICKLE,
+                ),
             )
             with pytest.raises(aiohttp.ClientResponseError):
                 await transport.send(action)
             assert sent == []
+
+    asyncio.run(run())
+
+
+def test_academy_action_gateway_failure_sends_only_once() -> None:
+    """Exercise upstream HTTP retries, not a mocked parent send method."""
+    from academy.message import ActionRequest  # noqa: PLC0415
+    from aiohttp import web  # noqa: PLC0415
+
+    async def run() -> None:
+        attempts = 0
+
+        async def reject(request: web.Request) -> web.Response:
+            nonlocal attempts
+            attempts += 1
+            return web.Response(status=504)
+
+        app = web.Application()
+        app.router.add_route("*", "/message", reject)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        port = runner.addresses[0][1]
+        factory = PersistentHttpExchangeFactory(f"http://127.0.0.1:{port}")
+        transport = await factory._create_transport(mailbox_id=UserId.new())
+        try:
+            message = Message.create(
+                src=UserId.new(),
+                dest=UserId.new(),
+                body=ActionRequest(
+                    action="execute", pargs=(), kargs={}, serialization=SerializationStrategy.PICKLE
+                ),
+            )
+            with pytest.raises(aiohttp.ClientResponseError):
+                await transport.send(message)
+            assert attempts == 1
+        finally:
+            await transport.close()
+            await runner.cleanup()
 
     asyncio.run(run())

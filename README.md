@@ -297,7 +297,7 @@ submit an exclusive job, and poll its result:
 ```yaml
 execution:
   mode: academy
-  exchange_url: https://exchange.academy-agents.org
+  exchange_url: https://exchange.academy-agents.org/v1
   auth: globus
   resources:
     groq-login:

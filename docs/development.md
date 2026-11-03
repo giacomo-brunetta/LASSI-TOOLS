@@ -115,3 +115,26 @@ core diagnosis and compensation instructions; technique examples and platform ta
 linked resources. Bundle validation checks these resources before startup, and provenance
 continues to hash every resource whether or not it is inlined. Standalone skills link the
 same diagnostic policy installed alongside them.
+
+## Dependency baseline (November 2026)
+
+The lock now uses Pydantic 2.14.2, Pydantic Graph 2.65.0, Academy 1.0.0,
+Globus Compute SDK/endpoint 4.19.0 and Globus SDK 4.10.0. Install with the
+locked uv commands above. Hermes 0.19.0 still pins older Pydantic, cryptography
+and certifi versions; explicit `[tool.uv]` overrides resolve these conflicts.
+These overrides are locally tested integration choices, outside Hermes' declared
+dependency support. Plain pip installation does not apply uv overrides.
+
+Update harness and execution workers together before a new experiment; do not
+resume an old scored run under this environment. The hosted Academy exchange now
+uses `/v1`, and upgrading may require reauthentication. LASSI-X maps the legacy
+hosted root URL to the new default, but preserves custom exchange URLs. Academy's
+blanket HTTP retries are disabled to prevent replaying ambiguous action submissions;
+selective response retries and bounded operation deadlines remain in effect.
+
+The endpoint extra is locked but remote endpoint daemons are not upgraded by
+local dependency installation. Site administrators must review Globus endpoint
+configuration changes (including the required contact email for multi-user
+endpoints) and preserve the declared worker environment. Run an authenticated
+exchange self-ping and bounded execution preflight before using remote resources.
+Local tests and CI do not establish hosted-exchange or accelerator compatibility.
