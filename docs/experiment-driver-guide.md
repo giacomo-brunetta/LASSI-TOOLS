@@ -129,6 +129,31 @@ Every repaired revision reruns the suite. Fixture-spec cases can omit a separate
 
 ## Understand the single-kernel pipeline
 
+### Pool-level Stage 2–3 replanning contract
+
+`lassi_x.replanning.ReplanningRun` provides an explicit campaign adapter contract for
+the redesigned numerical and accelerator stages. Give it the frozen formulations
+and their per-precision validation records, including failures. `repair(k)` makes
+one planner call for up to `k` low-precision plans, executes each with a separate
+coder invocation, records every result, then makes one mixed-precision planner
+call with the complete family and prior outcomes. `specialize(backend, profile, k)`
+makes one planner call with the entire family, only permits validated starting
+points, and runs each selected plan through a separate coder and backend gate.
+The adapter must supply a trusted numerical validator, an independently implemented
+executed or compiled precision audit, an exact backend capability profile,
+compiler/runtime repair with finite bounds, and target accuracy and timing gates.
+The returned records retain failed plans as context and write source hashes, code,
+accuracy, and parent IDs to
+`stage2-plans.json` and `stage3-plans.json`.
+
+This contract is available to an explicitly planned campaign adapter. The existing
+`lassi-x run` candidate flow below still uses its historical per-candidate repair
+path and must not be reported as a pool-level Stage 2–3 experiment. The replanning
+contract's `audit_precision()` callback is not wired to a concrete compiler or
+runtime auditor; LP and MP tags from this API are not precision certificates. See
+[precision integrity](precision-integrity.md#claims-about-low-precision-repairs)
+for defensible wording of low-precision results.
+
 ```mermaid
 flowchart TD
     A[Configuration and execution preflight] --> B[Execute C reference]

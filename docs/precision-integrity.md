@@ -44,6 +44,27 @@ The source policy targets explicit tensor arithmetic. It is not an adversarial-c
 sandbox or a proof of internal hardware accumulation. CPU probing is not substituted
 for a CUDA/accelerator evaluation certificate.
 
+## Claims about low-precision repairs
+
+An `LP` plan or variant tag is a record of the intended repair class, not evidence
+that the generated implementation executes entirely in the target format. In a
+paper, call a measured Torch variant **target-format-only in observed explicit
+tensor arithmetic** only when its source-bound `executed-dtype-v3` audit passed
+on the reported workload and backend. Report the audit protocol, source hash,
+precision, and any violations with the result. A pass does not certify compiler
+lowering, implicit hardware accumulation, unobserved branches, or another backend.
+Do not describe it without qualification as "LP-only execution."
+
+For native and Groq backends, a requested dtype, output dtype, or model-declared
+precision is insufficient. A source/profile-bound compiled dtype certificate is
+needed for a backend precision claim; otherwise label that claim **unverified**.
+The pool-level replanning API currently requires an `audit_precision()` callback,
+but has no concrete callback implementation. Its LP and MP labels alone must not
+be counted as precision-certified experimental results. The existing strict Torch
+audit rejects wider arithmetic; it does not certify the selected promoted
+operators of an MP repair. An MP claim requires a separate audit that records the
+exact promoted operators and confirms the remaining arithmetic pattern.
+
 ## Reuse rather than regenerate
 
 Create an evaluation-only plan for a saved run or campaign:
