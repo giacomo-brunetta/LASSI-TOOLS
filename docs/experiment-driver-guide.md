@@ -133,13 +133,21 @@ Every repaired revision reruns the suite. Fixture-spec cases can omit a separate
 
 `lassi_x.replanning.ReplanningRun` provides an explicit campaign adapter contract for
 the redesigned numerical and accelerator stages. Give it the frozen formulations
-and their per-precision validation records, including failures. `repair(k)` makes
-one planner call for up to `k` low-precision plans, executes each with a separate
-coder invocation, records every result, then makes one mixed-precision planner
-call with the complete family and prior outcomes. `specialize(backend, profile, k)`
+and their per-precision validation records, including failures. If an FP32 control
+fails while FP64 passes, `repair(k)` first makes one pool-level FP32 accuracy-repair
+planner call. Successful FP32 revisions are retested at FP16 and BF16. Low-precision
+and mixed-precision rescue require a passing same-source FP32 control. The method
+then makes one planner call for up to `k` low-precision plans, executes each with
+a separate coder invocation, records every result, and makes one mixed-precision
+planner call with the complete family and prior outcomes. Each phase has its own
+plan budget `k`. `specialize(backend, profile, k)`
 makes one planner call with the entire family, only permits validated starting
 points, and runs each selected plan through a separate coder and backend gate.
-The adapter must supply a trusted numerical validator, an independently implemented
+Every starting point requires passing FP64 evidence. Each changed repair or specialization
+receives a fresh FP64 validation call, recorded with its source hash; failure or unavailable
+validation prevents acceptance. Source-identical descendants reuse only that fresh evidence.
+The adapter must supply a trusted numerical validator supporting FP64 input-parity and
+semantic checks as well as FP32/FP16/BF16 accuracy, an independently implemented
 executed or compiled precision audit, an exact backend capability profile,
 compiler/runtime repair with finite bounds, and target accuracy and timing gates.
 The returned records retain failed plans as context and write source hashes, code,
@@ -153,6 +161,10 @@ contract's `audit_precision()` callback is not wired to a concrete compiler or
 runtime auditor; LP and MP tags from this API are not precision certificates. See
 [precision integrity](precision-integrity.md#claims-about-low-precision-repairs)
 for defensible wording of low-precision results.
+The [bounded Luna/MPS development example](../experiments/replanning-luna-example/RESULTS.md)
+shows one explicit adapter, its failed MP audit attempts, and source-identical
+target revalidation after a checker fix. Its feedback-informed threshold and
+host-synchronized timing do not establish a paper result.
 
 ```mermaid
 flowchart TD

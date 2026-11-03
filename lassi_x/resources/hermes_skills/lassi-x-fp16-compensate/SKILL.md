@@ -1,10 +1,10 @@
 ---
 name: lassi-x-fp16-compensate
-description: Reduce diagnosed FP16 or BF16 scientific error with hardware-aware accumulation, stable reformulation, state residuals, scaling, refinement, adaptive precision, multiword arithmetic, or stochastic casts. Use only after a base translation passes the original C/C++ FP64 oracle and a measured low-precision point is inaccurate or Pareto-dominated.
+description: Repair FP16 or BF16 error at the original arithmetic precision through stable reformulation, scaling, reduction restructuring, or target-format compensation. Use after FP64 and same-source FP32 controls pass; use the separate mixed-precision rescue skill when selective upcasting is permitted.
 license: MIT
 metadata:
   hermes:
-    tags: [FP16, BF16, Mixed-Precision, Numerical-Methods, Pareto]
+    tags: [FP16, BF16, Low-Precision, Numerical-Methods, Pareto]
     requires_toolsets: [skills]
 ---
 # Compensate FP16/BF16 Error
@@ -17,6 +17,8 @@ precision behavior is reported honestly.
 
 Use the supplied diagnosis or load `lassi-x-fp-error-diagnose` to establish one, then read
 [references/techniques.md](references/techniques.md) before editing.
+For an MP assignment, load `lassi-x-mixed-precision-rescue` instead. If the same-source
+FP32 control fails, use `lassi-x-fp32-accuracy-repair` before LP or MP work.
 
 For concrete PyTorch implementations, inspect
 [`scripts/torch_cpu_techniques.py`](scripts/torch_cpu_techniques.py). It contains one runnable
@@ -26,12 +28,13 @@ kernel; do not copy a demonstration's assumptions blindly.
 ## Entry conditions
 
 - The base module already matches the original C/C++ FP64 oracle.
+- The same-source FP32 control passes the accuracy gate.
 - The target backend and FP16/BF16 measurement are explicitly identified.
 - The target is a copy; never modify the accepted base candidate.
 
 Establish missing prerequisites within the assigned tools, paths, and finite budget: create the
 assigned target copy if needed, or run an authorized validation or baseline measurement. If the
-FP64 gate, backend, measurement, or writable target remains unavailable, report the missing
+FP64 or same-source FP32 gate, backend, measurement, or writable target remains unavailable, report the missing
 evidence and stop before compensation edits. Never overwrite the accepted base.
 
 ## Workflow
@@ -51,7 +54,9 @@ evidence and stop before compensation edits. Never overwrite the accepted base.
    `LASSI_PRECISION` storage, operator, accumulator, and output roles truthfully.
 6. Byte-compile the target.
 7. Validate compensated FP64 against the original C/C++ FP64 oracle.
-8. Validate compensated FP32 against the base PyTorch FP32 behavior.
+8. Validate the edited source at FP32 against the authoritative accuracy gate. In the historical
+   compensation pipeline, also satisfy its separate base-PyTorch FP32 collapse check; agreement
+   with an inaccurate base is not evidence of FP32 accuracy.
 9. Measure the target precision against the C/C++ FP64 oracle:
    `lassi-x precision measure --config CONFIG --module MODULE --backend NAME --precision PRECISION`
 10. Compare error reduction and latency cost. For stochastic rounding, report multiple seeds and
@@ -70,10 +75,7 @@ Report precision roles, validation status, aggregate errors, latency statistics,
   outputs in the target format. Do not use wider tensor casts or helpers that promote internally.
   Prefer scaling, stable reformulation, centering, reduction restructuring and target-format
   multiword arithmetic. Implicit wider hardware accumulation requires explicit target permission.
-- Under an explicitly mixed-precision contract, consider selective FP32 accumulation. Promoting
-  the entire computation is a fallback baseline, not a repair, even if output is cast back.
-- Use blocked FP32 accumulation when full FP32 accumulation is costly and blockwise low-precision
-  work is measurable. Tune the block size on the target.
+- Under an explicitly mixed-precision contract, switch to `lassi-x-mixed-precision-rescue`.
 - Reserve pairwise, Kahan, and Neumaier for manual reductions; low-precision compensation state
   can itself be lost, and optimized `torch.sum` may win.
 - Use target-format double-word only when wider explicit arithmetic is unavailable and strict

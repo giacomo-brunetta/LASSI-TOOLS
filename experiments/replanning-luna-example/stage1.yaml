@@ -1,0 +1,77 @@
+version: 1
+project:
+  root: ../..
+kernel:
+  name: polybench-correlation-mini-luna-replanning
+  reference: benchmarks/polybench/datamining/correlation/correlation.c
+  context:
+    - benchmarks/polybench/datamining/correlation/correlation.h
+    - experiments/replanning-luna-example/correlation-print.h
+    - benchmarks/polybench/utilities/polybench.c
+    - benchmarks/polybench/utilities/polybench.h
+  validation_dataset: mini
+  task: >-
+    Translate PolyBench correlation MINI into a faithful, export-friendly PyTorch
+    module. Reproduce the C initializer, compute from supplied inputs, return all
+    live outputs in printed order, and preserve FP64 semantics. Keep the three
+    strategies materially distinct and suitable for later low-precision testing.
+oracle:
+  build:
+    - cc
+    - -std=c99
+    - -O0
+    - -ffp-contract=off
+    - -DMINI_DATASET
+    - -DDATA_TYPE_IS_DOUBLE
+    - -DPOLYBENCH_DUMP_ARRAYS
+    - -include
+    - experiments/replanning-luna-example/correlation-print.h
+    - "{reference}"
+    - benchmarks/polybench/utilities/polybench.c
+    - -Ibenchmarks/polybench/utilities
+    - -Ibenchmarks/polybench/datamining/correlation
+    - -lm
+    - -o
+    - "{oracle_dir}/reference"
+  run: ["{oracle_dir}/reference"]
+  capture: stderr
+  format: polybench
+  determinism_runs: 2
+  timeout_s: 120
+arena:
+  candidates: 3
+  planner_format_retries: 0
+  correction_rounds: 0
+  timeout_s: 300
+  equivalence: {rtol: 1.0e-10, atol: 1.0e-12}
+  input_check: {enabled: true}
+models:
+  planner: &luna
+    provider: openai-codex
+    model: gpt-5.6-luna
+    reasoning_effort: medium
+    max_tokens: 8192
+    max_iterations: 12
+    turn_timeout_s: 300
+    turn_retries: 0
+  candidates: [*luna, *luna, *luna]
+  compensation: *luna
+  compatibility: *luna
+measure:
+  precisions: [fp64]
+  evaluation_dataset: mini
+  warmup: 1
+  iterations: 2
+  backends:
+    - {type: torch, name: cpu, device: cpu, precisions: [fp64]}
+screening: {enabled: false}
+compensation: {enabled: false}
+compatibility: {enabled: false}
+success: {required_backends: []}
+scheduler:
+  max_candidate_flows: 1
+  max_model_sessions: 1
+  default_resource_concurrency: 1
+memory: {enabled: false}
+execution: {mode: local}
+runs_dir: runs/replanning-luna-correlation-mini-20261102/stage1

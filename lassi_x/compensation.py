@@ -40,7 +40,7 @@ whose assumptions hold across the declared capability intersection, and implemen
 source change that improves low-precision behavior without changing the underlying algorithm.
 
 Engineering responsibilities:
-- Load and follow lassi-x-fp-error-diagnose and lassi-x-fp16-compensate before selecting a
+- Load the supplied diagnosis and precision-policy-specific repair skill before selecting a
   technique. If elementary functions are implicated, also use lassi-x-elementary-function-audit.
 - Preserve the original C/C++ program's FP64 semantics and the module contract.
 - Ensure the intervention collapses to base behavior at FP32; compensation must not conceal an
@@ -478,6 +478,19 @@ async def generate_compensation(
         guard_backends=sorted({point.backend for point in guards}),
     )
     technique_text = "\n".join(f"- {name}: {TECHNIQUE_SUMMARY[name]}" for name in allowed)
+    policy_guidance = (
+        "Under target_format_only use only target-format helpers: pairwise, Kahan, "
+        "Neumaier, or double-word with the default component dtype. Generic mixed-precision "
+        "scaling, centering, residual-carry and splitting templates are not compliant "
+        "implementations; rewrite them in the target format and audit every operation."
+        if config.compensation.arithmetic_policy == "target_format_only"
+        else (
+            "Use lassi-x-mixed-precision-rescue and its upcasting examples. Promote only "
+            "the diagnosed sensitive reduction or expression; name every promoted tensor, "
+            "cast, and operator. Keep substantial work and storage in the requested low "
+            "precision. Full FP32 conversion is an FP32_FALLBACK, not MP repair."
+        )
+    )
     if previous is not None:
         variant.technique = previous.technique
         variant.usage.add(previous.usage)
@@ -523,10 +536,7 @@ Allowed techniques:
 Choose one primary technique suited to the shared failure and portable across these backends.
 Edit the target copy. Do not add target-name conditionals or platform-specific operator rewrites.
 Import reusable arithmetic from lassi_x.precision where applicable.
-Under target_format_only use only target-format helpers: pairwise, Kahan, Neumaier,
-or double-word with the default component dtype. Generic mixed-precision scaling,
-centering, residual-carry and splitting templates are not compliant implementations;
-the technique names permit a target-format rewrite, not importing the mixed template.
+{policy_guidance}
 Update LASSI_PRECISION metadata honestly. High-precision behavior must remain equivalent to the
 original C/C++ reference and the compensation must collapse to the base behavior at FP32.
 Preserve support for both the `{config.kernel.validation_dataset}` CPU semantic-validation
@@ -540,7 +550,11 @@ After editing and byte-compiling the target, return JSON only:
         cwd=mirror,
         system_prompt=COMPENSATION_SYSTEM,
         toolsets=["skills", toolset],
-        role=f"compensation-{slug}",
+        role=(
+            f"compensation-"
+            f"{'lp' if config.compensation.arithmetic_policy == 'target_format_only' else 'mp'}"
+            f"-{slug}"
+        ),
         memory=config.memory,
         hermes_home=execution.hermes_home,
     )

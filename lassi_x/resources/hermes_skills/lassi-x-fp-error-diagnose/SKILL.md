@@ -17,7 +17,8 @@ do not prescribe compensation from an aggregate error metric alone.
 ## Workflow
 
 1. Confirm that the base module already passes the original C/C++ FP64 oracle. Otherwise classify
-   the issue as translation error and stop the low-precision diagnosis.
+   the issue as translation error and stop the low-precision diagnosis. Confirm the same-source
+   FP32 accuracy gate too; route FP32 failures to `lassi-x-fp32-accuracy-repair`.
 2. Record the target backend, storage/operator/accumulator/output formats, rounding behavior,
    subnormal handling, and compiler reassociation or fusion risks. A wide matrix accumulator does
    not imply general FP32 tensor arithmetic.
@@ -32,6 +33,8 @@ do not prescribe compensation from an aggregate error metric alone.
 4. When execution is available, use paired, one-variable probes: widen only the accumulator, alter
    only block size/order, apply an exact power-of-two scale, retain a discarded update residual, or
    repeat explicit stochastic casts across seeds. Measure the same dataset and oracle each time.
+   Wider-arithmetic probes require an authorized diagnostic scope; they are not eligible
+   target-format-only repairs. Keep probe sources and results separate from candidate evidence.
 5. Use scale-aware evidence: value ranges, zero/subnormal/non-finite counts, cancellation ratios,
    reduction length, residual or invariant history, and all three aggregate error metrics. Treat a
    near-zero relative-error spike separately from a large absolute or normwise error.

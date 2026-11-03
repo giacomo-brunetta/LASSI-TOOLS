@@ -106,6 +106,21 @@ def test_numerical_worker_receives_core_skills_with_techniques_on_demand() -> No
     assert automation_skill_prompt("unrelated-test-role") == ""
 
 
+def test_repair_skill_routing_is_precision_specific() -> None:
+    root = source_root()
+    strict = (root / "lassi-x-fp16-compensate/SKILL.md").read_text()
+    mixed = (root / "lassi-x-mixed-precision-rescue/SKILL.md").read_text()
+    fp32 = (root / "lassi-x-fp32-accuracy-repair/SKILL.md").read_text()
+    lp_prompt = automation_skill_prompt("replanning-lp-coder-LP-1")
+    mp_prompt = automation_skill_prompt("replanning-mp-coder-MP-1")
+    fp32_prompt = automation_skill_prompt("replanning-fp32-coder-FP32-1")
+    assert strict in lp_prompt and mixed not in lp_prompt and fp32 not in lp_prompt
+    assert mixed in mp_prompt and strict not in mp_prompt and fp32 not in mp_prompt
+    assert fp32 in fp32_prompt and strict not in fp32_prompt and mixed not in fp32_prompt
+    assert strict in automation_skill_prompt("compensation-lp-kernel")
+    assert mixed in automation_skill_prompt("compensation-mp-kernel")
+
+
 @pytest.mark.parametrize("operation", ["install", "sync"])
 def test_conflicts_never_become_owned_on_repeated_operations(
     tmp_path: Path, operation: str

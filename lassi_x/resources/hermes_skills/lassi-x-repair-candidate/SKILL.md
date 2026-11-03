@@ -50,7 +50,8 @@ and scientific gates to pass. A smaller error that still fails tolerance is not 
 ## Guardrails
 
 - Never change tolerances, validators, fixtures, reference files, or runner behavior.
-- Never read or embed oracle output, return constants, or special-case validation inputs.
+- Use supplied mismatch diagnostics; never seek hidden oracle output, embed expected answers,
+  or special-case validation inputs.
 - Never add compensation to hide an FP64 semantic error.
 - Never replace an unsupported operator with a merely similar operation; preserve the reference
   semantics and rerun the full FP64 gate before another target-compiler attempt.

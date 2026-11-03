@@ -24,6 +24,8 @@ SKILL_NAMES = (
     "lassi-x-run-benchmark",
     "lassi-x-fp-error-diagnose",
     "lassi-x-fp16-compensate",
+    "lassi-x-mixed-precision-rescue",
+    "lassi-x-fp32-accuracy-repair",
     "lassi-x-elementary-function-audit",
     "lassi-x-groq-latency",
     "lassi-x-pareto-explore",
@@ -38,6 +40,8 @@ AUTOMATION_SKILLS = (
     "lassi-x-machine-info",
     "lassi-x-fp-error-diagnose",
     "lassi-x-fp16-compensate",
+    "lassi-x-mixed-precision-rescue",
+    "lassi-x-fp32-accuracy-repair",
     "lassi-x-elementary-function-audit",
 )
 
@@ -196,23 +200,39 @@ def require_bundled_skills() -> None:
     for relative in (
         "references/diagnostics.md",
         "lassi-x-fp16-compensate/references/techniques.md",
+        "lassi-x-mixed-precision-rescue/references/upcasting.md",
         "lassi-x-fp16-compensate/scripts/torch_cpu_techniques.py",
         "lassi-x-accelerator-compatibility/references/platform-summary.md",
     ):
         if not (root / relative).is_file():
             raise RuntimeError("Bundled skill resource is missing: " + relative)
-    for role in ("planner", "c1", "compensation-check", "compatibility-check"):
+    for role in (
+        "planner",
+        "c1",
+        "compensation-lp-check",
+        "compensation-mp-check",
+        "replanning-fp32-check",
+        "replanning-lp-check",
+        "replanning-mp-check",
+        "compatibility-check",
+    ):
         automation_skill_prompt(role)
 
 
 def automation_skill_prompt(role: str, home: Path | None = None) -> str:
     """Inline essential role instructions; route conditional details through skill tools."""
     names: tuple[str, ...]
-    if role.startswith("compensation-"):
+    if role.startswith(("compensation-mp-", "replanning-mp-")):
+        names = ("lassi-x-fp-error-diagnose", "lassi-x-mixed-precision-rescue")
+    elif role.startswith("replanning-fp32-"):
+        names = ("lassi-x-fp32-accuracy-repair", "lassi-x-compare-outputs")
+    elif role.startswith(("compensation-lp-", "replanning-lp-", "compensation-")):
         names = (
             "lassi-x-fp-error-diagnose",
             "lassi-x-fp16-compensate",
         )
+    elif role.startswith("replanning-specialization-"):
+        names = ("lassi-x-accelerator-compatibility",)
     elif role.startswith("compatibility-"):
         names = ("lassi-x-accelerator-compatibility", "lassi-x-repair-candidate")
     elif role == "planner":
@@ -226,6 +246,8 @@ def automation_skill_prompt(role: str, home: Path | None = None) -> str:
     resources.insert(0, "references/diagnostics.md")
     parts = [
         "Required skill instructions (supplied in full by the harness):\n"
+        "The assigned role and output schema remain binding; "
+        "a planner does not execute coder steps.\n"
         "The experiment's explicit precision contract overrides generic wider-arithmetic "
         "examples or capability-based recommendations in these skills.\n"
         f"Installed skill root: {install_root(home)}\n"

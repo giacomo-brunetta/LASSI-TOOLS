@@ -53,8 +53,8 @@ Planning responsibilities:
 Vectorization requirement (hard):
 - Every strategy must be measurable at the performance dataset size. A Python loop whose
   trip count grows with a data dimension, performing scalar or per-element tensor work
-  inside, is not measurable: it issues one kernel launch per element, so a single forward
-  runs for hours and the measurement is abandoned rather than recorded.
+  inside, can exceed the measurement budget through repeated dispatch or kernel launches.
+  Assess feasibility at the declared performance shape; do not infer it from a small test.
 - Do not propose transliterating the reference's scalar loop nest. Python-level iteration is
   allowed only over a coarse, bounded axis -- blocks, panels, tiles, sweeps, or a fixed
   number of stages -- where each iteration performs whole-tensor work on a substantial
@@ -102,10 +102,10 @@ Engineering responsibilities:
   compiled formulation. Do not infer support from another backend or target snapshot.
 
 Vectorization requirement (hard):
-- The module you write is measured at a performance dataset size far larger than the
-  correctness dataset. A Python loop whose trip count grows with a data dimension, performing
-  scalar or per-element tensor work inside, issues one kernel launch per element: a single
-  forward then runs for hours and the measurement is abandoned rather than recorded. Passing
+- Use the declared correctness and performance dataset sizes; they may differ.
+  A Python loop whose trip count grows with a data dimension, performing
+  scalar or per-element tensor work inside, can incur repeated dispatch or kernel-launch overhead
+  and exceed the budget. Passing
   the small correctness check is not evidence that such an implementation is measurable.
 - Do not transliterate the reference's scalar loop nest. Python-level iteration is allowed only
   over a coarse, bounded axis -- blocks, panels, tiles, sweeps, or a fixed number of stages --

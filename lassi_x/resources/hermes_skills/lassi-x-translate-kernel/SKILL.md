@@ -61,7 +61,8 @@ target compile and hardware measurement establish end-to-end accelerator compati
 ## Guardrails
 
 - Never edit the reference, validator, tolerance, fixture, or unrelated files.
-- Never embed expected values, read oracle output, return constants, or special-case known input.
+- Use supplied mismatch diagnostics; never seek hidden oracle output, embed expected answers,
+  or special-case known input.
 - Never claim semantic equivalence from byte-compilation alone.
 - Never introduce FP16/BF16 compensation before the FP64 candidate passes.
 - Never infer target compatibility from another backend's execution or from wiki support alone.

@@ -28,6 +28,19 @@ repair. Compare mixed candidates with the existing FP32 accuracy/latency point.
 
 The numerical agent's technique list excludes explicitly wider techniques under the
 target-format-only contract. Generic skill examples cannot override this contract.
+LP workers load `lassi-x-fp16-compensate`; MP workers load
+`lassi-x-mixed-precision-rescue`, including its
+[selective upcasting examples](../lassi_x/resources/hermes_skills/lassi-x-mixed-precision-rescue/references/upcasting.md).
+MP must name every promoted operation or tensor, and an executed-graph audit must
+confirm the promotion pattern. A full FP32 computation is `FP32_FALLBACK`, even if
+its result is cast back to FP16 or BF16.
+
+If the same-source FP32 realization fails while FP64 passes, repair FP32 accuracy
+first with `lassi-x-fp32-accuracy-repair`. Such a failure points to an unstable
+algorithm or FP32 conditioning problem that selective promotion of a lower-precision
+realization does not resolve. Retest FP16 and BF16 from each successful FP32 repair
+before attempting LP or MP rescue. An FP32 repair is recorded as `FP32_REPAIRED`,
+not as an LP or MP gain.
 
 ## Joint FP16/BF16 strategy
 
@@ -49,15 +62,15 @@ grouping and its retry/checkpoint semantics is separate work before campaign lau
 
 ## Skill delivery
 
-All 15 bundled skills and their auxiliary files must match the installed versions.
+All bundled skills and their auxiliary files must match the package inventory.
 `skills doctor` now checks file contents rather than only skill names/frontmatter.
-Pipeline startup fails when required automation skills or their auxiliary files are stale
-or absent. Synchronization preserves conflicting local edits rather than overwriting them.
+Pipeline startup validates packaged resources and installs them into each worker profile.
+An explicit user installation is checked separately by `skills doctor`. Synchronization preserves conflicting local edits rather than overwriting them.
 
-Workers receive full task-relevant skill instructions in their system context. Numerical
-workers also receive the techniques reference in full. Other skills, references and
-executable templates remain installed and available through the skills tool. No model
-call is needed to verify delivery to the worker constructor.
+Workers receive the phase-specific skill instructions in their system context. LP,
+MP, and FP32 workers are routed to different skills. The technique and upcasting
+references remain installed and available through the skills tool; they are loaded
+on demand. No model call is needed to verify delivery to the worker constructor.
 
 ## Acceptance is still an independent harness responsibility
 
@@ -70,3 +83,21 @@ are insufficient. Source grep alone cannot prove target-format-only execution.
 No fresh campaign should be described as compliant until those checks exist. GPU
 compliance also does not establish compiler compatibility or runtime behavior on the
 eventual accelerator; those require direct testing there.
+
+## Replanning evidence boundary
+
+`ReplanningRun` requires passing FP64 evidence for repair and specialization starting
+points. Every generated repair and returned specialization receives a fresh FP64
+validation call against its actual source. Failed or unavailable FP64 validation
+prevents acceptance. Stage records persist the result with the generated source hash.
+Source-identical FP16/BF16 descendants of an FP32 repair reuse that repair's fresh
+FP64 evidence; they never inherit the original parent's certificate.
+
+Adapters must implement `validate_numerical` for FP64 as well as FP32, FP16 and
+BF16, including the complete semantic and input-parity suite. Specialization
+adapters must perform these gates before timing; the orchestrator also rechecks
+the returned implementation before accepting its evidence.
+
+Keep the historical FP32 collapse check distinct from oracle-relative FP32 accuracy.
+Neither a prompt instruction nor agreement with the base implementation substitutes
+for source-specific acceptance evidence.
