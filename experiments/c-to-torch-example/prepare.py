@@ -97,7 +97,6 @@ def main() -> None:
         "llvm_bin": str(native / "llvm11/bin"),
         "llvm_pass": str(native / "llvm-pass-build/addEmptyBlocks/libAddEmptyBlocksPass.so"),
         "proposals": 1,
-        "changed_lines": 80,
         "synthesis_timeout_s": 120,
         "bound": 2,
     }

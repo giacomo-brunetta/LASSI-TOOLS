@@ -4,8 +4,8 @@
 
 ```mermaid
 flowchart LR
-  A[Original C] --> B[LLM proposes minimal C body edits]
-  B --> C[Audit edit boundary and diff budget]
+  A[Original C] --> B[LLM adapts C with minimal-change guidance]
+  B --> C[Record complete source diff]
   C --> D[Execute original and adapted C on identical inputs]
   D --> E[Direct Tenspiler preparation and synthesis]
   E --> F[Validate Torch against original C]
@@ -34,14 +34,26 @@ prompt without contacting any model. It asks for the complete translation unit
 as JSON with `source` and `changes` fields. Feedback and source are structured
 as data. No fixture values or expected outputs are provided to the model.
 
-The pipeline uses Clang source ranges to enforce that only the selected function
-body changes, and enforces a configurable diff budget (default 80 added/deleted
-lines, both counted). The signature, initialization, main, headers and surrounding
-source must retain exactly the same bytes. This excludes helper-function additions
-and ABI changes in this first version. The prompt requires unchanged arithmetic
-types, constants, workload and per-output accumulation order, preferring loop
-splitting and canonicalization. A small diff does not prove semantic minimality;
-the diff and explanation remain available for review.
+Minimal changes are guidance, not an acceptance rule. The prompt suggests trying
+interface and representation fixes first: explicit returns, array/pointer
+declarations, explicit types and dimensions, and compatibility wrappers. It prefers
+retaining the existing loops and arithmetic when that suffices, while allowing
+signature changes, helper functions, loop restructuring and broader computational
+adaptations when useful. The LLM explains what changed, why it helps Tenspiler,
+and why broader changes were needed.
+
+There is no line-change cap, kernel-body boundary, or structural whitelist. The
+pipeline records the complete source diff for review; diff size does not determine
+acceptance. Old plans containing `changed_lines` still load, but that obsolete field
+is ignored and omitted from newly written plans. New examples omit it entirely.
+
+Correctness and integration contracts still apply: the adapted program must run
+under the existing fixture harness and implement the original externally observable
+computation on the declared workloads. Internal interfaces can change through
+compatible entry points or wrappers. The original C, fixture specification and
+validation policy remain independently owned by the pipeline. Broad adaptations
+must pass the same C and Torch gates as small edits; their success is evidence
+for LLM-assisted adaptation followed by Tenspiler, not standalone Tenspiler coverage.
 
 The current direct preparer accepts sequences of forward/transposed matrix-vector
 reductions, including supported bias inputs. It covers ATAX/BiCG/MVT structures;
@@ -125,7 +137,8 @@ endpoint, credential **source** and finite turn limits; omit `--proposal`:
 ```
 
 The example's placeholder model deliberately requires configuration before live
-use. `proposals`, `changed_lines`, `synthesis_timeout_s` and `bound` are explicit.
+use. `proposals`, `synthesis_timeout_s` and `bound` bound execution resources;
+they do not limit the size or kind of source edits.
 Model transport retries and turn timeout are controlled by `ModelConfig`; the
 example allows one proposal and no transport retries. C and Torch timeouts come
 from each case. Each run requires a new output directory. Relative plan paths

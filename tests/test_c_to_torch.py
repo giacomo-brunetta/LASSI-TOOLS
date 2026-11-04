@@ -12,12 +12,13 @@ import yaml
 
 from lassi_x.c_fixtures import FixtureSpec
 from lassi_x.c_to_torch import (
+    SYSTEM_PROMPT,
     TranslationPlan,
     _bundle,
-    audit_edit,
     c_gate,
     load_plan,
     prompt,
+    source_diff,
     translate,
 )
 from lassi_x.candidate_runner import load_module
@@ -86,18 +87,25 @@ def setup(tmp_path: Path) -> tuple[TranslationPlan, RunConfig, Path]:
     return plan, config, proposal
 
 
-def test_body_boundary_and_line_budget(tmp_path: Path) -> None:
+def test_edit_record_has_no_size_or_body_restriction(tmp_path: Path) -> None:
     plan, _, _ = setup(tmp_path)
     candidate = tmp_path / "adapted.c"
-    candidate.write_text(SOURCE.replace("y[i]=0", "y[i]=0.0"))
-    assert "+  for" in audit_edit(tmp_path / "tiny.c", candidate, plan)
-    candidate.write_text(SOURCE.replace("m=2", "m=1"))
-    with pytest.raises(ValueError, match="outside"):
-        audit_edit(tmp_path / "tiny.c", candidate, plan)
-    candidate.write_text(SOURCE.replace("y[i]=0", "y[i]=0.0"))
-    with pytest.raises(ValueError, match="budget"):
-        audit_edit(tmp_path / "tiny.c", candidate, plan.validated_update(changed_lines=1))
-    assert '"maximum_changed_lines": 80' in prompt(plan, SOURCE)
+    broader = "/* A broader representation adaptation. */\n" * 100
+    candidate.write_text(broader + SOURCE.replace("void compute", "static void compute"))
+    diff = source_diff(tmp_path / "tiny.c", candidate)
+    assert diff.count("+/* A broader representation adaptation.") == 100
+    assert "+static void compute" in diff
+    assert "maximum_changed_lines" not in json.loads(prompt(plan, SOURCE))
+    assert "minimal changes are a preference, not an acceptance rule" in SYSTEM_PROMPT
+    assert "There is no edit-size limit or kernel-body boundary" in SYSTEM_PROMPT
+
+
+def test_legacy_budget_is_ignored_and_not_exported(tmp_path: Path) -> None:
+    plan, _, _ = setup(tmp_path)
+    legacy = plan.model_dump() | {"changed_lines": 1}
+    restored = TranslationPlan.model_validate(legacy)
+    assert "changed_lines" not in restored.model_dump()
+    assert "changed_lines" not in TranslationPlan.model_json_schema()["properties"]
 
 
 def test_c_gate_detects_bad_arithmetic_and_readonly_mutation(tmp_path: Path) -> None:
@@ -132,6 +140,15 @@ def test_replay_runs_both_real_gates_with_stub_synthesis(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, bad_torch: bool
 ) -> None:
     plan, _, proposal = setup(tmp_path)
+    proposal.write_text(
+        json.dumps(
+            {
+                "source": "/* broader adaptation */\n" * 100
+                + SOURCE.replace("void compute", "static void compute"),
+                "changes": ["Add declarations outside the old body boundary."],
+            }
+        )
+    )
 
     async def synthesize(command: list[str], **kwargs: Any) -> tuple[int, str, str]:
         assert "--bounded-only" in command
