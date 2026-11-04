@@ -24,3 +24,8 @@ The framework does not yet provide end-to-end comparison adapters for these tool
 Generated implementations require independent validation against the original C
 references. A pinned modern Herbie revision includes Pherbie functionality; it does
 not by itself reproduce the historical ARITH 2021 experiment.
+
+For a deterministic preparation path for supported C reductions, see
+[Tenspiler preparation](../docs/tenspiler-preparation.md). It generates C++ inputs
+and fixed synthesis drivers; floating-to-integer modeling requires an explicit
+option and independent validation against the original C.

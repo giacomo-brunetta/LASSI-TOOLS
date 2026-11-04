@@ -30,6 +30,7 @@ A successful retry must not erase the original failed or interrupted attempt.
 | Need | Interface | Current boundary |
 | --- | --- | --- |
 | Generate, validate, repair, and measure one kernel | `lassi-x run CONFIG` | Integrated streaming pipeline; backend support depends on the configured input interface |
+| Adapt C with an LLM, then synthesize and CPU-validate Torch | [`lassi_x.c_to_torch`](c-to-torch.md) | Explicit single-kernel adapter step; direct matrix-vector subset; separate C and Torch gates; not the default `run` generator |
 | Generate and CPU-validate before acquiring accelerators | `lassi-x run CONFIG --until cpu-verified` | Retains the full configuration for a later resume |
 | Compare targets or policies from the same CPU cohort | `--from-cpu-baseline BASELINE` | Frozen candidates by default; adaptations require an explicit flag |
 | Declare a new campaign with fixed task dependencies and attempts | `lassi-x campaign` | Runner implemented; trusted scientific adapters must implement its gates; tasks execute sequentially |

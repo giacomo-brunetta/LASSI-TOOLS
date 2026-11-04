@@ -1,0 +1,435 @@
+"""Deterministic loop/index composition; arithmetic operators come from Tenspiler.
+
+The operator proofs do not prove this runtime or whole-program floating semantics.
+"""
+import itertools
+import math
+import re
+import torch
+
+
+class Value:
+    def __init__(self, value, axes=()):
+        self.value = value
+        self.axes = tuple(axes)
+
+
+def union(*values):
+    return tuple(dict.fromkeys(axis for value in values for axis in value.axes))
+
+
+def align(value, axes):
+    data = value.value
+    if not value.axes or value.axes==tuple(axes):
+        return data
+    order = [value.axes.index(axis) for axis in axes if axis in value.axes]
+    if order != list(range(len(order))):
+        data = data.permute(order)
+    shape = [data.shape[order.index(value.axes.index(axis))] if axis in value.axes else 1 for axis in axes]
+    return data.reshape(shape)
+
+
+class Executor:
+    def __init__(self, program, operators):
+        self.program = program
+        self.ops = operators
+        self.arrays = {}
+        self.locals = {}
+        self.types = {}
+        self.steps = 0
+        self.max_steps = program.get('scalar_step_limit', 100000)
+        self.counter = itertools.count()
+
+    def binary(self, op, a, b):
+        axes = union(a, b)
+        left, right = align(a, axes), align(b, axes)
+        names = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div'}
+        if op in names:
+            ls=left.shape if isinstance(left,torch.Tensor) else ();rs=right.shape if isinstance(right,torch.Tensor) else ()
+            shape=ls or rs
+            if ls and rs and ls!=rs:shape=torch.broadcast_shapes(ls,rs)
+            if math.prod(shape)>16000000: raise RuntimeError('Broadcast exceeds 16 million element budget')
+            return Value(self.ops[names[op]](left, right), axes)
+        compare = {'<': lambda: left < right, '<=': lambda: left <= right,
+                   '>': lambda: left > right, '>=': lambda: left >= right,
+                   '==': lambda: left == right, '!=': lambda: left != right,
+                   '&&': lambda: torch.logical_and(torch.as_tensor(left), torch.as_tensor(right)),
+                   '||': lambda: torch.logical_or(torch.as_tensor(left), torch.as_tensor(right))}
+        if op not in compare:
+            raise RuntimeError('No verified arithmetic operator for ' + op)
+        return Value(compare[op](), axes)
+
+    def index(self, expr):
+        kind = expr['kind']
+        if kind == 'literal':
+            return Value(int(expr['value']))
+        if kind == 'var':
+            return self.locals[expr['name']]
+        if kind == 'cast':
+            return self.index(expr['value'])
+        if kind == 'unary':
+            result = self.index(expr['value'])
+            return Value(-result.value if expr['op'] == '-' else result.value, result.axes)
+        if kind == 'binary':
+            a, b = self.index(expr['left']), self.index(expr['right'])
+            axes = union(a, b)
+            x, y = align(a, axes), align(b, axes)
+            token = expr['op']
+            if token == '+': value = x + y
+            elif token == '-': value = x - y
+            elif token == '*': value = x * y
+            elif token == '/': value = torch.div(x, y, rounding_mode='trunc') if isinstance(x, torch.Tensor) or isinstance(y, torch.Tensor) else math.trunc(x / y)
+            elif token == '%': value = x % y
+            else: raise RuntimeError('Unsupported index operation ' + token)
+            return Value(value, axes)
+        raise RuntimeError('Data-dependent array indexing is unsupported')
+
+    def array_indices(self, expr):
+        indices = [self.index(e) for e in expr['indices']]
+        axes = union(*indices)
+        result = []
+        for value in indices:
+            index = align(value, axes)
+            if isinstance(index, torch.Tensor):
+                index = index.to(torch.int64)
+            result.append(index)
+        return tuple(result), axes
+
+    def cast(self, value, typ):
+        dtype = torch.float64 if 'double' in typ else torch.float32 if 'float' in typ else torch.int64
+        if isinstance(value.value, torch.Tensor):
+            return Value(value.value.to(dtype=dtype), value.axes)
+        if dtype == torch.int64:
+            return Value(int(value.value), value.axes)
+        return Value(torch.tensor(value.value, dtype=dtype), value.axes)
+
+    def eval(self, expr):
+        kind = expr['kind']
+        if kind == 'literal': return Value(expr['value'])
+        if kind == 'var': return self.locals[expr['name']]
+        if kind == 'array':
+            indices, axes = self.array_indices(expr)
+            shapes=[i.shape for i in indices if isinstance(i,torch.Tensor)]
+            if shapes:
+                shape=shapes[0] if all(s==shapes[0] for s in shapes) else torch.broadcast_shapes(*shapes)
+                if math.prod(shape)>16000000: raise RuntimeError('Gather exceeds 16 million element budget')
+            return Value(self.arrays[expr['name']][indices], axes)
+        if kind == 'cast': return self.cast(self.eval(expr['value']), expr['type'])
+        if kind == 'binary': return self.binary(expr['op'], self.eval(expr['left']), self.eval(expr['right']))
+        if kind == 'unary':
+            value = self.eval(expr['value'])
+            if expr['op'] == '-': return self.binary('-', Value(0), value)
+            if expr['op'] == '+': return value
+            return Value(torch.logical_not(torch.as_tensor(value.value)), value.axes)
+        if kind == 'call':
+            value = self.eval(expr['argument'])
+            return Value(self.ops[expr['name']](torch.as_tensor(value.value)), value.axes)
+        if kind == 'select':
+            cond = self.eval(expr['condition'])
+            if not cond.axes:
+                return self.eval(expr['left'] if bool(cond.value) else expr['right'])
+            a, b = self.eval(expr['left']), self.eval(expr['right'])
+            axes = union(cond, a, b)
+            left, right = torch.broadcast_tensors(torch.as_tensor(align(a, axes)), torch.as_tensor(align(b, axes)))
+            return Value(self.ops['select'](torch.as_tensor(align(cond, axes)), left, right), axes)
+        raise RuntimeError('Unsupported expression ' + kind)
+
+    def assign(self, target, value, mask=None):
+        if target['kind'] == 'var':
+            name = target['name']
+            if name in self.types:
+                value = self.cast(value, self.types[name])
+            if mask is not None:
+                old = self.locals[name]
+                axes = union(mask, old, value)
+                value = Value(self.ops['select'](torch.as_tensor(align(mask, axes)), torch.as_tensor(align(value, axes)), torch.as_tensor(align(old, axes))), axes)
+            self.locals[name] = value
+            return
+        indices, axes = self.array_indices(target)
+        if any(axis not in axes for axis in value.axes):
+            raise RuntimeError('Unreduced axis in array assignment')
+        new = align(value, axes)
+        array = self.arrays[target['name']]
+        if mask is not None:
+            new = self.ops['select'](torch.as_tensor(align(mask, axes)), torch.as_tensor(new, dtype=array.dtype), array[indices])
+        array[indices] = new
+
+    def bounds(self, loop):
+        start, stop = self.index(loop['start']), self.index(loop['stop'])
+        if loop['inclusive']:
+            stop = Value(stop.value + loop['step'], stop.axes)
+        return start, stop
+
+    def reduce_value(self, expr, axis):
+        # Distribute a scalar sum over addition/subtraction. This is a compiler
+        # normalization, not a claim of identical floating-point reduction order.
+        if expr['kind'] == 'binary' and expr['op'] in {'+', '-'}:
+            return self.binary(expr['op'], self.reduce_value(expr['left'], axis), self.reduce_value(expr['right'], axis))
+        if expr['kind'] == 'binary' and expr['op'] == '*':
+            a, b = self.eval(expr['left']), self.eval(expr['right'])
+            afree = tuple(x for x in a.axes if x != axis)
+            bfree = tuple(x for x in b.axes if x != axis)
+            if axis in a.axes and axis in b.axes and not set(afree).intersection(bfree):
+                aa = align(a, afree + (axis,))
+                bb = align(b, (axis,) + bfree)
+                ashape = aa.shape[:-1]
+                bshape = bb.shape[1:]
+                matrix = aa.reshape(-1, aa.shape[-1])
+                other = bb.reshape(bb.shape[0], -1)
+                # Column batching of the *generated* matrix-vector function.
+                if not bfree: result=self.ops['mv'](matrix,other[:,0]).reshape(-1,1)
+                elif not afree:result=self.ops['mv'](other.transpose(0,1),matrix[0]).reshape(1,-1)
+                else:result = torch.vmap(self.ops['mv'], in_dims=(None, 1), out_dims=1)(matrix, other)
+                return Value(result.reshape(tuple(ashape) + tuple(bshape)), afree + bfree)
+        value = self.eval(expr)
+        if axis not in value.axes:
+            length = self.locals[axis].value.numel()
+            return self.binary('*', value, Value(length))
+        free = tuple(x for x in value.axes if x != axis)
+        data = align(value, free + (axis,))
+        if data.numel() > 16000000:
+            raise RuntimeError('Reduction materialization exceeds 16 million elements')
+        shape = data.shape[:-1]
+        reduced = torch.vmap(self.ops['sum'])(data.reshape(-1, data.shape[-1]))
+        return Value(reduced.reshape(shape), free)
+
+    def reduce_statement(self, stmt, axis):
+        if stmt['kind'] == 'block':
+            return bool(stmt['statements']) and all(self.reduce_statement(s, axis) for s in stmt['statements'])
+        if stmt['kind'] == 'for' and stmt['parallel']:
+            start, stop = self.bounds(stmt)
+            if start.axes or stop.axes:
+                return False
+            values = torch.arange(int(start.value), int(stop.value), stmt['step'])
+            if not len(values): return True
+            name = stmt['index']
+            self.locals[name] = Value(values, (name,))
+            result = self.reduce_statement(stmt['body'], axis)
+            self.locals[name] = Value(int(stop.value))
+            return result
+        if stmt['kind'] != 'assign': return False
+        target, expr = stmt['target'], stmt['value']
+        if expr['kind'] != 'binary' or expr['op'] not in {'+', '-'} or expr['left'] != target:
+            return False
+        if axis in self.expression_variables(target): return False
+        term = expr['right']
+        # No cross-target accesses may be folded into a recurrence reduction.
+        if not self.alias_free(target, term): return False
+        old = self.eval(target)
+        delta = self.reduce_value(term, axis)
+        self.assign(target, self.binary(expr['op'], old, delta))
+        return True
+
+    def expression_nodes(self, expr):
+        result = [expr]
+        for value in expr.values():
+            if isinstance(value, dict): result.extend(self.expression_nodes(value))
+            elif isinstance(value, list):
+                for child in value:
+                    if isinstance(child, dict): result.extend(self.expression_nodes(child))
+        return result
+
+    def expression_variables(self, expr):
+        return {n['name'] for n in self.expression_nodes(expr) if n.get('kind') == 'var'}
+
+    def alias_free(self, target, term):
+        if target['kind'] != 'array': return True
+        for read in self.expression_nodes(term):
+            if read.get('kind') != 'array' or read.get('name') != target['name']: continue
+            left = [self.index(e) for e in target['indices']]
+            right = [self.index(e) for e in read['indices']]
+            axes = union(*(left + right))
+            equal = True
+            for a,b in zip(left,right):
+                equal = torch.logical_and(torch.as_tensor(equal), torch.as_tensor(align(a,axes) == align(b,axes)))
+            if bool(torch.any(equal)): return False
+        return True
+
+    def can_reduce(self, stmt, axis):
+        statements = [n for n in self.expression_nodes(stmt) if n.get('kind') == 'assign']
+        targets = {n['target']['name'] for n in statements}
+        for item in statements:
+            value = item['value']
+            if value.get('kind') == 'binary' and value.get('left') == item['target']:
+                reads = {n['name'] for n in self.expression_nodes(value['right']) if n.get('kind') in ['var', 'array']}
+                if reads.intersection(targets - {item['target']['name']}): return False
+        return self._can_reduce(stmt, axis)
+
+    def _can_reduce(self, stmt, axis):
+        if stmt['kind'] == 'block': return bool(stmt['statements']) and all(self._can_reduce(s, axis) for s in stmt['statements'])
+        if stmt['kind'] == 'for': return stmt['parallel'] and axis not in self.expression_variables(stmt['start']) | self.expression_variables(stmt['stop']) and self._can_reduce(stmt['body'], axis)
+        if stmt['kind'] != 'assign': return False
+        target, expr = stmt['target'], stmt['value']
+        return (expr['kind'] == 'binary' and expr['op'] in {'+', '-'} and expr['left'] == target
+                and axis not in self.expression_variables(target) and self.alias_free(target, expr['right']))
+
+    def maximum_update(self, stmt, axis):
+        while stmt['kind']=='block' and len(stmt['statements'])==1: stmt=stmt['statements'][0]
+        if stmt['kind']!='assign': return None
+        target,value=stmt['target'],stmt['value']
+        if axis in self.expression_variables(target) or value.get('kind')!='select': return None
+        cond=value['condition']
+        if cond.get('kind')!='binary': return None
+        if cond['op'] in ['>','>='] and cond['left']==target and value['left']==target and cond['right']==value['right']:
+            return target,value['right']
+        return None
+
+    def execute_maximum(self, stmt, axis):
+        update=self.maximum_update(stmt,axis)
+        if update is None: return False
+        target,expression=update
+        if not self.alias_free(target,expression): return False
+        value=self.eval(expression)
+        if axis not in value.axes: return False
+        free=tuple(a for a in value.axes if a!=axis)
+        data=align(value,free+(axis,));shape=data.shape[:-1]
+        result=torch.vmap(self.ops['max'])(data.reshape(-1,data.shape[-1])).reshape(shape)
+        old=self.eval(target);axes=union(old,Value(result,free))
+        a,b=align(old,axes),align(Value(result,free),axes)
+        self.assign(target,Value(self.ops['select'](a>=b,a,b),axes))
+        return True
+
+    def ordered_reduce(self, stmt, axis):
+        if stmt['kind']=='block':
+            for child in stmt['statements']: self.ordered_reduce(child,axis)
+            return
+        if stmt['kind']=='for':
+            start,stop=self.bounds(stmt)
+            if start.axes or stop.axes: raise RuntimeError('Ordered reduction requires rectangular bounds')
+            values=torch.arange(int(start.value),int(stop.value),stmt['step'])
+            if not len(values): return
+            self.locals[stmt['index']]=Value(values,(stmt['index'],))
+            self.ordered_reduce(stmt['body'],axis)
+            self.locals[stmt['index']]=Value(int(stop.value))
+            return
+        target,expression=stmt['target'],stmt['value']
+        value=self.eval(expression['right'])
+        count=self.locals[axis].value.numel()
+        if axis in value.axes:
+            free=tuple(a for a in value.axes if a!=axis)
+            data=align(value,free+(axis,))
+        else:free=value.axes;data=None
+        accumulator=self.eval(target)
+        self.ordered_steps=getattr(self,'ordered_steps',0)+count
+        if self.ordered_steps>4000000: raise RuntimeError('Ordered reduction exceeded 4 million step budget')
+        for index in range(count):
+            term=Value(data.select(data.ndim-1,index),free) if data is not None else value
+            accumulator=self.binary(expression['op'],accumulator,term)
+        self.assign(target,accumulator)
+
+    def execute(self, stmt, mask=None):
+        kind = stmt['kind']
+        if kind == 'wavefront-map':
+            rs,row_end=self.bounds(stmt['rows']);cs,ce=self.bounds(stmt['columns'])
+            rs,row_end,cs,ce=map(lambda v:int(v.value),(rs,row_end,cs,ce));weight=stmt['weight']
+            if row_end<=rs or ce<=cs: return
+            axis='@wavefront_cells'
+            for diagonal in range(weight*rs+cs,weight*(row_end-1)+(ce-1)+1):
+                lo=max(rs,(diagonal-(ce-1)+weight-1)//weight)
+                hi=min(row_end-1,(diagonal-cs)//weight)
+                if hi<lo: continue
+                self.wave_steps=getattr(self,'wave_steps',0)+1
+                if self.wave_steps>4000000: raise RuntimeError('Wavefront schedule exceeded 4 million level budget')
+                row=torch.arange(lo,hi+1);col=diagonal-weight*row
+                self.locals[stmt['row']]=Value(row,(axis,));self.locals[stmt['column']]=Value(col,(axis,))
+                self.execute(stmt['body'],mask)
+            self.locals[stmt['row']]=Value(row_end);self.locals[stmt['column']]=Value(ce)
+        elif kind == 'wavefront-triangle':
+            count=int(self.index(stmt['bound']).value);axis='@interval_cells'
+            for span in range(1,count):
+                row=torch.arange(0,count-span)
+                self.locals[stmt['row']]=Value(row,(axis,));self.locals[stmt['column']]=Value(row+span,(axis,))
+                self.execute(stmt['body'],mask)
+            self.locals[stmt['row']]=Value(-1);self.locals[stmt['column']]=Value(count)
+            if count>1:self.locals[stmt['split']]=Value(count-1)
+        elif kind == 'pivot-min-plus':
+            count=int(self.index(stmt['bound']).value)
+            array=self.arrays[stmt['array']]
+            for pivot in range(count):
+                self.locals[stmt['pivot']]=Value(pivot)
+                if bool(array[pivot,pivot]>=0):
+                    paths=self.ops['add'](array[:,pivot: pivot+1],array[pivot:pivot+1,:])
+                    array=self.ops['select'](array<paths,array,paths)
+                    self.arrays[stmt['array']]=array
+                else:
+                    self.execute(stmt['original']['body'],mask)
+                    array=self.arrays[stmt['array']]
+            self.locals[stmt['pivot']]=Value(count)
+        elif kind == 'block':
+            for child in stmt['statements']: self.execute(child, mask)
+        elif kind == 'declare':
+            typ = stmt['type']
+            dims = re.findall(r'\[(\d+)\]', typ)
+            if dims:
+                dtype = torch.float64 if 'double' in typ else torch.float32 if 'float' in typ else torch.int32
+                self.arrays[stmt['name']] = torch.zeros(tuple(int(d) for d in dims), dtype=dtype)
+            else:
+                self.types[stmt['name']] = typ
+                self.locals[stmt['name']] = self.cast(self.eval(stmt['value']) if stmt['value'] is not None else Value(0), typ)
+        elif kind == 'assign': self.assign(stmt['target'], self.eval(stmt['value']), mask)
+        elif kind == 'if':
+            cond = self.eval(stmt['condition'])
+            if not cond.axes:
+                self.execute(stmt['then'] if bool(cond.value) else stmt['else'], mask)
+            else:
+                if mask is not None:
+                    cond = self.binary('&&', cond, mask)
+                self.execute(stmt['then'], cond)
+                self.execute(stmt['else'], Value(torch.logical_not(torch.as_tensor(cond.value)), cond.axes) if mask is None else self.binary('&&', mask, Value(torch.logical_not(torch.as_tensor(cond.value)), cond.axes)))
+        elif kind == 'for':
+            start, stop = self.bounds(stmt)
+            if start.axes or stop.axes:
+                axes=union(start,stop);a,b=align(start,axes),align(stop,axes)
+                widths=torch.as_tensor(b-a)
+                if stmt['step']!=1 or not bool(torch.all(widths==widths.flatten()[0])): raise RuntimeError('Nonuniform ragged loop bound requires a new schedule')
+                width=int(widths.flatten()[0])
+                if width<=0: self.locals[stmt['index']]=stop;return
+                name=stmt['index'];offset=torch.arange(width)
+                base=torch.as_tensor(a)
+                self.locals[name]=Value(base.unsqueeze(-1)+offset,axes+(name,))
+                if mask is not None or not self.execute_maximum(stmt['body'],name): raise RuntimeError('Only verified maximum reductions support uniform ragged bounds')
+                self.locals[name]=stop
+                return
+            start, stop = int(start.value), int(stop.value)
+            if not range(start, stop, stmt['step']): return
+            name = stmt['index']
+            if stmt['parallel']:
+                self.locals[name] = Value(torch.arange(start, stop, stmt['step']), (name,))
+                self.execute(stmt['body'], mask)
+                for key, value in list(self.locals.items()):
+                    if key != name and name in value.axes:
+                        pos = value.axes.index(name)
+                        self.locals[key] = Value(value.value.select(pos, value.value.shape[pos]-1), tuple(a for a in value.axes if a != name))
+            else:
+                self.locals[name] = Value(torch.arange(start, stop, stmt['step']), (name,))
+                if mask is None and self.can_reduce(stmt['body'], name):
+                    if self.program.get('ordered_reductions'): self.ordered_reduce(stmt['body'],name)
+                    else: self.reduce_statement(stmt['body'], name)
+                    self.locals[name] = Value(stop)
+                    return
+                for index in range(start, stop, stmt['step']):
+                    self.steps += 1
+                    if self.steps > self.max_steps:
+                        raise RuntimeError('Sequential recurrence exceeded scalar-step budget; needs a stronger Tenspiler lifting/scheduling rule')
+                    self.locals[name] = Value(index)
+                    self.execute(stmt['body'], mask)
+            self.locals[name] = Value(stop)
+        else: raise RuntimeError('Unknown statement ' + kind)
+
+    def run(self, args):
+        if len(args) != len(self.program['parameters']): raise ValueError('Incorrect argument count')
+        mutations = set(self.program['outputs'])
+        for param, value in zip(self.program['parameters'], args):
+            if isinstance(value, torch.Tensor) and value.ndim:
+                self.arrays[param['name']] = value.clone() if param['name'] in mutations else value
+            else:
+                self.types[param['name']] = param['type']
+                self.locals[param['name']] = self.cast(Value(value), param['type'])
+        self.execute(self.program['body'])
+        return tuple(self.arrays[name] for name in self.program['outputs'])
+
+
+def build(program, operators):
+    def forward(*args):
+        return Executor(program, operators).run(args)
+    return forward

@@ -1,0 +1,362 @@
+"""Compile operator models with Tenspiler, then emit deterministic loop composition."""
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def tensorize_control(code):
+    """Deterministic backend compatibility pass for pointwise scalar models."""
+    import ast
+
+    class TensorControl(ast.NodeTransformer):
+        def visit_IfExp(self, node):
+            node = self.generic_visit(node)
+            return ast.copy_location(
+                ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="torch", ctx=ast.Load()), attr="where", ctx=ast.Load()
+                    ),
+                    args=[node.test, node.body, node.orelse],
+                    keywords=[],
+                ),
+                node,
+            )
+
+        def visit_UnaryOp(self, node):
+            node = self.generic_visit(node)
+            if isinstance(node.op, ast.Not):
+                return ast.copy_location(
+                    ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="torch", ctx=ast.Load()),
+                            attr="logical_not",
+                            ctx=ast.Load(),
+                        ),
+                        args=[node.operand],
+                        keywords=[],
+                    ),
+                    node,
+                )
+            return node
+
+    return ast.unparse(ast.fix_missing_locations(TensorControl().visit(ast.parse(code)))) + "\n"
+
+
+def worker(args, prepared):
+    if args.worker == "mv":
+        args.worker = "mv"
+        load(prepared / "stage_driver.py", "tenspiler_stage_driver").worker(args)
+        return
+    sys.path.insert(0, str(Path(args.tenspiler_root).resolve()))
+    load(prepared / "stage_driver.py", "tenspiler_verifier").install_verifier()
+    os.chdir(args.tenspiler_root)
+    from metalift.frontend.llvm import Driver, InvGrammar
+    from metalift.ir import Int, Bool, List, choose, ite, Axiom, implies
+    from metalift.vc_util import and_objects
+    from tenspiler.tenspiler_common import (
+        reduce_sum,
+        call_reduce_sum,
+        call_integer_sqrt,
+        call_integer_exp,
+        reduce_max,
+        call_reduce_max,
+    )
+    from tenspiler.axioms_tenspiler import reduce_sum_axiom
+    from tenspiler.codegen.pytorch_codegen import pytorch_codegen
+    from tenspiler.codegen.utils import DataType
+
+    op = args.worker
+    name = "op_" + op
+    if op in ["sum", "max"]:
+        variables = [List(Int, "a")]
+    elif op == "select":
+        variables = [Int("cond"), Int("a"), Int("b")]
+    elif op in ["sqrt", "exp"]:
+        variables = [Int("a")]
+    else:
+        variables = [Int("a"), Int("b")]
+
+    def result(reads):
+        if op == "sum":
+            return call_reduce_sum(reads[0])
+        if op == "max":
+            return call_reduce_max(reads[0])
+        if op == "select":
+            return ite(reads[0] != 0, reads[1], reads[2])
+        if op == "sqrt":
+            return call_integer_sqrt(reads[0])
+        if op == "exp":
+            return call_integer_exp(reads[0])
+        a, b = reads
+        if op == "add":
+            return a + b
+        if op == "sub":
+            return a - b
+        if op == "mul":
+            return a * b
+        return a // b
+
+    def post(writes, reads, scope, relaxed):
+        expression = result(reads)
+        return writes[0] == choose(expression, expression + 1)
+
+    def invariant(writes, reads, scope, relaxed):
+        by_name = {w.var_name(): w for w in writes}
+        i, curr = by_name["i"], by_name["curr"]
+        return and_objects(
+            i >= (1 if op == "max" else 0),
+            i <= reads[0].len(),
+            curr
+            == (call_reduce_max(reads[0][:i]) if op == "max" else call_reduce_sum(reads[0][:i])),
+        )
+
+    def target():
+        if op == "sum":
+            return [reduce_sum, reduce_sum_axiom]
+        if op != "max":
+            return []
+        a = List(Int, "prefix_data")
+        i = Int("prefix_index")
+        before = call_reduce_max(a[:i])
+        ax = implies(
+            and_objects(i >= 1, i < a.len()),
+            call_reduce_max(a[: i + 1]) == ite(a[i] > before, a[i], before),
+        )
+        return [reduce_max, Axiom(ax.src, a.src, i.src)]
+
+    driver = Driver()
+    fn = driver.analyze(
+        str(args.run_dir / (name + ".ll")),
+        str(args.run_dir / (name + ".loops")),
+        name,
+        target,
+        {name + "_inv0": InvGrammar(invariant, [])} if op in ["sum", "max"] else {},
+        post,
+    )
+    driver.add_var_objects(variables)
+    if op in ["sum", "max"]:
+        driver.add_precondition(variables[0].len() > 0)
+    fn(*variables)
+    identity = hashlib.sha256(str(args.run_dir).encode()).hexdigest()[:12]
+    driver.synthesize(
+        filename="composed_" + name + "_" + identity,
+        list_bound=args.bound,
+        relaxed_grammar=False,
+        rounds_to_guess=0,
+        no_verify=args.bounded_only,
+    )
+    code = pytorch_codegen(driver.get_actual_ps_fn_decl(), driver.synthesized_fns, DataType.FLOAT)
+    (args.run_dir / (name + "_torch.raw.py")).write_text(code)
+    if op == "select":
+        code = tensorize_control(code)
+    (args.run_dir / (name + "_torch.py")).write_text(code)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tenspiler-root", required=True, type=Path)
+    parser.add_argument("--llvm-bin", required=True, type=Path)
+    parser.add_argument("--llvm-pass", required=True, type=Path)
+    parser.add_argument("--run-dir", type=Path, default=Path(__file__).parent / "synthesis")
+    parser.add_argument("--bound", type=int, default=2)
+    parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--sysroot", default=os.environ.get("SDKROOT"))
+    parser.add_argument("--operator-cache", type=Path)
+    parser.add_argument(
+        "--bounded-only",
+        action="store_true",
+        help="Generate bounded candidates; no unbounded proof claim",
+    )
+    parser.add_argument("--worker", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    import math
+
+    if args.bound < 1 or not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("Invalid finite bound/timeout")
+    prepared = Path(__file__).resolve().parent
+    for name in ["tenspiler_root", "llvm_bin", "llvm_pass", "run_dir"]:
+        setattr(args, name, getattr(args, name).resolve())
+    if args.worker:
+        worker(args, prepared)
+        return
+    manifest = json.loads((prepared / "manifest.json").read_text())
+    for name, digest in manifest["generated_sha256"].items():
+        if hashlib.sha256((prepared / name).read_bytes()).hexdigest() != digest:
+            raise RuntimeError("Prepared file changed: " + name)
+    args.run_dir.mkdir(parents=True, exist_ok=False)
+    executor = load(prepared / "stage_driver.py", "stage_commands").execute
+    status = {
+        "proof_scope": manifest["program"]["proof_scope"],
+        "operators": [],
+        "status": "incomplete",
+        "unbounded_verification": "not_attempted" if args.bounded_only else "requested",
+    }
+    identity = (
+        subprocess.check_output(["git", "-C", str(args.tenspiler_root), "rev-parse", "HEAD"])
+        + subprocess.check_output(["git", "-C", str(args.tenspiler_root), "diff"])
+        + sys.version.encode()
+    )
+    identity += subprocess.check_output([str(args.llvm_bin / "clang++"), "--version"])
+    identity += json.dumps(
+        {"bound": args.bound, "bounded_only": args.bounded_only, "sysroot": args.sysroot},
+        sort_keys=True,
+    ).encode()
+    try:
+        for op in manifest["program"]["operators"]:
+            name = "stage_mv" if op == "mv" else "op_" + op
+            source = args.run_dir / (name + ".cc")
+            source.write_bytes((prepared / source.name).read_bytes())
+            key = hashlib.sha256(
+                identity
+                + source.read_bytes()
+                + Path(__file__).read_bytes()
+                + (prepared / "stage_driver.py").read_bytes()
+            ).hexdigest()
+            cache = args.operator_cache.resolve() / key if args.operator_cache else None
+            generated = args.run_dir / (name + "_torch.py")
+            if cache and (cache / "record.json").exists():
+                record = json.loads((cache / "record.json").read_text())
+                if (
+                    record["key"] != key
+                    or hashlib.sha256((cache / "generated.py").read_bytes()).hexdigest()
+                    != record["sha256"]
+                    or (
+                        not args.bounded_only
+                        and "Verification Output: unsat"
+                        not in (cache / "verification.log").read_text()
+                    )
+                ):
+                    raise RuntimeError("Invalid operator cache evidence")
+                shutil.copyfile(cache / "generated.py", generated)
+                if (cache / "raw.py").exists():
+                    shutil.copyfile(cache / "raw.py", args.run_dir / (name + "_torch.raw.py"))
+                shutil.copyfile(
+                    cache / "verification.log", args.run_dir / (name + "-synthesis.log")
+                )
+                status["operators"].append(
+                    {"operator": op, "source": str(source), "key": key, "cache_hit": True}
+                )
+                continue
+            flags = ["-stdlib=libc++", "-O0", "-ffp-contract=off", "-fno-discard-value-names"]
+            if args.sysroot:
+                flags += ["-isysroot", args.sysroot]
+            commands = [
+                [
+                    str(args.llvm_bin / "clang++"),
+                    *flags,
+                    "-S",
+                    "-emit-llvm",
+                    str(source),
+                    "-o",
+                    str(source.with_suffix(".raw.ll")),
+                ],
+                [
+                    str(args.llvm_bin / "opt"),
+                    "-load",
+                    str(args.llvm_pass),
+                    "-addEmptyBlock",
+                    "-lowerinvoke",
+                    "--unreachableblockelim",
+                    "-instnamer",
+                    "-S",
+                    str(source.with_suffix(".raw.ll")),
+                    "-o",
+                    str(source.with_suffix(".ll")),
+                ],
+                [str(args.llvm_bin / "opt"), "-analyze", "-loops", str(source.with_suffix(".ll"))],
+            ]
+            for i, command in enumerate(commands):
+                log = (
+                    source.with_suffix(".loops")
+                    if i == 2
+                    else args.run_dir / (name + "-compile-" + str(i) + ".log")
+                )
+                executor(command, args.run_dir, log, 30)
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--worker",
+                op,
+                "--tenspiler-root",
+                str(args.tenspiler_root),
+                "--llvm-bin",
+                str(args.llvm_bin),
+                "--llvm-pass",
+                str(args.llvm_pass),
+                "--run-dir",
+                str(args.run_dir),
+                "--bound",
+                str(args.bound),
+                "--timeout",
+                str(args.timeout),
+            ] + (["--bounded-only"] if args.bounded_only else [])
+            proof = args.run_dir / (name + "-synthesis.log")
+            executor(command, args.run_dir, proof, args.timeout)
+            if not args.bounded_only and "Verification Output: unsat" not in proof.read_text():
+                raise RuntimeError("No explicit verification for " + op)
+            if cache:
+                cache.mkdir(parents=True, exist_ok=False)
+                shutil.copyfile(generated, cache / "generated.py")
+                if (args.run_dir / (name + "_torch.raw.py")).exists():
+                    shutil.copyfile(args.run_dir / (name + "_torch.raw.py"), cache / "raw.py")
+                shutil.copyfile(proof, cache / "verification.log")
+                (cache / "record.json").write_text(
+                    json.dumps(
+                        {
+                            "key": key,
+                            "sha256": hashlib.sha256(generated.read_bytes()).hexdigest(),
+                            "unbounded_verification": not args.bounded_only,
+                        },
+                        indent=2,
+                    )
+                )
+            status["operators"].append(
+                {"operator": op, "source": str(source), "key": key, "cache_hit": False}
+            )
+        shutil.copyfile(prepared / "program.json", args.run_dir / "program.json")
+        shutil.copyfile(prepared / "runtime.py", args.run_dir / "runtime.py")
+        imports = [
+            "from "
+            + ("stage_mv" if op == "mv" else "op_" + op)
+            + "_torch import "
+            + ("stage_mv" if op == "mv" else "op_" + op)
+            + "_torch"
+            for op in manifest["program"]["operators"]
+        ]
+        entries = ", ".join(
+            repr(op) + ": " + ("stage_mv" if op == "mv" else "op_" + op) + "_torch"
+            for op in manifest["program"]["operators"]
+        )
+        code = (
+            "import json\nfrom pathlib import Path\nfrom runtime import build\n"
+            + "\n".join(imports)
+            + '\n\nforward = build(json.loads((Path(__file__).parent / "program.json").read_text()), {'
+            + entries
+            + "})\n"
+        )
+        (args.run_dir / "kernel_torch.py").write_text(code)
+        status["status"] = "generated_requires_original_c_validation"
+    except BaseException as exc:
+        status["error"] = str(exc)
+        raise
+    finally:
+        (args.run_dir / "status.json").write_text(json.dumps(status, indent=2) + "\n")
+    print(json.dumps(status, indent=2))
+
+
+if __name__ == "__main__":
+    main()

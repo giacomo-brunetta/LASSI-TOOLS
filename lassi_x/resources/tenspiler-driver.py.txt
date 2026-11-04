@@ -1,0 +1,481 @@
+"""Compile and synthesize prepared reductions using an installed Tenspiler.
+
+This file intentionally uses Python 3.9 syntax for the upstream environment.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+
+def install_verifier():
+    # The pinned SMT prelude also needs an empty-column transpose base case;
+    # otherwise transpose([[]]) = cons(0, transpose([[]])) is inconsistent.
+    import types
+    import metalift.smt_util as smt_util
+
+    original_read_text = smt_util.resources.read_text
+
+    def read_text(package, resource, *args, **kwargs):
+        text = original_read_text(package, resource, *args, **kwargs)
+        if resource == "list-axioms.smt":
+            old = "(ite (< (matrix_length matrix) 1) matrix_empty (matrix_prepend (firsts matrix) (matrix_transpose (rests matrix)))))"
+            new = "(ite (or (< (matrix_length matrix) 1) (< (list_length (matrix_get matrix 0)) 1)) matrix_empty (matrix_prepend (firsts matrix) (matrix_transpose (rests matrix)))))"
+            if text.count(old) != 1:
+                raise RuntimeError("Unrecognized Tenspiler SMT transpose definition")
+            text = text.replace(old, new)
+        return text
+
+    smt_util.resources = types.SimpleNamespace(read_text=read_text)
+
+
+def worker(args):
+    root = Path(args.tenspiler_root).resolve()
+    run = Path(args.run_dir).resolve()
+    manifest = json.loads((Path(__file__).parent / "manifest.json").read_text())
+    stage = next(s for s in manifest["program"]["stages"] if s["output"] == args.worker)
+    sys.path.insert(0, str(root))
+    os.chdir(root)
+    from metalift.frontend.llvm import Driver, InvGrammar
+    from metalift.ir import (
+        Int,
+        Matrix,
+        List,
+        Bool,
+        choose,
+        Axiom,
+        implies,
+        ite,
+        fn_decl_recursive,
+        call,
+    )
+    from metalift.vc_util import and_objects
+    from tenspiler.tenspiler_common import (
+        matrix_vec_mul,
+        vec_elemwise_mul,
+        reduce_sum,
+        call_matrix_vec_mul,
+        call_reduce_sum,
+        call_vec_elemwise_mul,
+        vec_elemwise_add,
+        call_vec_elemwise_add,
+    )
+    from tenspiler.axioms_tenspiler import reduce_sum_axiom
+
+    # Upstream prefix axioms include index=0, equating [] with a singleton.
+    # Use guarded, nonempty-prefix identities instead. Shapes are a separate
+    # precondition, never an unconditional assumption about arbitrary matrices.
+    ax_a, ax_b = List(Int, "prefix_a"), List(Int, "prefix_b")
+    ax_m, ax_i, ax_n = Matrix(Int, "prefix_m"), Int("prefix_i"), Int("prefix_n")
+    rect_name = "prepared_rectangular"
+    rect = fn_decl_recursive(
+        rect_name,
+        Bool,
+        ite(
+            ax_m.len() == 0,
+            Bool(True),
+            and_objects(ax_m[0].len() == ax_n, call(rect_name, Bool, ax_m[1:], ax_n)),
+        ),
+        ax_m,
+        ax_n,
+    )
+
+    def axiom(expression, *variables):
+        return Axiom(expression.src, *(v.src for v in variables))
+
+    vec_guard = and_objects(ax_i >= 1, ax_i <= ax_a.len(), ax_a.len() == ax_b.len())
+    mul_axiom = axiom(
+        implies(
+            vec_guard,
+            call_vec_elemwise_mul(ax_a[:ax_i], ax_b[:ax_i])
+            == call_vec_elemwise_mul(ax_a[1:ax_i], ax_b[1:ax_i]).prepend(ax_a[0] * ax_b[0]),
+        ),
+        ax_a,
+        ax_b,
+        ax_i,
+    )
+    add_axiom = axiom(
+        implies(
+            vec_guard,
+            call_vec_elemwise_add(ax_a[:ax_i], ax_b[:ax_i])
+            == call_vec_elemwise_add(ax_a[1:ax_i], ax_b[1:ax_i]).prepend(ax_a[0] + ax_b[0]),
+        ),
+        ax_a,
+        ax_b,
+        ax_i,
+    )
+    mv_axiom = axiom(
+        implies(
+            and_objects(
+                ax_i >= 1, ax_i <= ax_m.len(), ax_m[0].len() > 0, ax_m[0].len() == ax_b.len()
+            ),
+            call_matrix_vec_mul(ax_m[:ax_i], ax_b)
+            == call_matrix_vec_mul(ax_m[1:ax_i], ax_b).prepend(
+                call_reduce_sum(call_vec_elemwise_mul(ax_m[0], ax_b))
+            ),
+        ),
+        ax_m,
+        ax_b,
+        ax_i,
+    )
+    rect_axiom = axiom(
+        implies(
+            and_objects(call(rect_name, Bool, ax_m, ax_n), ax_i >= 0, ax_i < ax_m.len()),
+            ax_m[ax_i].len() == ax_n,
+        ),
+        ax_m,
+        ax_n,
+        ax_i,
+    )
+    from tenspiler.codegen.pytorch_codegen import pytorch_codegen
+    from tenspiler.codegen.utils import DataType
+
+    # Inductive prefix lemmas for the actual loop updates. All are guarded by
+    # valid indices and exact shapes; none equates empty and nonempty lists.
+    dot_before = call_reduce_sum(call_vec_elemwise_mul(ax_a[:ax_i], ax_b[:ax_i]))
+    dot_after = call_reduce_sum(call_vec_elemwise_mul(ax_a[: ax_i + 1], ax_b[: ax_i + 1]))
+    dot_axiom = axiom(
+        implies(
+            and_objects(ax_i >= 0, ax_i < ax_a.len(), ax_a.len() == ax_b.len()),
+            dot_after == dot_before + ax_a[ax_i] * ax_b[ax_i],
+        ),
+        ax_a,
+        ax_b,
+        ax_i,
+    )
+    comm_axiom = axiom(
+        call_reduce_sum(call_vec_elemwise_mul(ax_a, ax_b))
+        == call_reduce_sum(call_vec_elemwise_mul(ax_b, ax_a)),
+        ax_a,
+        ax_b,
+    )
+    mv_prefix = call_matrix_vec_mul(ax_m[:ax_i], ax_b)
+    mv_extended = call_matrix_vec_mul(ax_m[: ax_i + 1], ax_b)
+    mv_append = axiom(
+        implies(
+            and_objects(
+                ax_i >= 0,
+                ax_i < ax_m.len(),
+                ax_b.len() > 0,
+                call(rect_name, Bool, ax_m, ax_b.len()),
+            ),
+            mv_extended
+            == mv_prefix.append(call_reduce_sum(call_vec_elemwise_mul(ax_m[ax_i], ax_b))),
+        ),
+        ax_m,
+        ax_b,
+        ax_i,
+    )
+    add_prefix = call_vec_elemwise_add(ax_a[:ax_i], ax_b[:ax_i])
+    add_append = axiom(
+        implies(
+            and_objects(ax_i >= 0, ax_i < ax_a.len(), ax_a.len() == ax_b.len()),
+            call_vec_elemwise_add(ax_a[: ax_i + 1], ax_b[: ax_i + 1])
+            == add_prefix.append(ax_a[ax_i] + ax_b[ax_i]),
+        ),
+        ax_a,
+        ax_b,
+        ax_i,
+    )
+
+    # Rectangular transpose lemmas connect the transposed source access to
+    # the same forward matrix-vector summary. The empty-column base case in
+    # install_verifier is required for these identities to be satisfiable.
+    ax_j = Int("prefix_j")
+    trans = ax_m.transpose()
+    shape_guard = and_objects(call(rect_name, Bool, ax_m, ax_n), ax_m.len() > 0, ax_n > 0)
+    trans_shape = axiom(
+        implies(
+            shape_guard, and_objects(trans.len() == ax_n, call(rect_name, Bool, trans, ax_m.len()))
+        ),
+        ax_m,
+        ax_n,
+    )
+    trans_get = axiom(
+        implies(
+            and_objects(shape_guard, ax_i >= 0, ax_i < ax_n, ax_j >= 0, ax_j < ax_m.len()),
+            trans[ax_i][ax_j] == ax_m[ax_j][ax_i],
+        ),
+        ax_m,
+        ax_n,
+        ax_i,
+        ax_j,
+    )
+    trans_prefix = axiom(
+        implies(
+            and_objects(shape_guard, ax_i >= 0, ax_i < ax_n, ax_j >= 0, ax_j <= ax_m.len()),
+            ax_m[:ax_j].col_vec(ax_i) == trans[ax_i][:ax_j],
+        ),
+        ax_m,
+        ax_n,
+        ax_i,
+        ax_j,
+    )
+
+    install_verifier()
+
+    def target():
+        result = [
+            matrix_vec_mul,
+            vec_elemwise_mul,
+            reduce_sum,
+            mv_axiom,
+            reduce_sum_axiom,
+            mul_axiom,
+            rect,
+            rect_axiom,
+            dot_axiom,
+            comm_axiom,
+            mv_append,
+            trans_shape,
+            trans_get,
+            trans_prefix,
+        ]
+        return result + ([vec_elemwise_add, add_axiom, add_append] if stage.get("bias") else [])
+
+    def post(writes, reads, scope, relaxed):
+        weight, vector = reads[:2]
+        result = call_matrix_vec_mul(choose(weight, weight.transpose()), vector)
+        if stage.get("bias"):
+            result = call_vec_elemwise_add(reads[2], result)
+        return writes[0] == result
+
+    def outer(writes, reads, scope, relaxed):
+        weight, vector = reads[:2]
+        out, col, curr, row = writes
+        matrix = weight.transpose() if stage["transpose"] else weight
+        limit = weight[0].len() if stage["transpose"] else weight.len()
+        result = call_matrix_vec_mul(matrix[:row], vector)
+        if stage.get("bias"):
+            result = call_vec_elemwise_add(reads[2][:row], result)
+        return and_objects(row >= 0, row <= limit, out == result)
+
+    def inner(writes, reads, scope, relaxed):
+        weight, vector = reads[:2]
+        col, curr = writes
+        out, row = scope
+        matrix = weight.transpose() if stage["transpose"] else weight
+        rows = weight[0].len() if stage["transpose"] else weight.len()
+        cols = weight.len() if stage["transpose"] else vector.len()
+        prefix = weight[:col].col_vec(row) if stage["transpose"] else weight[row][:col]
+        partial = call_reduce_sum(call_vec_elemwise_mul(vector[:col], prefix))
+        result = call_matrix_vec_mul(matrix[:row], vector)
+        if stage.get("bias"):
+            partial = reads[2][row] + partial
+            result = call_vec_elemwise_add(reads[2][:row], result)
+        return and_objects(
+            row >= 0, row < rows, col >= 0, col <= cols, curr == partial, out == result
+        )
+
+    name = "stage_" + stage["output"]
+    driver = Driver()
+    function = driver.analyze(
+        str(run / (name + ".ll")),
+        str(run / (name + ".loops")),
+        name,
+        target,
+        {
+            name + "_inv0": InvGrammar(outer, []),
+            name + "_inv1": InvGrammar(inner, ["row", "agg.result"]),
+        },
+        post,
+    )
+    weight = Matrix(Int, "weight")
+    vector = List(Int, "input")
+    variables = [weight, vector]
+    if stage.get("bias"):
+        bias = List(Int, "bias")
+        variables.append(bias)
+        driver.add_precondition(
+            bias.len() == (weight[0].len() if stage["transpose"] else weight.len())
+        )
+    driver.add_var_objects(variables)
+    driver.add_precondition(call(rect_name, Bool, weight, weight[0].len()))
+    driver.add_precondition(weight.len() > 0)
+    driver.add_precondition(weight[0].len() > 0)
+    driver.add_precondition(
+        (weight.len() if stage["transpose"] else weight[0].len()) == vector.len()
+    )
+    function(*variables)
+    identity = hashlib.sha256(str(run).encode()).hexdigest()[:12]
+    driver.synthesize(
+        filename="prepared_" + name + "_" + identity,
+        list_bound=args.bound,
+        relaxed_grammar=False,
+        rounds_to_guess=0,
+        no_verify=args.bounded_only,
+    )
+    code = pytorch_codegen(driver.get_actual_ps_fn_decl(), driver.synthesized_fns, DataType.FLOAT)
+    (run / (name + "_torch.py")).write_text(code)
+
+
+def execute(command, directory, log, timeout):
+    started = time.monotonic()
+    with log.open("w") as stream:
+        process = subprocess.Popen(
+            command, cwd=directory, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True
+        )
+        try:
+            code = process.wait(timeout=timeout)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait()
+    if code:
+        raise RuntimeError("Command failed; see " + str(log))
+    return {"command": command, "elapsed_s": time.monotonic() - started, "log": str(log)}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tenspiler-root", required=True)
+    parser.add_argument("--llvm-bin", type=Path, required=True)
+    parser.add_argument("--llvm-pass", type=Path, required=True)
+    parser.add_argument("--run-dir", type=Path, default=Path(__file__).parent / "synthesis")
+    parser.add_argument("--bound", type=int, default=2)
+    parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--sysroot", default=os.environ.get("SDKROOT"))
+    parser.add_argument(
+        "--bounded-only",
+        action="store_true",
+        help="Emit bounded-synthesis candidates without claiming unbounded verification",
+    )
+    parser.add_argument("--worker", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    import math
+
+    if args.bound < 1 or not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("bound and finite timeout must be positive")
+    args.llvm_bin = args.llvm_bin.resolve()
+    args.llvm_pass = args.llvm_pass.resolve()
+    if args.worker:
+        worker(args)
+        return
+    prepared = Path(__file__).resolve().parent
+    manifest = json.loads((prepared / "manifest.json").read_text())
+    if not manifest["integer_model"]:
+        parser.error("Prepare an integer model before invoking synthesis")
+    for name, digest in manifest["generated_sha256"].items():
+        if hashlib.sha256((prepared / name).read_bytes()).hexdigest() != digest:
+            raise RuntimeError("Prepared file changed: " + name)
+    args.run_dir = args.run_dir.resolve()
+    args.run_dir.mkdir(parents=True, exist_ok=False)
+    steps = []
+    status = {
+        "scope": "Integer-model synthesis only; validate floating-point Torch against original C",
+        "bound": args.bound,
+        "unbounded_verification": "not_attempted" if args.bounded_only else "requested",
+        "timeout_per_stage_s": args.timeout,
+        "steps": steps,
+    }
+    try:
+        for stage in manifest["program"]["stages"]:
+            name = "stage_" + stage["output"]
+            source = args.run_dir / (name + ".cc")
+            source.write_bytes((prepared / source.name).read_bytes())
+            flags = ["-stdlib=libc++", "-O0", "-ffp-contract=off", "-fno-discard-value-names"]
+            if args.sysroot:
+                flags += ["-isysroot", args.sysroot]
+            commands = [
+                [
+                    str(args.llvm_bin / "clang++"),
+                    *flags,
+                    "-S",
+                    "-emit-llvm",
+                    str(source),
+                    "-o",
+                    str(source.with_suffix(".raw.ll")),
+                ],
+                [
+                    str(args.llvm_bin / "opt"),
+                    "-load",
+                    str(args.llvm_pass),
+                    "-addEmptyBlock",
+                    "-lowerinvoke",
+                    "--unreachableblockelim",
+                    "-instnamer",
+                    "-S",
+                    str(source.with_suffix(".raw.ll")),
+                    "-o",
+                    str(source.with_suffix(".ll")),
+                ],
+                [str(args.llvm_bin / "opt"), "-analyze", "-loops", str(source.with_suffix(".ll"))],
+            ]
+            for index, command in enumerate(commands):
+                log = (
+                    source.with_suffix(".loops")
+                    if index == 2
+                    else args.run_dir / (name + "-compile-" + str(index) + ".log")
+                )
+                steps.append(execute(command, args.run_dir, log, 30))
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--worker",
+                stage["output"],
+                "--tenspiler-root",
+                str(Path(args.tenspiler_root).resolve()),
+                "--llvm-bin",
+                str(args.llvm_bin.resolve()),
+                "--llvm-pass",
+                str(args.llvm_pass.resolve()),
+                "--run-dir",
+                str(args.run_dir),
+                "--bound",
+                str(args.bound),
+                "--timeout",
+                str(args.timeout),
+            ] + (["--bounded-only"] if args.bounded_only else [])
+            steps.append(
+                execute(
+                    command, args.run_dir, args.run_dir / (name + "-synthesis.log"), args.timeout
+                )
+            )
+        imports = [
+            "from stage_" + s["output"] + "_torch import stage_" + s["output"] + "_torch"
+            for s in manifest["program"]["stages"]
+        ]
+        body = [
+            "    "
+            + s["output"]
+            + " = stage_"
+            + s["output"]
+            + "_torch("
+            + s["matrix"]
+            + ", "
+            + s["vector"]
+            + (", " + s["output"] if s.get("bias") else "")
+            + ")"
+            for s in manifest["program"]["stages"]
+        ]
+        body.append("    return (" + ", ".join(manifest["program"]["outputs"]) + ",)")
+        (args.run_dir / "kernel_torch.py").write_text(
+            "\n".join(imports)
+            + "\n\ndef forward("
+            + ", ".join(manifest["program"]["inputs"])
+            + "):\n"
+            + "\n".join(body)
+            + "\n"
+        )
+        status["status"] = "generated_requires_original_c_validation"
+    except BaseException as exc:
+        status["status"] = "incomplete"
+        status["error"] = str(exc)
+        raise
+    finally:
+        (args.run_dir / "status.json").write_text(json.dumps(status, indent=2) + "\n")
+    print(json.dumps(status, indent=2))
+
+
+if __name__ == "__main__":
+    main()
