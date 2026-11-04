@@ -3,6 +3,7 @@
 Run the same command used by GitHub Actions before pushing:
 
 ```sh
+git submodule update --init --recursive
 uv sync --locked --extra dev --extra globus --extra roofline
 uv run --locked --extra dev --extra globus --extra roofline python tools/check_quality.py
 ```

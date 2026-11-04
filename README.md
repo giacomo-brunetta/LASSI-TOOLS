@@ -38,8 +38,26 @@ These replace the former `arena`, `runner`, `accuracy`, `qualification`, `accele
 and `compat` module paths. Update external imports and worker installations together.
 The `lassi-x-compat` and `lassi-x-compat-wiki` commands retain their names.
 
-The former `examples/` directory has been removed. Benchmark sources are now
-self-contained; the CPU suite defaults to `benchmarks/polybench`.
+## Examples
+
+Benchmark examples live under [`benchmarks/`](benchmarks/README.md). External suites
+are Git submodule dependencies pinned to specific commits:
+
+| Suite | Path | Repository |
+| --- | --- | --- |
+| PolyBench/C 4.2.1 | `benchmarks/polybench` | [PolyBenchC-4.2.1](https://github.com/MatthiasJReisinger/PolyBenchC-4.2.1) |
+| Rodinia 3.1 | `benchmarks/rodinia` | [gpu-rodinia](https://github.com/yuhc/gpu-rodinia) |
+| NAS Parallel Benchmarks 3.0 (OpenMP C) | `benchmarks/npb` | [NPB3.0-omp-C](https://github.com/benchmark-subsetting/NPB3.0-omp-C) |
+
+Initialize these dependencies after cloning or pulling:
+
+```bash
+git submodule update --init --recursive
+```
+
+For a new checkout, use `git clone --recurse-submodules <repository-url>`.
+The CPU suite defaults to `benchmarks/polybench`; Rodinia and NPB are additional
+reference examples and are not included in that suite's default cohort.
 
 ## Installation
 

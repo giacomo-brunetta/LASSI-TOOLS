@@ -34,6 +34,8 @@ Mutual information uses the existing scientific reference in this repository.
 
 Run from the repository root with its environment active. By default, the script
 uses `benchmarks/polybench`; use `--polybench /path/to/PolyBenchC-4.2.1` otherwise.
+Initialize the pinned benchmark dependencies with
+`git submodule update --init --recursive` before preparing the suite.
 It uses the source tree you supply, including local modifications; hashes establish
 identity, not certification that the tree is pristine upstream PolyBench.
 

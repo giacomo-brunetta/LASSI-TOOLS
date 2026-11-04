@@ -1,0 +1,9 @@
+[submodule "benchmarks/polybench"]
+	path = benchmarks/polybench
+	url = https://github.com/MatthiasJReisinger/PolyBenchC-4.2.1.git
+[submodule "benchmarks/rodinia"]
+	path = benchmarks/rodinia
+	url = https://github.com/yuhc/gpu-rodinia.git
+[submodule "benchmarks/npb"]
+	path = benchmarks/npb
+	url = https://github.com/benchmark-subsetting/NPB3.0-omp-C.git
