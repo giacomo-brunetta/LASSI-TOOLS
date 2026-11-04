@@ -59,6 +59,12 @@ For a new checkout, use `git clone --recurse-submodules <repository-url>`.
 The CPU suite defaults to `benchmarks/polybench`; Rodinia and NPB are additional
 reference examples and are not included in that suite's default cohort.
 
+Comparison tools are pinned submodules under [`third_party/`](third_party/README.md):
+[Tenspiler](https://github.com/tenspiler/tenspiler) for translation to PyTorch and
+[Herbie](https://github.com/herbie-fp/herbie) for expression optimization using the
+Pherbie approach. The same submodule initialization command fetches their sources;
+building and integrating these tools are separate setup steps.
+
 ## Installation
 
 ```bash

@@ -7,3 +7,9 @@
 [submodule "benchmarks/npb"]
 	path = benchmarks/npb
 	url = https://github.com/benchmark-subsetting/NPB3.0-omp-C.git
+[submodule "third_party/tenspiler"]
+	path = third_party/tenspiler
+	url = https://github.com/tenspiler/tenspiler.git
+[submodule "third_party/herbie"]
+	path = third_party/herbie
+	url = https://github.com/herbie-fp/herbie.git
