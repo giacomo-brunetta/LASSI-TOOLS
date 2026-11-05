@@ -3,7 +3,8 @@
 **40/40 workload profiles and 200/200 random LARGE cases passed native reference
 preparation, C preflight, and the frozen-output evidence audit.** Seeds are 0–4;
 dimensions stay LARGE throughout. All five cases produce distinct observable
-outputs for each workload.
+outputs for each workload, distinguishable beyond the acceptance tolerance
+for every pair of seeds.
 
 The final audit regenerated every input with the current generator and matched
 its exact typed values. Fresh C preflight outputs match the frozen reference
@@ -12,10 +13,12 @@ state and enforce read-only preservation. Every read-write input is an explicit
 output. All 200 flat YAML cases load through the C-adaptation pipeline's actual
 case loader.
 
-Local repository checks passed: lint, formatting, strict types and **675 tests
+Local repository checks passed: lint, formatting, strict types and **677 tests
 passed, 3 availability skips**. The native workload tests are required and do not
 silently skip absent dependencies. The dependency preparation helper was built
-and exercised from the pinned submodules. Final DWT copyright-comment whitespace
+and exercised from the pinned submodules. The MG bridge uses a separate cycle counter and passes an unoptimized Fortran
+runtime-bounds-checking C preflight. Sub-tolerance input changes are rejected
+by a real-reference negative test. Final DWT copyright-comment whitespace
 cleanup received its own fresh five-case LARGE preparation and C preflight.
 
 - [Audited case outcomes and hashes](evidence.json)

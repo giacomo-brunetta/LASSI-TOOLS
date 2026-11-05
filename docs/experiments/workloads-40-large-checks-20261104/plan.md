@@ -174,3 +174,25 @@ alone receives fresh `dwt-source-v2` preparation and `dwt-source-c-preflight-v2`
 evidence (six plus ten builds, twelve plus twenty invocations, unchanged finite
 command and phase limits). Final predeclared ownership is 22 unchanged PolyBench
 + eight mutable-state PolyBench + eight unchanged native + CFD + DWT.
+
+## MG bridge alias correction
+
+Use a local loop counter as the final `mg3P` argument, matching the original
+NASA driver, rather than aliasing the module hierarchy-depth variable `lt` that
+`mg3P` reads while modifying its counter. The original Fortran routines remain
+unchanged. MG alone receives fresh `mg-bridge-v2` preparation and
+`mg-bridge-c-preflight-v2` evidence: six plus ten builds, twelve plus twenty
+invocations, with unchanged command/phase limits. Its partition is removed from
+the unchanged-native partition before execution, independent of outcome.
+
+## Numerical discrimination and MG debug regression
+
+Require every pair of seeded reference outputs to differ beyond the configured
+candidate acceptance tolerances, rather than relying only on different byte
+hashes. A real-reference negative test supplies sub-tolerance perturbations and
+must fail preparation. The final frozen-output audit enforces this criterion
+across all 200 LARGE cases. Add an MG C preflight with Fortran `-O0 -fcheck=all`
+to expose hierarchy-counter aliasing that optimized Fortran can conceal. This
+is a bounded development regression (two builds/four executions on the small
+profile), separate from final LARGE evidence. Production compile flags stay
+unchanged.

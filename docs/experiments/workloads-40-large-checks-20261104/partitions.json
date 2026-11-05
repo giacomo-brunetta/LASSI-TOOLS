@@ -45,7 +45,6 @@
     {
       "workload_ids": [
         "npb-3.4.4/CG",
-        "npb-3.4.4/MG",
         "npb-3.4.4/FT",
         "rodinia/LavaMD",
         "rodinia/Myocyte",
@@ -69,6 +68,13 @@
       ],
       "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-v2/report.json",
       "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/report.json"
+    },
+    {
+      "workload_ids": [
+        "npb-3.4.4/MG"
+      ],
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-v2/report.json",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/report.json"
     }
   ]
 }

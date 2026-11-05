@@ -20,7 +20,8 @@ subroutine lassi_npb_mg(rhs,solution) bind(C)
   c=[-3.0d0/17.0d0,1.0d0/33.0d0,-1.0d0/61.0d0,0.0d0]
   call resid(u,v,r,n1,n2,n3,a,lt)
   do iteration=1,4
-    call mg3P(u,v,r,a,c,n1,n2,n3,lt)
+    k=lt
+    call mg3P(u,v,r,a,c,n1,n2,n3,k)
     call resid(u,v,r,n1,n2,n3,a,lt)
   end do
   out=reshape(u(1:n1*n2*n3),[n1,n2,n3])

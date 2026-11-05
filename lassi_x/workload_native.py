@@ -56,6 +56,7 @@ def compile_reference(
     output: Path,
     *,
     small_test: bool = False,
+    fortran_checks: bool = False,
     extra_flags: list[str] | None = None,
 ) -> None:
     """Build one source revision, retaining the complete command record."""
@@ -116,7 +117,7 @@ def compile_reference(
             (directory / "blk_par.h").write_text(block)
         fc = executable("gfortran")
         fflags = [
-            "-O2",
+            *(["-O0", "-g", "-fcheck=all", "-fbacktrace"] if fortran_checks else ["-O2"]),
             "-ffp-contract=off",
             "-fallow-argument-mismatch",
             f"-I{directory}",
@@ -279,6 +280,7 @@ def main() -> None:
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--small-test", action="store_true")
+    parser.add_argument("--fortran-checks", action="store_true")
     args, extra = parser.parse_known_args()
     compile_reference(
         args.root,
@@ -287,6 +289,7 @@ def main() -> None:
         args.reference,
         args.output,
         small_test=args.small_test,
+        fortran_checks=args.fortran_checks,
         extra_flags=extra,
     )
 

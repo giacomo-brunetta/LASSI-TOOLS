@@ -142,3 +142,27 @@ def test_native_c_gate_rejects_erased_outputs(
     gate = asyncio.run(c_gate(config, candidate, tmp_path / "gate"))
     assert not gate["passed"]
     assert any(not check["passed"] for check in gate["checks"] if not check["read_only"])
+
+
+def test_mg_preflight_with_unoptimized_fortran_bounds_checks(
+    native_cases: tuple[Path, dict[str, Any]],
+    tmp_path: Path,
+) -> None:
+    """Catch hierarchy-depth/loop-counter aliasing hidden by optimized Fortran."""
+    _, report = native_cases
+    row = row_for(report, "npb-3.4.4/MG")
+    assert row["status"] == "reference_checked", row
+    config = RunConfig.load(Path(row["config"]))
+    config = config.validated_update(
+        oracle=config.oracle.validated_update(
+            build=[*config.oracle.build, "--fortran-checks"],
+        )
+    )
+    gate = asyncio.run(
+        c_gate(
+            config,
+            config.resolve_project_path(config.kernel.reference),
+            tmp_path / "bounds-checked",
+        )
+    )
+    assert gate["passed"], gate

@@ -6,27 +6,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-correlation/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-correlation/random-0.yaml",
           "sha256": "c6ecca8980ec96936d1bd95a8215a0db845feb24aebc8c60f93510408f1d4cd9"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-correlation/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-correlation/random-1.yaml",
           "sha256": "37bc63e5179c6d781f51d076bd7d667584e75684c012a93ab5955f5f4e6cab67"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-correlation/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-correlation/random-2.yaml",
           "sha256": "3a5f6c18c0d1631bd20502176a3c6c13d90e14bec8be8c42083eb62c8d54a8ca"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-correlation/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-correlation/random-3.yaml",
           "sha256": "79ee08dc29f44dd2a9420cb9b9acfb4a604bfe3ab3fc06961af50fa913f670f9"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-correlation/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-correlation/random-4.yaml",
           "sha256": "8f99972689c95ff51234f53093650acd54c76f3e8c14da166c965b8021887f34"
         }
       ]
@@ -37,27 +37,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-covariance/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-covariance/random-0.yaml",
           "sha256": "6adeeed0f11d4499f0c5bc63938fea38bd0cd328425547389f57a9d22e766ddc"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-covariance/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-covariance/random-1.yaml",
           "sha256": "a6c396aba35e655e0060d33a3b06c1299169f6508a1a60db73cd0fd9888f3f46"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-covariance/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-covariance/random-2.yaml",
           "sha256": "c3aa8bf87ce9be95de90081bf6170c00543c08ab93374f71541d5e606a36171d"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-covariance/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-covariance/random-3.yaml",
           "sha256": "5c9ab469c26b95f232a9270e7c7de190f6baa07248bedc049ee6cbb3a44eed10"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-covariance/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-covariance/random-4.yaml",
           "sha256": "434d5dba1481f3574113e9e6427098f1e962fb9873dfab43c648b53801508e2e"
         }
       ]
@@ -68,27 +68,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemm/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemm/random-0.yaml",
           "sha256": "c20a5eb358d2959b62e5f4374d813209ef083966923a0fcf96997ac06dec9300"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemm/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemm/random-1.yaml",
           "sha256": "d858ff93d9405413d662daa21c8a4777ffd33dc13a58646134b85b8315b37b05"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemm/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemm/random-2.yaml",
           "sha256": "7b73f5b248be144e1ee6fabb87170d64f035cb52efa4e339b8dfe9fd7b6e099b"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemm/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemm/random-3.yaml",
           "sha256": "f92d92dbcda1b2c1c01c09cb72f25742cfaa1c8e183d99329c899881724a4e2c"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemm/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemm/random-4.yaml",
           "sha256": "2cb9753a2c3b49427f8234191695ad33852a809f928f65e7c68ee33ea731f0b1"
         }
       ]
@@ -99,27 +99,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemver/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemver/random-0.yaml",
           "sha256": "e22d437b2835d5807de13de2a1de29d714f173a03cafba61b1ea784dbe4ed5e7"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemver/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemver/random-1.yaml",
           "sha256": "17ffeb9b94e4fab195392b0a913442748eafb2d694df9b3a910c1699c5eb5095"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemver/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemver/random-2.yaml",
           "sha256": "a67275e9cbc9d31360eb7caf25edf625c730c3e87346bf6ba3abacf3f7730722"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemver/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemver/random-3.yaml",
           "sha256": "327987df9ea7f72b801beec8bdf71dd521bb8f86d20a7024d2d5cefab980abc4"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gemver/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gemver/random-4.yaml",
           "sha256": "a8766ca7058ecdb7cc5da54a71f656ea0d7fb1568d0bdadea35fab74f3c02af1"
         }
       ]
@@ -130,27 +130,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gesummv/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gesummv/random-0.yaml",
           "sha256": "7ac6c41f0e91038f2eb3828aaeaebc9a42ea8bbead7bb7a232c7128cccb4a7a2"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gesummv/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gesummv/random-1.yaml",
           "sha256": "234e73dbbde642e7da8ba675d7b6ab2ee7d081842cf42030defe65f741c4579a"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gesummv/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gesummv/random-2.yaml",
           "sha256": "46b47e51e914f213c8fff183cb927de0cb73ff0346d6944589079540277467af"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gesummv/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gesummv/random-3.yaml",
           "sha256": "57c2dd567e049c3505fee4cdf3c2792d521885c810b35e3ee4d39dbb3302870c"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gesummv/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gesummv/random-4.yaml",
           "sha256": "05a117be2a3b3c95b841d730fe6dacc84d4def6c32afd36f2f7cf370b3f50c65"
         }
       ]
@@ -161,27 +161,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-symm/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-symm/random-0.yaml",
           "sha256": "b1d40f59b440da185ca923a2ece2c03c5d51ff55d43cdd4c44e05e90ff9e6105"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-symm/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-symm/random-1.yaml",
           "sha256": "ce86be6857da4ccf9cf047ba315b1b7cf01a33404625045098f2188ec00d6ff8"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-symm/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-symm/random-2.yaml",
           "sha256": "f9c94144d3a3d3ce81215fbea206df775b664e8729a81e7b807775f0769de1a1"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-symm/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-symm/random-3.yaml",
           "sha256": "242e3caf5ebae4edd74cea0cd3d5828f46e5d90f015c5db7fdf9fd50f01a4f6a"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-symm/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-symm/random-4.yaml",
           "sha256": "0254e42a176632faecbe522d33a854faf2d205e3e63dd5ed9f2d0635a3a93f40"
         }
       ]
@@ -192,27 +192,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syr2k/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syr2k/random-0.yaml",
           "sha256": "012a9dcbbbeee108ca83e8b069150e0fa2734194fbca9c4c2272aaf34e85a235"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syr2k/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syr2k/random-1.yaml",
           "sha256": "76c2d1d6d4bc238c4a58864443c9eaa63c5ccdd93722e71479bb637c230db3fc"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syr2k/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syr2k/random-2.yaml",
           "sha256": "1a6c961e9e022ddcc7249e4df8be2716c4bf1c4b86b1dedc8d8da74df6ca14e8"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syr2k/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syr2k/random-3.yaml",
           "sha256": "f30ddd3cd3c38ec69fd3b12d689a28c566a05b1060dec522cc45c1b89f56eb46"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syr2k/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syr2k/random-4.yaml",
           "sha256": "bcbc2a8f11585502de06e36bebdda6ade611e0adefad0fbcaf2540d9b1707937"
         }
       ]
@@ -223,27 +223,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syrk/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syrk/random-0.yaml",
           "sha256": "e48b29eda3e3e585c17af3fc7a6d5ac092c1ca30b139642c3604697f4a2bce09"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syrk/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syrk/random-1.yaml",
           "sha256": "e413c0146bf9cf7d2ddecf62ab366870d948e52de8c8dbeea66662ea701888dc"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syrk/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syrk/random-2.yaml",
           "sha256": "8ae66d9ec6be802651c4f28e09da5661555c15bf5b54441691f1330205001772"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syrk/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syrk/random-3.yaml",
           "sha256": "2dd24b68741d8409700854dc75313221cffbcba0dec136d20988bbf4ef4e8036"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-syrk/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-syrk/random-4.yaml",
           "sha256": "58f76e1b77e3ddbc328e8d65ddd23de6fed02a7d2fffbb886650fc808357c0ad"
         }
       ]
@@ -254,27 +254,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trmm/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trmm/random-0.yaml",
           "sha256": "a24149c0cb5b645b3e0b8426cc7314daebe7eb390774c01323afcea3af5f592a"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trmm/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trmm/random-1.yaml",
           "sha256": "c52cfce504cbe2f313e74613e2c2ef269cd922487341a141e10c8ba650707302"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trmm/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trmm/random-2.yaml",
           "sha256": "e528877e93b95a9242c1593e6ac2c5f7e0ce65b21f6b93b26246adc93118f4d0"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trmm/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trmm/random-3.yaml",
           "sha256": "51c4ac9510766fd81317875c0f78392f7353ea5bc1c6a230f19c0901e0ec6d6e"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trmm/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trmm/random-4.yaml",
           "sha256": "8b1b96468db0a2fe4218b01f63dddcaf8b5b6de84141887915327f1ef66f1c43"
         }
       ]
@@ -285,27 +285,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-2mm/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-2mm/random-0.yaml",
           "sha256": "d9ad997b3eebbb0f814c33eb80678a61df2fe2bd337fd20aa8e7c091c8cd04c3"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-2mm/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-2mm/random-1.yaml",
           "sha256": "637fab193bd8c7210eec23ffe54ca5853d062d007c497c788ffcdfafe82feee4"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-2mm/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-2mm/random-2.yaml",
           "sha256": "a69e4b68502a830b2a43bf7b23be94584fec7545f96a20e2a6bfd39375f8f705"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-2mm/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-2mm/random-3.yaml",
           "sha256": "2a9fa79bdceca5f9a7dfe0604f31b6237acb1ab5d6cdc4a9a471ef1d0c25ef40"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-2mm/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-2mm/random-4.yaml",
           "sha256": "d3b3bf7f6a6c1820add4f6e31fca25b584f78950c4f1de73e42f8c136f6f88a4"
         }
       ]
@@ -316,27 +316,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-3mm/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-3mm/random-0.yaml",
           "sha256": "98e944cd75ca05e1594bf2cfc0c33e05c56bf3419f3668d5f4698b031f18a573"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-3mm/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-3mm/random-1.yaml",
           "sha256": "ceec86fa28036595e69517ec980bdc31c5bc32c7b44dbfc10c1581cdf6d487ab"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-3mm/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-3mm/random-2.yaml",
           "sha256": "10a49edcbb0f60a0e6c329a7418c416bbce9c67834db0954b282b928b251d20e"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-3mm/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-3mm/random-3.yaml",
           "sha256": "977d6232a6fe412bd9f50eb5269e0dcfc01afd4c30d66c411a2c4bd24c126c9c"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-3mm/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-3mm/random-4.yaml",
           "sha256": "2af5c1b3df038bcea47197970bc184e952e9ab24eb09f9ebc26d3ec533427ea3"
         }
       ]
@@ -347,27 +347,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-atax/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-atax/random-0.yaml",
           "sha256": "467c65e3783ab4d6e99b9cd01c91bc59bb602215376c0e5acc08b6dc31ba4947"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-atax/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-atax/random-1.yaml",
           "sha256": "a947aafec4a9c8493a694d4c9c5feb7d029003f53473fb681dfca1069348b4fb"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-atax/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-atax/random-2.yaml",
           "sha256": "088f052cc3dc2e5614aed5c077b1986308a831422ff613cddd63684e61096b54"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-atax/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-atax/random-3.yaml",
           "sha256": "6ff5b9050fcc1c9afe490efdddac40040ea5d5086e40af3936c05973c9878ef0"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-atax/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-atax/random-4.yaml",
           "sha256": "8e942ad87ebf70ac581dc5697ab6ccef91a17eb0b22d6bffb7e734a15e0aef8c"
         }
       ]
@@ -378,27 +378,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-bicg/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-bicg/random-0.yaml",
           "sha256": "9c90a409c6764ca365f5f25558ba181f7b7ffdd72c90d8530d300c2b939dbd0c"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-bicg/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-bicg/random-1.yaml",
           "sha256": "896a64f33db69ee71eb8acba13e5c7536447a8187a07a1645d8369ff418a2640"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-bicg/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-bicg/random-2.yaml",
           "sha256": "7e35b653e4bcf30f7b42bef68a71233fa084502ccf763bc6f661646abfb63d2e"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-bicg/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-bicg/random-3.yaml",
           "sha256": "caf200eef92ee89c1a4b42b63a9e88f5b7581b295c2a084567b46e14cc8b375b"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-bicg/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-bicg/random-4.yaml",
           "sha256": "cb3de3fa6ce31a9de3917a1b04daa35ad05ff70d72ed5ae76ee7cc87dcc30ffe"
         }
       ]
@@ -409,27 +409,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-doitgen/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-doitgen/random-0.yaml",
           "sha256": "dadc034ad8b9d28e096282899fce17826be521bdaff7e016e085576f6ad7f2dc"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-doitgen/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-doitgen/random-1.yaml",
           "sha256": "e7648c5e45b64cc07fc9d05ba1330efeafa1abc01f58b92520373f7a8cea2f1d"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-doitgen/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-doitgen/random-2.yaml",
           "sha256": "ba6612c18d14c03cfdc0a483fef033e817488d7baa90478b75748bb852ab9e4c"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-doitgen/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-doitgen/random-3.yaml",
           "sha256": "107d9b74d11d3b221a71ff7adc5fa7b137ce6c231f5578209b05e443ee5f1d89"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-doitgen/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-doitgen/random-4.yaml",
           "sha256": "8384bd18ff758d81bcea3f11dfa17ad6955737ffff62569c454d4250c289c6ad"
         }
       ]
@@ -440,27 +440,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-mvt/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-mvt/random-0.yaml",
           "sha256": "1e9e2adacfd51902059b7466cb7c316a5fb844e0a68e61989e252dc86e41c5f3"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-mvt/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-mvt/random-1.yaml",
           "sha256": "b6102e9449d95026fe8c6b6eb53687332292a1119ab1d3b7fa95d1c739694d57"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-mvt/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-mvt/random-2.yaml",
           "sha256": "a1300fb4d4ad58edd43fb92b9c17998e47d17bb15f272660f317a036734b1a2d"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-mvt/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-mvt/random-3.yaml",
           "sha256": "f51e0230cbb906fb45a5790b8365096945c2fd93c1dc22e60311b72ad1a19104"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-mvt/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-mvt/random-4.yaml",
           "sha256": "4aef1774e7676479b8656544554e9b94d49761b5b6a618dc8858f15b454675d5"
         }
       ]
@@ -471,27 +471,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-cholesky/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-cholesky/random-0.yaml",
           "sha256": "742cd3a72458bba6eb5d1410607c9ac7ca01b0ba6280d7206de4eafb78a6605d"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-cholesky/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-cholesky/random-1.yaml",
           "sha256": "d689f0a67269bd778ee7cc91d6a88621ef9d7ec6957fd658a2b6dcad42f202c8"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-cholesky/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-cholesky/random-2.yaml",
           "sha256": "18c3dfc45532b05fac797adcdc9280e74596ac7cd3bbda725afb2f2b424e32bb"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-cholesky/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-cholesky/random-3.yaml",
           "sha256": "2781f75393d468ad45228e95c4d95b4f654dbbda12de49274c3207ff4ccb8ce5"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-cholesky/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-cholesky/random-4.yaml",
           "sha256": "f51f239a34129af05d7140c5bbdb20289aff326558244e7a485096dcdd657290"
         }
       ]
@@ -502,27 +502,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-durbin/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-durbin/random-0.yaml",
           "sha256": "3ac42a65fc999fdafbebce1a32a267ef504db46367e339fc609879da89b8e88a"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-durbin/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-durbin/random-1.yaml",
           "sha256": "022ba1f6ee1268c6185bb7d9ce0dd8725df7228d6910ddd1f0f99cf8c7089c09"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-durbin/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-durbin/random-2.yaml",
           "sha256": "19303425596a110ce8f669cc00b46faf0ec31f6ec6c0984ab867c4e2c2d07c05"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-durbin/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-durbin/random-3.yaml",
           "sha256": "938ab91aa0c4b2ea816e250a06f3ac2e8bfe194c9d7395e2294e9e31eb1caeab"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-durbin/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-durbin/random-4.yaml",
           "sha256": "e7e6845d03170b3408dd670e3095584ef31ca75575a870f4049d0a83880b158e"
         }
       ]
@@ -533,27 +533,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gramschmidt/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gramschmidt/random-0.yaml",
           "sha256": "f3ecd92372038f18dfe7dfdb3a0973db86270e502d78bdeb90e246d4606a99e9"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gramschmidt/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gramschmidt/random-1.yaml",
           "sha256": "58262934d5921d6bd0d5c8df74efef8b25940d0fdb24ad76b2821a46a2b72e43"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gramschmidt/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gramschmidt/random-2.yaml",
           "sha256": "ecb2d04d5245155a5a8a117fc4c75246e41b0cdb7ffa4c9af2114c223470f21e"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gramschmidt/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gramschmidt/random-3.yaml",
           "sha256": "bb89a06bbfb2fb4669f493a35bed7d028e95345266e9ac37d3076fa2704fce6f"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-gramschmidt/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-gramschmidt/random-4.yaml",
           "sha256": "1eb0437f5a7ea105e0673aafe5477240dd1725f134166c631243df3d1c33bc3b"
         }
       ]
@@ -564,27 +564,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-lu/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-lu/random-0.yaml",
           "sha256": "1eff23d8c350c0fd964b9691d832ec4f6f6256fdf5bdc9b4fffe5ea8746efd6e"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-lu/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-lu/random-1.yaml",
           "sha256": "672320c159683dbd0a7bb0b980509a5ada1fe4386fad1bfec705d17e7e036e85"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-lu/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-lu/random-2.yaml",
           "sha256": "112a91b08fbdb1f1f4ce28571e8d306794ed2b550a800ec0f94924aa03150987"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-lu/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-lu/random-3.yaml",
           "sha256": "35c08ee3bba17ea0126b8a223ccbf69f398d38d3cfef72e3de2c28c383b77f20"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-lu/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-lu/random-4.yaml",
           "sha256": "ef164292251f55f6f8a69481ea1ec00116f4e28d46e70d47e44c60328ed2099e"
         }
       ]
@@ -595,27 +595,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-ludcmp/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-ludcmp/random-0.yaml",
           "sha256": "314fbbd3c3fba4a438d2a9523e1754d53f634d703a7d0184afc4e6d0e6e5dd10"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-ludcmp/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-ludcmp/random-1.yaml",
           "sha256": "cb2459ca58f1f63133fe9f77588a58024c4334053100a4ecd990eb40ac45d53b"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-ludcmp/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-ludcmp/random-2.yaml",
           "sha256": "d232500a8f4458ea0e8556878262e0e8fcff19fec2b8b04b492d3c3980a2fd4d"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-ludcmp/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-ludcmp/random-3.yaml",
           "sha256": "98afbb4057a2e5a88beb73afdb80033f8ee3366fc33940d963a92adad0949d58"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-ludcmp/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-ludcmp/random-4.yaml",
           "sha256": "5d0cc93574f6303d521d0ca0639bcb32d5436d4be66e4e288b34d5adfce096b2"
         }
       ]
@@ -626,27 +626,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trisolv/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trisolv/random-0.yaml",
           "sha256": "aae890b993e80feb474ec8b9cdfd4a685fe5ac70e5e411529a2eefa1defffa36"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trisolv/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trisolv/random-1.yaml",
           "sha256": "e87da2b530977070b40f1abcb0368f001c891c8f65ef1cfcf7841da6b9eb914b"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trisolv/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trisolv/random-2.yaml",
           "sha256": "238f56ab565d06efa25b8e3a233743cb1d2868a366ef0817cecbc1ec15e45077"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trisolv/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trisolv/random-3.yaml",
           "sha256": "bf54f59a98e9ed3b2627d69b72db414ef7af4b44b4dad73745a7038e9ca73f1d"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-trisolv/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-trisolv/random-4.yaml",
           "sha256": "efad8640e90fb807df50bea81c4a17457965cfa5e7c368d4797318406253226b"
         }
       ]
@@ -657,27 +657,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-deriche/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-deriche/random-0.yaml",
           "sha256": "579e16a3424c1e686dff9cc5c350bd4aa6c7ab4fb328b62f5af6c8678780e1f8"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-deriche/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-deriche/random-1.yaml",
           "sha256": "d753d074efcf9a2eefd6f0d5eda3da49d6c6331297da53921483277e7e8b14e0"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-deriche/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-deriche/random-2.yaml",
           "sha256": "5f4be8e4b09f9d2e93705914fc6ff2c26f17aa38f1fd3e85d6de3cdb441d769e"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-deriche/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-deriche/random-3.yaml",
           "sha256": "3a8b4c55b290a083a3311b47f0722bac581789ebd429d78e9bbe259306973eef"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-deriche/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-deriche/random-4.yaml",
           "sha256": "676be6c2d7326ad7b8d00ec81696fd0ccdf277044d0c84500627072666805d01"
         }
       ]
@@ -688,27 +688,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-floyd-warshall/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-floyd-warshall/random-0.yaml",
           "sha256": "b3971b698c675333c6ef5bda42d523058aedfdb110edbf786dc04f1eff5e1095"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-floyd-warshall/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-floyd-warshall/random-1.yaml",
           "sha256": "e8410f5bb960293dd498db3a9d60188d9014f840ae7f355a129097e78164ba85"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-floyd-warshall/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-floyd-warshall/random-2.yaml",
           "sha256": "26ea262da990abcac819a15a8f2148964b0ddd1a4d80886af5373af81a8803b6"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-floyd-warshall/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-floyd-warshall/random-3.yaml",
           "sha256": "2a6105d0ff804f43159828f62e19d56fb9fcc95d4a6d1f2488fbf5020e6f156c"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-floyd-warshall/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-floyd-warshall/random-4.yaml",
           "sha256": "e0352ebb5da7837dd5500c0d2cd97d539974c1358863216ac184e2034193d876"
         }
       ]
@@ -719,27 +719,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-nussinov/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-nussinov/random-0.yaml",
           "sha256": "55b2ea6b42a9a2a3c1c2b06e50501edde091750378e80e5a90f2a3527fb1c216"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-nussinov/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-nussinov/random-1.yaml",
           "sha256": "00a28fd94ded4f20b76caf7b0a5413cc1077c5885a120b8cb5d12f5604c265f1"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-nussinov/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-nussinov/random-2.yaml",
           "sha256": "a3f834d41a7879c851105a91dd91a4f3a1ff96c4747b3d14b92c1a9e2d788ba1"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-nussinov/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-nussinov/random-3.yaml",
           "sha256": "67f5c8ff227ef0df877e6f2177b0d01aa0dfce9b4223e9e2074206443e808741"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-nussinov/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-nussinov/random-4.yaml",
           "sha256": "ae7a4b5dfa494fb9c861c95f83acb35e43eaf09acf4a3b0dbcbfd4102587eef2"
         }
       ]
@@ -750,27 +750,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-adi/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-adi/random-0.yaml",
           "sha256": "1ed1ecca7b72144362309c846ae86e27c7c57ebe1f6bb4e14049f83b8bb171e5"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-adi/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-adi/random-1.yaml",
           "sha256": "8157351c71a8d2fa5c1744322608e24a90ed7a57b18dca5893d8ca9c53a8efbe"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-adi/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-adi/random-2.yaml",
           "sha256": "6ed3d28e1037cea184339a40a56cc57928a76670118cd2c538eb28fe6214d04c"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-adi/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-adi/random-3.yaml",
           "sha256": "25348d04853e9cf573a9176401e631fbfb190e3f44aac00bbbc14eeaa5b8aaaf"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-adi/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-adi/random-4.yaml",
           "sha256": "116b07ddf05e7fbbd61b1d28edc7e098184fd016a50687d580347f5dfeafc1d2"
         }
       ]
@@ -781,27 +781,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-fdtd-2d/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-fdtd-2d/random-0.yaml",
           "sha256": "cd7bae0c10109c53bf0df2f5188262fc0aed699c1808a64fca7af9e9f919beaf"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-fdtd-2d/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-fdtd-2d/random-1.yaml",
           "sha256": "4e2b0dd2844bea34f479a6bb0953c2724b1a70c34304bafad0ed7233c1eb3bd8"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-fdtd-2d/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-fdtd-2d/random-2.yaml",
           "sha256": "4058da4e3aaf6f7be5bad5169b9ebb54ef851f97d7b35375c36ff69d3b457dfa"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-fdtd-2d/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-fdtd-2d/random-3.yaml",
           "sha256": "740d543f0b8cae02a1be58681c67078d1a97b42b069d616d76528055423c07a8"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-fdtd-2d/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-fdtd-2d/random-4.yaml",
           "sha256": "c837f67f76ce8b3c9e3f6a4a50893bc9cac3eb39748ea72c1355a6e4bc0db023"
         }
       ]
@@ -812,27 +812,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-heat-3d/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-heat-3d/random-0.yaml",
           "sha256": "46e16e4dc9816db097ac8c1449ff50292221dfb5a82752a044ba4f4740f3993e"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-heat-3d/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-heat-3d/random-1.yaml",
           "sha256": "09a9f91e0d11ba05eb6c8e7d1c3bddb70492c58a4777abe042f52f1971c7d39f"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-heat-3d/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-heat-3d/random-2.yaml",
           "sha256": "51b2086995241254ed54aeb050fa921411b614728767ca244c2213e1b3704f6e"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-heat-3d/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-heat-3d/random-3.yaml",
           "sha256": "60e7310ce7ffedc65ee5f4882742a49f2c936c57fdecbf2857617f5af5c71d5f"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-heat-3d/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-heat-3d/random-4.yaml",
           "sha256": "d3034d7cb532e604d4a8d8aeafaf91e8b287ffe1ec1872411a49628a1992f0a2"
         }
       ]
@@ -843,27 +843,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-1d/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-1d/random-0.yaml",
           "sha256": "d578168a5a1632a73c50718df94b358824deaab4ae0055c77bb0380bafe578a8"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-1d/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-1d/random-1.yaml",
           "sha256": "f9aa07b7a8ad599f721055f598923ec120e83385db5eb3ff4d22ee3e267696ea"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-1d/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-1d/random-2.yaml",
           "sha256": "227c33f3aa11f01292bb86ce0d06e550896ebf3484a5c6287ed9b188979e8868"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-1d/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-1d/random-3.yaml",
           "sha256": "b7ff3e3affeb2750e688ab11b19cca55a808048b04e7cf4e7d5497ca8fad1342"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-1d/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-1d/random-4.yaml",
           "sha256": "98f5eb64ed98e54035b16f2879806373257ea56466304d881c874fdb14e606b6"
         }
       ]
@@ -874,27 +874,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-2d/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-2d/random-0.yaml",
           "sha256": "bc4a263ed53fe18b9233d753f9b887a72b7640d1dba410a3f365b5c328b735b2"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-2d/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-2d/random-1.yaml",
           "sha256": "b1537af2e3c94de9390a268a79089fc1db0d59dbaa35d459807a2f87879aabc6"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-2d/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-2d/random-2.yaml",
           "sha256": "c1f365624852d9e7e52fdffb16f5913cc3f4b715145800231240d032842834b4"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-2d/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-2d/random-3.yaml",
           "sha256": "cfee4a279772b7f579b34b13c7b11e5d409d6fb79fa6f443f56a8cd6c10cdb04"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-jacobi-2d/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-jacobi-2d/random-4.yaml",
           "sha256": "b0700c0521d53c51bc25ff6df05bac6997ef5619d7824eb60d076e01f26d8a10"
         }
       ]
@@ -905,27 +905,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-seidel-2d/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-seidel-2d/random-0.yaml",
           "sha256": "b9ab2d998de68edd5148af5833f82696eceb8a2a133c14672b71720988d24449"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-seidel-2d/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-seidel-2d/random-1.yaml",
           "sha256": "f1da82ba8e64f02d2b6f9e626ab4495487a18030eaecac3dd0067d86d0394768"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-seidel-2d/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-seidel-2d/random-2.yaml",
           "sha256": "028975e81158cf1c20099084e58ac55771c763a5bf884ca31936b9283ddb6934"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-seidel-2d/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-seidel-2d/random-3.yaml",
           "sha256": "09bd9ca14b57e9ba23b46cac4decf8264cfc8bbc9fe788613efd9f28ca1473c2"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/polybench-seidel-2d/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/polybench-seidel-2d/random-4.yaml",
           "sha256": "a616d6c4fbeae6948555148cea606eca3207222b3ff745c6e7d437a93fa51f2b"
         }
       ]
@@ -936,27 +936,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-CG/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-CG/random-0.yaml",
           "sha256": "bd4d7f94251dd2e45c7215872582012e0e681488dd65c6b3d38104c8b20cdf3d"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-CG/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-CG/random-1.yaml",
           "sha256": "fd0ae8090afd8a2c01a9c43f17dc649b0df4ba043c1c2eabd13a51f25fe19576"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-CG/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-CG/random-2.yaml",
           "sha256": "734cf5625dfa06da0efc575192620b73393525eba3210ebb2d5e7016c61aa0a8"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-CG/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-CG/random-3.yaml",
           "sha256": "3c6c5e4bf48f5d5d84d507a4dd88ce1ab5eeac3bad6c2b4714925e692401ef97"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-CG/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-CG/random-4.yaml",
           "sha256": "c688b0790ba536a27f5e1c32600832c43819340a531d46735c1fc90ca882d634"
         }
       ]
@@ -967,28 +967,28 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-MG/random-0.yaml",
-          "sha256": "31c2e82d6aa3f30518a2095afe248161308171170434dd5cbe4ba3ffa6b939b5"
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-MG/random-0.yaml",
+          "sha256": "1cfd451710d32d532eed5e3c058479c89cebf36a74af06852edd782163498ab3"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-MG/random-1.yaml",
-          "sha256": "312629d3afaf7fd49392f8a5aba5cac12f8e7a31fa53c2ad7dc57fecbc3a3b93"
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-MG/random-1.yaml",
+          "sha256": "214908b563c5202a488b2f13bf0da422fda5b336cf7cf55606c9274bf7058bd9"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-MG/random-2.yaml",
-          "sha256": "bdc2745053c43402ca804c7f0656d0ab5cbf0bf2312e58c71382b5fc4637cd3c"
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-MG/random-2.yaml",
+          "sha256": "112bf2a6a56264797f6956eaf3b45fd88fddb014cdf16635df2b28af55c545d9"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-MG/random-3.yaml",
-          "sha256": "2797b7e4c4a09202e8693fbe889b4eee54a7be0c8220e478f6b143428b86deb7"
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-MG/random-3.yaml",
+          "sha256": "38c584a691395d3bfe88844b435761a98b17e7f49d3ed3dd85b99daa07529578"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-MG/random-4.yaml",
-          "sha256": "8956aab2deec8919465ec80dea417b81b756b17b41f5f300ea72230696dd8169"
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-MG/random-4.yaml",
+          "sha256": "f38fe57ede060588e9b9061fe16ecee529b69d097968dbf65a227b66709acbf7"
         }
       ]
     },
@@ -998,27 +998,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-FT/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-FT/random-0.yaml",
           "sha256": "353507683e61b0e3fe71897ba315fec283186b9823aa2fe42789269f84eb6e42"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-FT/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-FT/random-1.yaml",
           "sha256": "d59922ec1a3960f2a299dee860179e13363c40c8767b8c6f340ec8bc111a272a"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-FT/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-FT/random-2.yaml",
           "sha256": "84b0f9aa0fb261fbabec6c673d37fb711cab0a23580e487cdd131675ee847084"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-FT/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-FT/random-3.yaml",
           "sha256": "2bb4b05ba58712b5af8cee1017e5fa36853f06fc6d9fdbcc8119b76aaf9d64b9"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/npb-3.4.4-FT/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/npb-3.4.4-FT/random-4.yaml",
           "sha256": "4f0e0b9cea84d873011ee146160dad0a3718af0ec25d66156822cf36aa8d90d7"
         }
       ]
@@ -1029,27 +1029,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-LavaMD/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-LavaMD/random-0.yaml",
           "sha256": "9360ee8f7e943f9933aaf510c7c39cd20c9b1385ee8c3075a70e056a7ec5ba81"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-LavaMD/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-LavaMD/random-1.yaml",
           "sha256": "816c96f893a7903c3d51e27e7c2f08d5a501e780c86f9d170fc135eab2347ef9"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-LavaMD/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-LavaMD/random-2.yaml",
           "sha256": "94041bb7e99489159f5d7deeb2783e317dce8581527cd9849cbf0958d9ec86cf"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-LavaMD/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-LavaMD/random-3.yaml",
           "sha256": "0e5b0550f55d67319ed8660bfd04b358b39d1b1b6d2929c58cd446298c5e8e2d"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-LavaMD/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-LavaMD/random-4.yaml",
           "sha256": "cbe60d65bcc3bed2df46b48051e7671a9a86acb4e5f8d86e81a3f50bed1dc3aa"
         }
       ]
@@ -1060,27 +1060,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-Myocyte/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-Myocyte/random-0.yaml",
           "sha256": "995ad510c1932084422571be9d805c551285b2fe2637dbb82b02ca0fc070755d"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-Myocyte/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-Myocyte/random-1.yaml",
           "sha256": "026c76bab6f159b36e2826534064a1e0007d36292d9d84da5d4a049f8a8ced7f"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-Myocyte/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-Myocyte/random-2.yaml",
           "sha256": "e3ace86e0eecb999912dc0fb0fad1551b0de1494c18206492630a48c27bbf212"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-Myocyte/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-Myocyte/random-3.yaml",
           "sha256": "27a61ec5226265a16478e791c205229649324f2017ead60ea5852581f3c5446c"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-Myocyte/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-Myocyte/random-4.yaml",
           "sha256": "506f6df3a75e27b2d7932cfed18ca371f22238853def44ea24417cff3094ac5f"
         }
       ]
@@ -1091,27 +1091,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-DWT2D/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-DWT2D/random-0.yaml",
           "sha256": "e8d9043ff2257611ab62dce224745fedf7cddb40f60ad8660f6269c08400e3a4"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-DWT2D/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-DWT2D/random-1.yaml",
           "sha256": "01888a6b459b78654c21dc82a5c0936904fe45964ac69e9da240110a3f4f0816"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-DWT2D/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-DWT2D/random-2.yaml",
           "sha256": "4640243a765868da2e0a3c1a6ff87b9a722e6e4bdcf05f71c6dd6bb122d2c63c"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-DWT2D/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-DWT2D/random-3.yaml",
           "sha256": "b8bf34e40f36c4a000325aa61eb7acb93a4d23f42fe39c26df2aaa2e357f47c8"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-DWT2D/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-DWT2D/random-4.yaml",
           "sha256": "ccc771d19600171efa12b64b059a54e823bd8050c28ffa8f7d5a9b1e1caa1fec"
         }
       ]
@@ -1122,27 +1122,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-CFD/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-CFD/random-0.yaml",
           "sha256": "2301ed72074618105b6ed071d09150b5dc955785fdbf0479b180efa99da2f786"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-CFD/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-CFD/random-1.yaml",
           "sha256": "ab68595ffe9b05036f989ad149dbbd156f667dd720e3d1a9f8e504524331e79d"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-CFD/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-CFD/random-2.yaml",
           "sha256": "6457389e26267a194d26b80a91b10999437275fe5cdc3315f15e8667b0e3969d"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-CFD/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-CFD/random-3.yaml",
           "sha256": "f4fcc7ccb8d503e757470bf2ae535287ad8c48c93173a94656e2e4a70b23d011"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/rodinia-CFD/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/rodinia-CFD/random-4.yaml",
           "sha256": "605eed29fc9b5d89561d4ba95d72127d58874d37fb862405ea6b2b573b4ae867"
         }
       ]
@@ -1153,27 +1153,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/itk-mutual-information/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/itk-mutual-information/random-0.yaml",
           "sha256": "dd9eadf3f7f723410d076a5abd9fb67b65fc8ba2347d6499f2adf51d037bb1d3"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/itk-mutual-information/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/itk-mutual-information/random-1.yaml",
           "sha256": "d2cbf77f1071376d6727e7b06da123a71391299f333cf7811aba79cd1957f4be"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/itk-mutual-information/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/itk-mutual-information/random-2.yaml",
           "sha256": "becf2d90eb382944afaa271990137ac1ffd264ce3925014dee78d234548eddd5"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/itk-mutual-information/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/itk-mutual-information/random-3.yaml",
           "sha256": "ec1e3048918dac9b9546d268ecfdf27c92261e56f17dca1f6ee22e00fac8f407"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/itk-mutual-information/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/itk-mutual-information/random-4.yaml",
           "sha256": "0728843a768c9695cdea0f40e7d232fc2c5a6d88f50798080dbd30a501ef0248"
         }
       ]
@@ -1184,27 +1184,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/randlapack-randomized-svd/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/randlapack-randomized-svd/random-0.yaml",
           "sha256": "031d9401c62ca3874aab8cf1ac8fef3414ff3e361c4250441cf8c4cd196991a3"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/randlapack-randomized-svd/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/randlapack-randomized-svd/random-1.yaml",
           "sha256": "b031fa55d47710e5b7c5a7a507ae93e486c52ce2b54ded061c5190945c35860b"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/randlapack-randomized-svd/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/randlapack-randomized-svd/random-2.yaml",
           "sha256": "54dbc6a41d0ab97f593922b43bc71e02aa814bd1b4188e9c1c5f463b25ab6383"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/randlapack-randomized-svd/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/randlapack-randomized-svd/random-3.yaml",
           "sha256": "77ec44f164459dfec1b08f6bc5f9d414a6eae0e4021f278948547a840e97cf62"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/randlapack-randomized-svd/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/randlapack-randomized-svd/random-4.yaml",
           "sha256": "e563c4433b582156e532e2efec6516a1b44df9b72e25c81e032f9d3196312e3f"
         }
       ]
@@ -1215,27 +1215,27 @@
       "cases": [
         {
           "id": "random-0",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/parboil-mri-gridding/random-0.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/parboil-mri-gridding/random-0.yaml",
           "sha256": "90cddd0cc0136e38f1484194c82b3f6d6648f0520621c339ea0ff681cd107fe0"
         },
         {
           "id": "random-1",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/parboil-mri-gridding/random-1.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/parboil-mri-gridding/random-1.yaml",
           "sha256": "d7d3b8f30e2172e0c56be32207cf852912b6303dd68c323b59a54cc8404bcaf0"
         },
         {
           "id": "random-2",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/parboil-mri-gridding/random-2.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/parboil-mri-gridding/random-2.yaml",
           "sha256": "9954fdc796ca1bfc5fba717d6e7eacf736b47ca0cc298c349c18576c51c91226"
         },
         {
           "id": "random-3",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/parboil-mri-gridding/random-3.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/parboil-mri-gridding/random-3.yaml",
           "sha256": "f64813d7e28e41f587a98bbd0cf547e1fe6b68b861ad5227effb6235fe637c26"
         },
         {
           "id": "random-4",
-          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v2/parboil-mri-gridding/random-4.yaml",
+          "path": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/final-flat-cases-v4/parboil-mri-gridding/random-4.yaml",
           "sha256": "d2d3b19f7010df4d41b0ee9c2b700070d8b8508d8064d9f2426e622d90cb3151"
         }
       ]

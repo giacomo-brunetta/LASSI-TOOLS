@@ -225,6 +225,7 @@ async def prepare(
             if not retain_raw:
                 discard_transfers(native.input_contract_path.parent)
             cases: list[RunConfig] = []
+            frozen_outputs: list[Path] = []
             checks: list[CorrectnessTestConfig] = []
             for seed in seeds:
                 case_id = f"random-{seed}"
@@ -239,6 +240,19 @@ async def prepare(
                     oracle=config.oracle.validated_update(input_fixture=inputs)
                 )
                 oracle = await build_oracle(case, directory / case_id)
+                for previous in frozen_outputs:
+                    earlier = np.load(previous, mmap_mode="r")
+                    if np.allclose(
+                        oracle.values,
+                        earlier,
+                        rtol=config.arena.equivalence.rtol,
+                        atol=config.arena.equivalence.atol,
+                    ):
+                        raise ValueError(
+                            "Random cases must be numerically distinguishable "
+                            "at acceptance tolerances"
+                        )
+                frozen_outputs.append(oracle.output_path)
                 invariants = {}
                 if workload["suite"] != "polybench":
                     outputs, _ = load_contract(oracle.output_path.parent / "outputs.npz")
@@ -257,6 +271,7 @@ async def prepare(
                         "input_sha256": digest(inputs),
                         "output_sha256": digest(oracle.output_path),
                         "independent_checks": invariants,
+                        "numerically_distinct_from_previous": True,
                     }
                 )
                 if len(cases) > 1:

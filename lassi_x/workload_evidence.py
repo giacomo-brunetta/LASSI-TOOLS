@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 
+from .config import RunConfig
 from .input_contract import load_contract
 from .workload_checks import digest, random_inputs
 from .workload_inputs import random_inputs as native_random_inputs
@@ -78,6 +79,8 @@ def audit(root: Path, plan: Path, destination: Path) -> dict[str, Any]:
             config = Path(prepared["config"])
             if digest(config) != prepared["config_sha256"]:
                 raise ValueError("Prepared config changed")
+            tolerance = RunConfig.load(config).arena.equivalence
+            previous_outputs: list[Path] = []
             row["config"] = str(config)
             row["config_sha256"] = prepared["config_sha256"]
             for source in workload["sources"]:
@@ -120,6 +123,15 @@ def audit(root: Path, plan: Path, destination: Path) -> dict[str, Any]:
                     else {}
                 )
                 flattened = np.load(oracle / "expected.npy", mmap_mode="r")
+                for previous in previous_outputs:
+                    if np.allclose(
+                        flattened,
+                        np.load(previous, mmap_mode="r"),
+                        rtol=tolerance.rtol,
+                        atol=tolerance.atol,
+                    ):
+                        raise ValueError("Random outputs are equivalent at acceptance tolerances")
+                previous_outputs.append(oracle / "expected.npy")
                 gate_path = Path(check["gate"])
                 gate = json.loads(gate_path.read_text())
                 if not gate["passed"] or not all(c["passed"] for c in gate["checks"]):
@@ -162,6 +174,7 @@ def audit(root: Path, plan: Path, destination: Path) -> dict[str, Any]:
                         "output_sha256": case["output_sha256"],
                         "independent_checks": independent,
                         "current_generator_reproduced_input": True,
+                        "numerically_distinct_from_previous": True,
                         "gate": str(gate_path),
                         "gate_sha256": digest(gate_path),
                         "frozen_reference_outputs": comparisons,

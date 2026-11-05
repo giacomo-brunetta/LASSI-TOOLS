@@ -84,7 +84,9 @@
     "lint": "passed",
     "format": "passed",
     "types": "passed",
-    "tests_passed": 675,
-    "tests_skipped": 3
+    "tests_passed": 677,
+    "tests_skipped": 3,
+    "mg_unoptimized_fortran_bounds_preflight": "passed",
+    "reject_sub_tolerance_test_inputs": "passed"
   }
 }

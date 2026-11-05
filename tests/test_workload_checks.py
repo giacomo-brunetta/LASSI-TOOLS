@@ -174,3 +174,28 @@ def test_large_durbin_random_references(tmp_path: Path) -> None:
         assert np.isfinite(oracle.values).all()
         outputs.append(oracle.values)
     assert all(not np.array_equal(outputs[0], other) for other in outputs[1:])
+
+
+def test_rejects_cases_that_only_differ_below_acceptance_tolerance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Exercise the real native reference with deliberately uninformative inputs.
+    def tiny_change(name: str, arrays: dict[str, Any], seed: int) -> dict[str, Any]:
+        result = dict(arrays)
+        result["A"] = arrays["A"] * (1.0 + seed * 1e-14)
+        return result
+
+    monkeypatch.setattr("lassi_x.workload_checks.random_inputs", tiny_change)
+    report = asyncio.run(
+        prepare(
+            ROOT,
+            tmp_path / "uninformative",
+            dataset="mini",
+            seeds=(0, 1),
+            workload_ids=("polybench/gemm",),
+        )
+    )
+    row = next(w for w in report["workloads"] if w["id"] == "polybench/gemm")
+    assert row["status"] == "failed"
+    assert "numerically distinguishable" in row["reason"]

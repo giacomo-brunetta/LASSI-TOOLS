@@ -27,8 +27,8 @@ uv run --locked --extra dev --extra globus --extra roofline \
 ```
 
 Case/preflight destinations must not exist. Preparation retains all 40 statuses,
-fails on unsupported or failed workloads, and requires distinct observable
-outputs across seeds. `--seeds` accepts at least two distinct nonnegative seeds.
+fails on unsupported or failed workloads, and requires numerically distinguishable observable
+outputs across every pair of seeds at the candidate acceptance tolerances. `--seeds` accepts at least two distinct nonnegative seeds.
 The API's small-dataset override exists only for bounded adapter regression tests;
 the production CLI always uses LARGE. An explicit `--workload-ids` partition
 retains other workloads as unrun and cannot establish complete-cohort success.
@@ -94,6 +94,8 @@ Preflight uses the existing original-versus-adapted C gate with a byte-identical
 independent source copy. It compiles both, imports identical inputs, checks every
 output and every input's final state, and enforces finite deterministic results,
 native types, shapes, exact integer/read-only values and floating tolerances.
+MG also has an unoptimized Fortran preflight with runtime bounds checking to
+catch bridge aliasing that optimized code can conceal.
 It is executable harness preflight, not certification of a generated candidate.
 
 A default full preparation has at most 240 builds and 480 reference invocations;

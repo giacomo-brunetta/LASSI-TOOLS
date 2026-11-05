@@ -1,6 +1,6 @@
 {
   "manifest_sha256": "f8398d4ca9bdf23014f9d81e4630e2d607c952f1f67c0211d0bb331c65b1570c",
-  "partition_plan_sha256": "38f6d8fa90ed623bf38748f79d30a00acf35d61fb48df9f5f5ee868917dee253",
+  "partition_plan_sha256": "f20a8f3e547918d984f34c1c3918b04da62a06a3bf6891942a7262e1de22eb22",
   "partitions": [
     {
       "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-v1/report.json",
@@ -55,7 +55,6 @@
       "preflight_sha256": "82f580e0d9918932ee5795452cd437d9b230bff5a966e077a4ec9baee5b32ca1",
       "workload_ids": [
         "npb-3.4.4/CG",
-        "npb-3.4.4/MG",
         "npb-3.4.4/FT",
         "rodinia/LavaMD",
         "rodinia/Myocyte",
@@ -81,12 +80,21 @@
       "workload_ids": [
         "rodinia/DWT2D"
       ]
+    },
+    {
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-v2/report.json",
+      "preparation_sha256": "8e30146892a71df07c561eaefbded399b623d28aa1ef592c21e2a454da4d3fac",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/report.json",
+      "preflight_sha256": "88faef0bd7740f379828f0e22afd1dff19cb0565eb2b2c6ced2797d5940573be",
+      "workload_ids": [
+        "npb-3.4.4/MG"
+      ]
     }
   ],
   "dataset": "large",
   "model_calls": 0,
   "generator_sha256": {
-    "workload_checks": "d68004211a6817c7715e84f7ed8aa4abf3df315a16319b9c7552867a18ee721f",
+    "workload_checks": "f2566d10ad8a93a3aea983a4664805788cb65716a65317d21057992804f03551",
     "workload_inputs": "7e6f2971e703fc1923d1502eef50554bb2390655e1cef2680241561a7aaf8017",
     "workload_invariants": "7fd3383b2481d0175773f10e7bd396c7a77c3f1512eb8b24009e3f49fd560351"
   },
@@ -104,6 +112,7 @@
           "output_sha256": "c5c436dba2b420d0d6489a4c0f6ee67ccbdd7e3c61474587d02465fdf143ca36",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-correlation/random-0/gate.json",
           "gate_sha256": "ae8c6d81bae989c36afe3f02cb41dd8d841b52d271d367e1694e41b5c8db4bc3",
           "frozen_reference_outputs": [
@@ -135,6 +144,7 @@
           "output_sha256": "6cc142211aadb9a5a42544818c38ccf0d82fe3d33f945bcc1c12c8ec93965327",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-correlation/random-1/gate.json",
           "gate_sha256": "c752ecfbb774c0dec4ec3b4aec86ff2fbdbdc503e4875ca4879058e509118b1e",
           "frozen_reference_outputs": [
@@ -166,6 +176,7 @@
           "output_sha256": "b98428106032cfb62046d46ddab7f4f59f5c45e6878aa9fff11bb3c108f75d13",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-correlation/random-2/gate.json",
           "gate_sha256": "a6d9de4028d04b15f4fc49b34c24187624397169e2cf37ef23915c2abebef4c0",
           "frozen_reference_outputs": [
@@ -197,6 +208,7 @@
           "output_sha256": "5f8b8b181c17ec9718b8eca71b47e7d4fa52a47d8aa38feeb3186588fb5af944",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-correlation/random-3/gate.json",
           "gate_sha256": "dfb972c068161b508b73a09738ff0363c46d7b6942eb53309531f6eaf18504e6",
           "frozen_reference_outputs": [
@@ -228,6 +240,7 @@
           "output_sha256": "4b4eb848b3feae585e467f467b00c7ab5ed8cacdcec8b6ceb4cb680a4a17aaab",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-correlation/random-4/gate.json",
           "gate_sha256": "511358ca40d35db9e4bca4be1ae6c737afd614256aec13381904fe3a632b7b3e",
           "frozen_reference_outputs": [
@@ -267,6 +280,7 @@
           "output_sha256": "6cf9962c9fdc3477514251ba36d577e1089f46c9cf2f9a76bc5c0e221d5511ee",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-covariance/random-0/gate.json",
           "gate_sha256": "fe585513be36b93f32eb84fe15302951206e0da01611e94178c9c21f8a8d0312",
           "frozen_reference_outputs": [
@@ -298,6 +312,7 @@
           "output_sha256": "92ce69dfd68c1644ad1f823f36010758941be8e62daa1780fc14621d690f9850",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-covariance/random-1/gate.json",
           "gate_sha256": "4844ba264169749fe73ca3f5cc8fe8867c1320d4d9158f371d5ea47ce9921f54",
           "frozen_reference_outputs": [
@@ -329,6 +344,7 @@
           "output_sha256": "ca760fca9dd2e98d16292409c8445ed810f0795a65ac359be836d47a59c634ba",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-covariance/random-2/gate.json",
           "gate_sha256": "53413d23b616de9118be4f65e4613060493ddb576e335d90813dcc38ebb06d71",
           "frozen_reference_outputs": [
@@ -360,6 +376,7 @@
           "output_sha256": "0ad3ca663f506075ed0dff916351e85af695dfebe465defa1cc603a81d1c7f3f",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-covariance/random-3/gate.json",
           "gate_sha256": "8cd061c54a47e1d1dda1f3371102a131e82a43e7dfa6382fcb2342d3bd4180ac",
           "frozen_reference_outputs": [
@@ -391,6 +408,7 @@
           "output_sha256": "0bcd393fe3147630d3c680959ee29f0612878b3cb16cf0ccb803e408f7e1d608",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-covariance/random-4/gate.json",
           "gate_sha256": "3f6a226dd7f534e2af2e1940e660b36348dea7ac85c66a008f8c4424d0abc7b2",
           "frozen_reference_outputs": [
@@ -430,6 +448,7 @@
           "output_sha256": "f383c4cfd5cb0823fdc4d1ee01b551b5a580543a2cf53d39d4a3a33b4c41c52a",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gemm/random-0/gate.json",
           "gate_sha256": "df844cb64ef073ca2d609e3b5ceac2b2b1ddafaf046b9bf18b309e873ec829f3",
           "frozen_reference_outputs": [
@@ -452,6 +471,7 @@
           "output_sha256": "5431591590a86b4952ee422ed9847b3495c71aa4e4113e0eae0fec34bcc3842b",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gemm/random-1/gate.json",
           "gate_sha256": "e6f052574f7911475a84c93dab43eba9fa9b7642db2835187e8b5f328a558421",
           "frozen_reference_outputs": [
@@ -474,6 +494,7 @@
           "output_sha256": "7ef754427c814375026aea2788170adf2c2ddf1e869c6bd158e710f50663763f",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gemm/random-2/gate.json",
           "gate_sha256": "3167c1fd958e638accbf86a3eb4639ee1fbf3056efefd3207fae7fe8b5013403",
           "frozen_reference_outputs": [
@@ -496,6 +517,7 @@
           "output_sha256": "d0a5c4788693676d2cd31c1916677633d52741aa87e3d3cf9ea88525349d59a0",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gemm/random-3/gate.json",
           "gate_sha256": "a7e8e9cc2a785fdb82559f331487d0c53072cb1309e3eb67e8e2c5a85c06699c",
           "frozen_reference_outputs": [
@@ -518,6 +540,7 @@
           "output_sha256": "aa43c95c41d1e2fa83b8236fd10f9f437351c66cb057fa3734aeb3e50c7687cb",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gemm/random-4/gate.json",
           "gate_sha256": "7ed4bb791760c077e45f8e1088ae426e99a569df3bfb14b7138b7a7f9b897c17",
           "frozen_reference_outputs": [
@@ -548,6 +571,7 @@
           "output_sha256": "eb334265fa7ee24b5166ed30be1b645f3a3adaa5cc2f5d9b22a4e92ddbd08bcb",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gemver/random-0/gate.json",
           "gate_sha256": "168aea538cc92fe40cdc11d409131952e6c65c2d253884b34492ba6078de3903",
           "frozen_reference_outputs": [
@@ -586,6 +610,7 @@
           "output_sha256": "3b8a2ea0ca3a4dc93aa824a9a84ba323cd575cd22ea61a961c5e4a17835631aa",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gemver/random-1/gate.json",
           "gate_sha256": "7f3179e98d22298d5d57dc3c1be35bc1604c78ce02afe00240885ffd9ab940e3",
           "frozen_reference_outputs": [
@@ -624,6 +649,7 @@
           "output_sha256": "2fb9cd671e356019b1baebd241244a44628f1187e47af071ef7224d4a7372974",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gemver/random-2/gate.json",
           "gate_sha256": "ab6fbde78ba41c1b1aae031a322958e8433f653b797960cb99358f690de27e0b",
           "frozen_reference_outputs": [
@@ -662,6 +688,7 @@
           "output_sha256": "ac0b9fb9735e613a097e67885e975290a6376799a195571694e1a8193feb9e09",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gemver/random-3/gate.json",
           "gate_sha256": "5766212d9418262a1dea2486849cb2f4f015594edd40b65f1a6c69374c35b58f",
           "frozen_reference_outputs": [
@@ -700,6 +727,7 @@
           "output_sha256": "c8d802d03c4a385be318dbe33bfb19b091dc5405a09535c15b4877afe2f77700",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gemver/random-4/gate.json",
           "gate_sha256": "0a0574eed43578d1674f344dda0ff72c582b018a6ced59b9316c542748bd32d6",
           "frozen_reference_outputs": [
@@ -746,6 +774,7 @@
           "output_sha256": "2923b2c34f7ba427a4aeb26607b6739889e63d03142865fa908a73b74e9ec30b",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gesummv/random-0/gate.json",
           "gate_sha256": "fb11ab0899896059aa4163f7a50cbee84d6f80d9db9a33d54721843765ad4f16",
           "frozen_reference_outputs": [
@@ -767,6 +796,7 @@
           "output_sha256": "d4097a60603461feeac3836538be68558da0dd1b2b829b7740b47ca77c7124f1",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gesummv/random-1/gate.json",
           "gate_sha256": "8582f0e174751a9dbda6fdcab24d5950f00ebd0998ea1b83a3cbee97a1d68590",
           "frozen_reference_outputs": [
@@ -788,6 +818,7 @@
           "output_sha256": "51d5d6a375c42052191cd3af9c68e96c249b57b8e74a4f740198bcd4ed4b5607",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gesummv/random-2/gate.json",
           "gate_sha256": "192da6f7a7ec7ba67dbcf980c47bc50bacac8aa1f998f5d458c3ebccc4046be2",
           "frozen_reference_outputs": [
@@ -809,6 +840,7 @@
           "output_sha256": "f64d8b0d3ee883aa5522b3c295a229610bb4e81a095cbd93a3f6061d696cdf18",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gesummv/random-3/gate.json",
           "gate_sha256": "b4b97d373cc73482656ce0e3d1277ae58d49ff5caffcc7216d4230dcee5f9bad",
           "frozen_reference_outputs": [
@@ -830,6 +862,7 @@
           "output_sha256": "bae185b717e838fe78b95739c640f4500d4b2d1074d45264a400640d9f1bd849",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-gesummv/random-4/gate.json",
           "gate_sha256": "f88a17bcf5ecc50161574d3ad0c529d46367f4f7af7d6d9e095025703ead754f",
           "frozen_reference_outputs": [
@@ -859,6 +892,7 @@
           "output_sha256": "e3283fbcd4fcfc69a74ff1ff5c9bc44bc8c5daa41971f7169fb79cef78ec30db",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-symm/random-0/gate.json",
           "gate_sha256": "58f08f65bc8b2393e2b14404f52656014bd746c0308abf5079e32b1130daff28",
           "frozen_reference_outputs": [
@@ -881,6 +915,7 @@
           "output_sha256": "bc6858701812be796e9ffbf9ba35caf06d327f14be4723b826cc4ba0e472900f",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-symm/random-1/gate.json",
           "gate_sha256": "e2fa50abd2c0ff3cdab34f8f5062cd0b2812ef425e7ee710c5ed73da3eef0d44",
           "frozen_reference_outputs": [
@@ -903,6 +938,7 @@
           "output_sha256": "ff057959020ca3a2f1388645a6aa52687883fcc3a34406253d6ffbb20c016652",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-symm/random-2/gate.json",
           "gate_sha256": "f827b30d6fc5b33061e700d9cc00c3033ae820f6e184492d79a1a77c1c3798be",
           "frozen_reference_outputs": [
@@ -925,6 +961,7 @@
           "output_sha256": "0e896119663d40caec3458201d582e4e8045b342d631548d03d4ad500c75bf5d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-symm/random-3/gate.json",
           "gate_sha256": "85181897a9cfe0af8d3c2410898df146767c36cc1ca4bd745921fbe6914856b6",
           "frozen_reference_outputs": [
@@ -947,6 +984,7 @@
           "output_sha256": "b951fae1b93f9b0f760f43f5b06e2c62620297e91feeb8798536cd32003eb9a0",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-symm/random-4/gate.json",
           "gate_sha256": "243fe8d0b4ecd1c727b33ac72c9c65837405561d7062b65593ba28d210717978",
           "frozen_reference_outputs": [
@@ -977,6 +1015,7 @@
           "output_sha256": "321246b51ef41c07fbfade0c8d4bccd255be22848e8d6eeb419f137548afe47d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syr2k/random-0/gate.json",
           "gate_sha256": "9ba64c589e3c2fa6aa0e5b33eaefed6c6c71e90cc218f6c0b5764d6ebd93c66c",
           "frozen_reference_outputs": [
@@ -999,6 +1038,7 @@
           "output_sha256": "10a000cc751f018bd67618e6567a600857b42a071b6bd56460f54b26b0ea39c4",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syr2k/random-1/gate.json",
           "gate_sha256": "a9389bc58ba7fa661a0a39193e081bcfe617917d67726e0b3cbcc6f37cc4fedc",
           "frozen_reference_outputs": [
@@ -1021,6 +1061,7 @@
           "output_sha256": "252d4c1e504de59596fb4682255611c7f6aada9a3eb78644d3873a96993bb2ce",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syr2k/random-2/gate.json",
           "gate_sha256": "8f11113dba295f87116b5c035399fe6071eb65e4d62e661f99023584e18b6aca",
           "frozen_reference_outputs": [
@@ -1043,6 +1084,7 @@
           "output_sha256": "9cd47096a2c96c593f7285e0ec6cebbd122fda3f13632ebeb8aba8bdba87c271",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syr2k/random-3/gate.json",
           "gate_sha256": "275485087ffc8b1cbe38afb099617797b8f5c634efbdc1ad35af8cbbf7d8c8f5",
           "frozen_reference_outputs": [
@@ -1065,6 +1107,7 @@
           "output_sha256": "7b02461d90d6ff61b25af2b03ef0e872b610aa141adfe541af497a08a59e91b7",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syr2k/random-4/gate.json",
           "gate_sha256": "7c4e229d5fafb5898d1312e282307dc67eeb559e4c8f654770ebe8a2d3e45dd7",
           "frozen_reference_outputs": [
@@ -1095,6 +1138,7 @@
           "output_sha256": "9b33a66829cafb5ed88b91b5246903841ec509e13f1f6cf1f382d5cc0473b299",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syrk/random-0/gate.json",
           "gate_sha256": "2d3462bad9ad15188c0ab8f3c06762721fc067f9d14334f2566f7f1a5db080a2",
           "frozen_reference_outputs": [
@@ -1117,6 +1161,7 @@
           "output_sha256": "8b2d5aa43c0207d69790bd32a7d10263582db67d1c51749bf6094a98993c8754",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syrk/random-1/gate.json",
           "gate_sha256": "6eb9f24ba3160f43d4e58232de5ab6bbfb0729e42fa26ac676d6c4bec7636e87",
           "frozen_reference_outputs": [
@@ -1139,6 +1184,7 @@
           "output_sha256": "cae3bd2a10e9a6d27bd4117bb6d1e4d7f713c6d87b3e3a8f718604d69b5dd627",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syrk/random-2/gate.json",
           "gate_sha256": "b649ff97da700cf62635f969b71b506e0ea8b7c1844bd025108c4a84ef5bc998",
           "frozen_reference_outputs": [
@@ -1161,6 +1207,7 @@
           "output_sha256": "d3346bd19886da2b8053374b6b140bcedf6126e6a5a811dd3b6235febd830ff8",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syrk/random-3/gate.json",
           "gate_sha256": "e27858329cd3b3a180512be4c1e17ead49be59dab5d17c3b9076addc4cd39f7c",
           "frozen_reference_outputs": [
@@ -1183,6 +1230,7 @@
           "output_sha256": "0392973c2f82dcea8812b3bc2ab872ba04d6bc78a05a99d3684dbaf22ceecd31",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-syrk/random-4/gate.json",
           "gate_sha256": "f2994938c1a5e8bc245eb288c4c5ecb45df58a7e33fd8e4cd4ad36b0902cd653",
           "frozen_reference_outputs": [
@@ -1213,6 +1261,7 @@
           "output_sha256": "64f054e81b84a6fade0c5ec419e7f63bec20631a97f4aa8531932e5df56b213c",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trmm/random-0/gate.json",
           "gate_sha256": "7e2cd3d499f37228c5b022eee7bbdcf7ad1050a7914664df8c078fa86f191c39",
           "frozen_reference_outputs": [
@@ -1235,6 +1284,7 @@
           "output_sha256": "79f49e582f5d944c036603be4a71d4684efa5e58a081735dc9e7a7587b796443",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trmm/random-1/gate.json",
           "gate_sha256": "d0a2b57f6bfb68fea13b30ff62ce634211bad6b645c04c04b0b669b56e11a003",
           "frozen_reference_outputs": [
@@ -1257,6 +1307,7 @@
           "output_sha256": "37bd4f6883053b3763b5f44a9d08c580910fbaaaa416cca09c745d92b694dcc4",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trmm/random-2/gate.json",
           "gate_sha256": "cfdae27ca35c29486ed751e9c60d3b2f267c23b56deb5767797c694b5023803a",
           "frozen_reference_outputs": [
@@ -1279,6 +1330,7 @@
           "output_sha256": "9bf78c0f7da398429b72982da96a95cdcf84ed4745c7d52bf08fcceacdac21fd",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trmm/random-3/gate.json",
           "gate_sha256": "fd2bf47d2ac647c29e72e7117f81cc13348574bd7cba9ca2336d288c115ae5c7",
           "frozen_reference_outputs": [
@@ -1301,6 +1353,7 @@
           "output_sha256": "1b04c64252a35705b6abfe7bad62ec95677a5ef223433dc1647f4348806845f9",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trmm/random-4/gate.json",
           "gate_sha256": "b12504746083bdb0bdf9d6e84b185b3839a5cc34860104de98e40d7f5990de00",
           "frozen_reference_outputs": [
@@ -1331,6 +1384,7 @@
           "output_sha256": "4d1782111ac152caf3b253695f35a964cc10cbcaa3c19499d52197f1515aef3b",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-2mm/random-0/gate.json",
           "gate_sha256": "e48e4ad38471d2c352b10f3083780a24fa44432e8c7c4b446cf56e97fa67eb7d",
           "frozen_reference_outputs": [
@@ -1353,6 +1407,7 @@
           "output_sha256": "0a77ac06ef8f326adf56c88b3d9485df8df4804303657717df517d2f69b14cc1",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-2mm/random-1/gate.json",
           "gate_sha256": "a1baf1ddb1ef3ddfad01483c5ee1383ec5bb4741d0f16cb26a8f4261cfed398b",
           "frozen_reference_outputs": [
@@ -1375,6 +1430,7 @@
           "output_sha256": "df791235a7c197fccecb2d63fedcfb71c13568c7d6ca18e1128be5906e61f5b5",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-2mm/random-2/gate.json",
           "gate_sha256": "4b92c7c680bd0639e2cf69b101c4678a417e333c9a6df64fe2124741911da69a",
           "frozen_reference_outputs": [
@@ -1397,6 +1453,7 @@
           "output_sha256": "d9dbdd16db406e5344a7cad8c9c2de08835f4ce22b10a26ba9b3e0251717c821",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-2mm/random-3/gate.json",
           "gate_sha256": "8b5febd6237595c55b1ee5cdd74b21f6f255f189931fe8c9ee6af4eb4b58d9e1",
           "frozen_reference_outputs": [
@@ -1419,6 +1476,7 @@
           "output_sha256": "c85102c1e9c34f325a262a9e452fc5f2aaefe2b22fbc99a160263fb7bb3c7fcc",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-2mm/random-4/gate.json",
           "gate_sha256": "504c144e37870b3298b2e6002f9d6df8aec2c9d8c819908033381aa7975dd9fd",
           "frozen_reference_outputs": [
@@ -1449,6 +1507,7 @@
           "output_sha256": "60f073e64a04e5357ea3a229b0676762adccc372712de079ce2ccb0b067499a0",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-3mm/random-0/gate.json",
           "gate_sha256": "a6e41c7ff418bcedbe1c34b22db72cf883f9dc7b30329a416c772cff0f4267b2",
           "frozen_reference_outputs": [
@@ -1471,6 +1530,7 @@
           "output_sha256": "2f60b47cf0629cd664e656a430a833abf02ec5b1ea0df072f41ad62e06f53c93",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-3mm/random-1/gate.json",
           "gate_sha256": "aac2dcf510ba18eed245b6bdaa4f83bfcef6641b99b6de6ede9888dfc149d0c7",
           "frozen_reference_outputs": [
@@ -1493,6 +1553,7 @@
           "output_sha256": "79bf6e003a3976c3a38762002c37b7929208dc32dccae49f600483becc834e22",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-3mm/random-2/gate.json",
           "gate_sha256": "fca873a9c26ca35109051db9693707a844871fb049f64f5f17c7c0898c4b352b",
           "frozen_reference_outputs": [
@@ -1515,6 +1576,7 @@
           "output_sha256": "62f008e9a8108e69f0c5a2f111cc8479db2c321cb078d17c864e00d153f76445",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-3mm/random-3/gate.json",
           "gate_sha256": "d91b62a0987e205717894005ce355f1911f322716e65ed9f06dcd36415e3e4f9",
           "frozen_reference_outputs": [
@@ -1537,6 +1599,7 @@
           "output_sha256": "124755d5770216d5def989fb42593bcfa9809ed51014e0781872e44674a9e42f",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-3mm/random-4/gate.json",
           "gate_sha256": "bc7ab5ac3cc3cffdb296ab0a5ef4fa2d9367f20d9159fcea1d69223fa19875dd",
           "frozen_reference_outputs": [
@@ -1567,6 +1630,7 @@
           "output_sha256": "271dab5f16954910b82857ccfdc88a12eba31cbb684a04cc05f41bea169f84e5",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-atax/random-0/gate.json",
           "gate_sha256": "13d3b8d8b7eda1ee8a6f9194ee781b6ad2a9f1a37c166544f31a9c014dbd9446",
           "frozen_reference_outputs": [
@@ -1588,6 +1652,7 @@
           "output_sha256": "7cd4432d4e8f15bb4f4bc72ee01d0a0115bb6a0275645eaac85003ab6f7a9837",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-atax/random-1/gate.json",
           "gate_sha256": "aacd5e718bfdc5b7c6b751fc9bf9913475b48f2cc3059ec10ded81425522140d",
           "frozen_reference_outputs": [
@@ -1609,6 +1674,7 @@
           "output_sha256": "19faeb959f159f3ce508181899aabecf07d86c6670031065dfe7e52c3e596ab2",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-atax/random-2/gate.json",
           "gate_sha256": "64aa6604402e8f6ad3dd66fd98ab0ffd81c12ab52461f7911d466d1fc789be85",
           "frozen_reference_outputs": [
@@ -1630,6 +1696,7 @@
           "output_sha256": "ddc8542249724fb5707d6ae5b53fdfafc682c5462b6d94aec0717b2d86e815c3",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-atax/random-3/gate.json",
           "gate_sha256": "fe2acae52d537c713a843f5b8dd1ee8b9aa09814d06968e0f2f9b2c1df05c70c",
           "frozen_reference_outputs": [
@@ -1651,6 +1718,7 @@
           "output_sha256": "0bc3d33636e21cca3ba469110a6d101f6018bdc2f9672454ccdc33dae47bbcf2",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-atax/random-4/gate.json",
           "gate_sha256": "857d3e666643d642127f060c4508275697e345b05ed09c47918d7a0ef5eaece2",
           "frozen_reference_outputs": [
@@ -1680,6 +1748,7 @@
           "output_sha256": "6feb65b05f405aad1ebfb0d71b7dda0530d3941d3303a4b9c5db344333a70828",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-bicg/random-0/gate.json",
           "gate_sha256": "321a08bf11d82cfd7391cb4451cea2f085d97f76f1c74271bdafc61a1d40da05",
           "frozen_reference_outputs": [
@@ -1709,6 +1778,7 @@
           "output_sha256": "16f45abf04d57701a49ff1a47c50b25a727212621aeedf2ff80f029a34c151a8",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-bicg/random-1/gate.json",
           "gate_sha256": "f67d6ef003f5e2ee7f52c5b81cf81cc7ee8ed227d788d50631e6573b4c46be4b",
           "frozen_reference_outputs": [
@@ -1738,6 +1808,7 @@
           "output_sha256": "131588637a7e8c3511fbd996e864cea0164f026124054fcd6e7e58609693a9b7",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-bicg/random-2/gate.json",
           "gate_sha256": "85ac217d52605a394a0aeffe8504ab896a81c81175d7145e6141d2bf301131c0",
           "frozen_reference_outputs": [
@@ -1767,6 +1838,7 @@
           "output_sha256": "0ce2f50ef8dee891979f32d334ce1a362c1ac63c30978db91b61582d4ea38cd8",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-bicg/random-3/gate.json",
           "gate_sha256": "a47d0a829cdf1c4a3e91931febf3f951458e67bf335b45ce5d49903043850ab7",
           "frozen_reference_outputs": [
@@ -1796,6 +1868,7 @@
           "output_sha256": "9b4d59d916161d8a0898a8ba011e1bcf9360dbc387087a26a3aff45f649b443c",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-bicg/random-4/gate.json",
           "gate_sha256": "225eff878d3a4b05af87a58d87c4e5fac3f720f84ab3079fd85b9d165bd6f09a",
           "frozen_reference_outputs": [
@@ -1833,6 +1906,7 @@
           "output_sha256": "457969853ee0f333e2da72dbb57af80a359002ea245998fe03a608fcd254b92d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-doitgen/random-0/gate.json",
           "gate_sha256": "50e1dc2e01d90cd5f23811bd7dd4d1f94ab6dbd49a79889a747184be22047393",
           "frozen_reference_outputs": [
@@ -1856,6 +1930,7 @@
           "output_sha256": "f37a06506dda57f3d6b929b9bf7684cd94a26fc546b2fdc5ad33791673f7ee6c",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-doitgen/random-1/gate.json",
           "gate_sha256": "7035b7e195e070c45af16e4d461f82e62e37531782d8222ec5978e9ec284e45b",
           "frozen_reference_outputs": [
@@ -1879,6 +1954,7 @@
           "output_sha256": "08f9005eb533afc34c6f14bf55dcdc92655ed4bf745266b5aa9d930db44bc41d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-doitgen/random-2/gate.json",
           "gate_sha256": "c7be13470c3de2c3a5b76bfffc8a43e5465bf524a94bcbe6a3954d9c183654aa",
           "frozen_reference_outputs": [
@@ -1902,6 +1978,7 @@
           "output_sha256": "7945d40a122166e514f4046165a57c4a8d21746fedb6fffd36072c3f5a8027fe",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-doitgen/random-3/gate.json",
           "gate_sha256": "2d59e8df9f1d0f18bd3d3e48c3d71f303c390a532ff981c68872ee339e0f4627",
           "frozen_reference_outputs": [
@@ -1925,6 +2002,7 @@
           "output_sha256": "da93b8fd95dba660b6a18d34f5d6935cdc4981cc3c77f32d4d78f34d04bfa91e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-doitgen/random-4/gate.json",
           "gate_sha256": "947eff0318c663a3973856e8c0f4d5e335848e4b5f158e34be4ceaa45fa2ac28",
           "frozen_reference_outputs": [
@@ -1956,6 +2034,7 @@
           "output_sha256": "de5a8cae301ffb68b01678a8d0aa1041ac60105c7c3ced4196214325ab81d99e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-mvt/random-0/gate.json",
           "gate_sha256": "39c049ae9a690d2662f0d61b7fbf1ad4ed366571ce5027a4ce0d40871d857a83",
           "frozen_reference_outputs": [
@@ -1985,6 +2064,7 @@
           "output_sha256": "a03521f9bcaff5cd39506148ea5161d476234a3185d0e515cd608a999b7fc62a",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-mvt/random-1/gate.json",
           "gate_sha256": "4bfc988b8873e64999e6e7d2a2fc264a30726656447a0dd6a0e43d7802be659f",
           "frozen_reference_outputs": [
@@ -2014,6 +2094,7 @@
           "output_sha256": "8e5ed6c310c215067ed490e4daf8e922ac13a4d75403e4f76701c7e9b1e68c6d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-mvt/random-2/gate.json",
           "gate_sha256": "2a59f023e418d6fb30fd3ad761d0c46ea5016db054786b8c51f9c064ba594d06",
           "frozen_reference_outputs": [
@@ -2043,6 +2124,7 @@
           "output_sha256": "535a15d69ee897beebb6e44075e7bd09cc5addcac093b2a7c17562d4773f4141",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-mvt/random-3/gate.json",
           "gate_sha256": "ea1de2b48af62099d974ef69c1ddefb54b51c72f6618dbec6d9941b8b6803512",
           "frozen_reference_outputs": [
@@ -2072,6 +2154,7 @@
           "output_sha256": "090c751fbc9784d60475e9664b6d580c44835effd15daa90c195ed873a33c7e9",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-mvt/random-4/gate.json",
           "gate_sha256": "9bbdfc1c840015bdd2148b9caf3d4239dc29c7388cd6cba3599d16a92469a02e",
           "frozen_reference_outputs": [
@@ -2109,6 +2192,7 @@
           "output_sha256": "5e1880533f24fc7dcebd1a43ee3b172e25b535caf3701b3bd1c365dd05be6ced",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-cholesky/random-0/gate.json",
           "gate_sha256": "9dddd5646121898e857397218c8ad98476eb5d9a7de78264277ff24d313939e2",
           "frozen_reference_outputs": [
@@ -2131,6 +2215,7 @@
           "output_sha256": "f8f416fe4d233eca3a80920cd5b1a2c35bc712a71ec669a470856f96258599ac",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-cholesky/random-1/gate.json",
           "gate_sha256": "4e85cf9781ece3793f2618f6a5dbb46eda4731799198e4173942ec3ae675c6ce",
           "frozen_reference_outputs": [
@@ -2153,6 +2238,7 @@
           "output_sha256": "6f2d3c209f5d2dcbb2bf98274b6f3032e53e756e53a3ad33fb0bab1ae7d0266e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-cholesky/random-2/gate.json",
           "gate_sha256": "f31427d9a88d10ae102bb7e89e1220d82100c1245844d23bd673013817f5bcf4",
           "frozen_reference_outputs": [
@@ -2175,6 +2261,7 @@
           "output_sha256": "15418d31840b9252d301452abfdafa61b9f71dacc1af1b0d5566b56b4ccd0100",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-cholesky/random-3/gate.json",
           "gate_sha256": "6109e29368bb2d1243c148a0f77b03cc83bb96929593f30f696c12968c1bf055",
           "frozen_reference_outputs": [
@@ -2197,6 +2284,7 @@
           "output_sha256": "653d4f6af15492df55e0a7cfd2f0fd9fd38404a22f3f16a60e646f0b6dc8bda0",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-cholesky/random-4/gate.json",
           "gate_sha256": "c3c2da09edbc03829c6936226f6216379739ba615976f6e65d2bb3d59555d2f2",
           "frozen_reference_outputs": [
@@ -2227,6 +2315,7 @@
           "output_sha256": "fb260457e9569891bc5c2b33e7e6f22c1330950b42176e0fe48b2a3380f135c3",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-durbin/random-0/gate.json",
           "gate_sha256": "985c55b7e426f086c6f072b63698bbf6e53b1415faf81d946707ead820d569e4",
           "frozen_reference_outputs": [
@@ -2248,6 +2337,7 @@
           "output_sha256": "f394bfbb4751b5620e528b659ae10edf48d4a5656a4527ad328b6b1b0ea17b41",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-durbin/random-1/gate.json",
           "gate_sha256": "8585acdc6f3c2245b98dc4dd9ff8b031034ff338833ec13823810d12647ee868",
           "frozen_reference_outputs": [
@@ -2269,6 +2359,7 @@
           "output_sha256": "dcb6a9d3ab267cd893087cb541e093f94042bcac342fec150bedd89290c1c152",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-durbin/random-2/gate.json",
           "gate_sha256": "c90daa2c6894080959872c37bcaaca56452b189d141bffaf5aef7e5ed8e787a7",
           "frozen_reference_outputs": [
@@ -2290,6 +2381,7 @@
           "output_sha256": "f6453cd6c9cdca65f33576920f9044fd528498ffa944c0af37b32cf0fc026d6b",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-durbin/random-3/gate.json",
           "gate_sha256": "2b63699877864a79569152af80395d5510675a6df9ad262d4b2ef5ae04e720bb",
           "frozen_reference_outputs": [
@@ -2311,6 +2403,7 @@
           "output_sha256": "dd350ab76c961001fb7461e60ca1e2c45286bdeaac6ffa2d864ce93215de80b6",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-durbin/random-4/gate.json",
           "gate_sha256": "2d8e7633a4c5e586b4518823c04c72055328ee0331305e12c472603b6766ad76",
           "frozen_reference_outputs": [
@@ -2340,6 +2433,7 @@
           "output_sha256": "f500ead55a26c8f0cc0c7fd55bf1c5940cdf9f86ef84f9cd171eb5e41f9c6be7",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gramschmidt/random-0/gate.json",
           "gate_sha256": "76c8d0be22d53108eef197873a3537d1f1c64ecacf91c70a07a178ae548e15dd",
           "frozen_reference_outputs": [
@@ -2380,6 +2474,7 @@
           "output_sha256": "3a55bb591b788b6c8adba8f65ae5abe11f1e08361c2b1841cc002413cc7363e1",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gramschmidt/random-1/gate.json",
           "gate_sha256": "c18d7e01a47d9d6fa3c3e87ef9c4584da045f7db162d4778f6fbbab48088860e",
           "frozen_reference_outputs": [
@@ -2420,6 +2515,7 @@
           "output_sha256": "f6feeff9745600428028e666e1e7261f8e97aa5532ee04301a1e485f84ee17de",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gramschmidt/random-2/gate.json",
           "gate_sha256": "b6e6edf4b4ae64a16e59bcc41719b34b97ab1a5bba1d66376169963922cc5776",
           "frozen_reference_outputs": [
@@ -2460,6 +2556,7 @@
           "output_sha256": "6e05f64d41bcdf8d1ea5f51e82528e5fa6c2c24ab17523ee05f6563949bd320a",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gramschmidt/random-3/gate.json",
           "gate_sha256": "202a5e641a9d7bfeacee08f4ea86ac54ae9d396a0f94092db97941abdf20a362",
           "frozen_reference_outputs": [
@@ -2500,6 +2597,7 @@
           "output_sha256": "b342f18923a530c449fa1141030132827c8fac0152f5afab6349cc3d2f91558f",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-gramschmidt/random-4/gate.json",
           "gate_sha256": "f61c3fdc1e5c499d832be772d54be1dad93e66d5a2bccfe874093d3b11a8a2fb",
           "frozen_reference_outputs": [
@@ -2548,6 +2646,7 @@
           "output_sha256": "b6b0d3759fa6563b216b3f31190a3860c961050f8bf9b5bdfbfa18f566994aa9",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-lu/random-0/gate.json",
           "gate_sha256": "dd0c94bdaef0bd25e7fb237e752a82d4eaa11413114e8dc188c76427d1396023",
           "frozen_reference_outputs": [
@@ -2570,6 +2669,7 @@
           "output_sha256": "bcd8d50d313063d51c07167c754181381c8073d2ef76cdcabc48162e7f27ce2a",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-lu/random-1/gate.json",
           "gate_sha256": "59c0cb34a391f64f7d968a7c99b64348fbac702e41010567112d4c441bc2bd61",
           "frozen_reference_outputs": [
@@ -2592,6 +2692,7 @@
           "output_sha256": "f342003d9fb621b884b8d77c9a5c3de4e9b6b54ddd6d0fc8f4c63efbda10c58e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-lu/random-2/gate.json",
           "gate_sha256": "79a13d78cf5165d9a8c9f88c84c979f5286283df400204bfb5e7780a0a3eda0a",
           "frozen_reference_outputs": [
@@ -2614,6 +2715,7 @@
           "output_sha256": "a5054d75ab5c9f7814d6c02a191f187b7a335e7f0e2544cc65c57a353c0cb3db",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-lu/random-3/gate.json",
           "gate_sha256": "c1d688ca171032580d5c45972552a58443dc91c9a6d621c5816e60db9d1c8edd",
           "frozen_reference_outputs": [
@@ -2636,6 +2738,7 @@
           "output_sha256": "06c6642230e35bc3949af35bf21bc3b8445e5f15fa07c672f5fca94c9961eded",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-lu/random-4/gate.json",
           "gate_sha256": "cc77b8b1ea52f4f46ebcfd7dec750fe0e27f6a4a0db6eb0c91b9d9846f51b618",
           "frozen_reference_outputs": [
@@ -2666,6 +2769,7 @@
           "output_sha256": "518b1df1905bce5739bc7ed5a84f6780a7649eb53c839b6db5a2c2ab589e2f9a",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-ludcmp/random-0/gate.json",
           "gate_sha256": "ce0f5c934a04e8cb9d79003debe735aebe8baf6b15d8d6bc2ad5957b1987dbf8",
           "frozen_reference_outputs": [
@@ -2704,6 +2808,7 @@
           "output_sha256": "4382bbf84100a6f99c3ee75e6c7fa126296bee1c5a8ffb235cc92636f6fa0bdb",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-ludcmp/random-1/gate.json",
           "gate_sha256": "6535b2450f4ab74dd785e10eb312e0cd7a897f31a8b828731f194fe4e1daa086",
           "frozen_reference_outputs": [
@@ -2742,6 +2847,7 @@
           "output_sha256": "eea5ea746428d8bfe32c3bff1c73ea115cbed2b270eeda811a0fc50bfbd222e8",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-ludcmp/random-2/gate.json",
           "gate_sha256": "5d59675975cc37eeca6114362368ca785e490354edce2e4a2b041bc2e877fb7d",
           "frozen_reference_outputs": [
@@ -2780,6 +2886,7 @@
           "output_sha256": "818cbdf5c3db56faefc13ae7731a371c830090717a46e3a479d2375e8e2233a5",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-ludcmp/random-3/gate.json",
           "gate_sha256": "ec973419dffbaa12cc135f071e7bf8ef369cdbeb586669b7a2370de6022410c4",
           "frozen_reference_outputs": [
@@ -2818,6 +2925,7 @@
           "output_sha256": "803c329c77f7cd08d26dbf51642e6b1fda59ef832433ab3a05e497b93d6c3836",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-ludcmp/random-4/gate.json",
           "gate_sha256": "f93e9ad9f2cbda54e0b8702a13185d7a0c696972b51310feceb41efb2b393501",
           "frozen_reference_outputs": [
@@ -2864,6 +2972,7 @@
           "output_sha256": "54f74266f9e543b2ce53b60d9f1f28f4d7ae094ac63f245befbbcd4bb6220fed",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trisolv/random-0/gate.json",
           "gate_sha256": "0faead904bced4ded2f4c943d6f7afbb535acee9647e4b85426dd4262e593ebe",
           "frozen_reference_outputs": [
@@ -2885,6 +2994,7 @@
           "output_sha256": "46ceef392bbfccd042cb2742b3ce7c237bef2d2bcc9fc17b4a93690f2205fe9c",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trisolv/random-1/gate.json",
           "gate_sha256": "367686a7c8de0d8fdcfad15e8ffd66d52165bb72bf05c6cb537f63ca29cbbb93",
           "frozen_reference_outputs": [
@@ -2906,6 +3016,7 @@
           "output_sha256": "bddb2273c9a08605c61c284e4bceb336f3136f17b726fcb769286bb3e300207c",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trisolv/random-2/gate.json",
           "gate_sha256": "ccbc48dd727053212c47b2d5f7024d0835e8f37cd319f41a57674f6213bd3fbd",
           "frozen_reference_outputs": [
@@ -2927,6 +3038,7 @@
           "output_sha256": "e1ac55889f438deaf98a633cb69717a7082cd7a525c8b46fad25b6a502e53626",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trisolv/random-3/gate.json",
           "gate_sha256": "f0737c16f934d0d825eaeb429de99d5f7c36d604af622a0d45d6013ad8418b39",
           "frozen_reference_outputs": [
@@ -2948,6 +3060,7 @@
           "output_sha256": "dbe4c90225493d29667c0d32da3ee9f5265ce88a8fb1c5a23ed90328e9ecf025",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-trisolv/random-4/gate.json",
           "gate_sha256": "49a0316b0ded51a366e73765dd52fc1d9ea44ffb489cff1d7309f57155c52303",
           "frozen_reference_outputs": [
@@ -2977,6 +3090,7 @@
           "output_sha256": "54a42ec69f6cd8f0f71b19d190305344e40f51e19af5d46fb66a655cfdb416b8",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-deriche/random-0/gate.json",
           "gate_sha256": "6578a1f6582ef32a88ce2fa4e2fd008f6a1aef84a0546c5ba62c85dab08ef7bb",
           "frozen_reference_outputs": [
@@ -2999,6 +3113,7 @@
           "output_sha256": "f5395b79895e0f93888e96ad73d7f94c342a90f3f8ea00a72518c8d2b06c3a64",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-deriche/random-1/gate.json",
           "gate_sha256": "88aef9936ad5e7ccc18b903cccf127ef770251563b197d77a8fcc4c5d7d09544",
           "frozen_reference_outputs": [
@@ -3021,6 +3136,7 @@
           "output_sha256": "e164e92d22ea7c765f5d5e39f40c807abe0feb6cdcf462f6337796124b4bd58d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-deriche/random-2/gate.json",
           "gate_sha256": "d90a6ad889a7b3fc8517c4d9c0f7152739c0b4ee42125c9e4cc08f3fbf4e6249",
           "frozen_reference_outputs": [
@@ -3043,6 +3159,7 @@
           "output_sha256": "6f2759c88e67dd6a46742650af68d722939dc23dad9b83599064bf5f41b896e4",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-deriche/random-3/gate.json",
           "gate_sha256": "a6beb773cc360157d255919bd90541436d9dd2f2f0d42f537ef4a5c14d5bc1b4",
           "frozen_reference_outputs": [
@@ -3065,6 +3182,7 @@
           "output_sha256": "d0c20e2f22740acd63aa1ff3f586696eb754c3145eb454f3389c86cf5a652711",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-deriche/random-4/gate.json",
           "gate_sha256": "cbb03eb550ccac6650ec456444491434fca2e7bd54300a7a6a54b4d6cb4d073a",
           "frozen_reference_outputs": [
@@ -3095,6 +3213,7 @@
           "output_sha256": "f1b56f92d59b1730b07c8d2085fd35b36644c4abce58c169214ec40589e10d4e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-floyd-warshall/random-0/gate.json",
           "gate_sha256": "d9d5ce0f5f69909083567365a254af89825dd056ffa79b2606a1e3f0a76755b3",
           "frozen_reference_outputs": [
@@ -3117,6 +3236,7 @@
           "output_sha256": "2d73f0ff017a87100e11d3c2020ae5e938515a7d56c67400fc8fc92b72662f27",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-floyd-warshall/random-1/gate.json",
           "gate_sha256": "ef94350271ef9797799331483f1bd369793975454c0dd749d7f39a33e1d62605",
           "frozen_reference_outputs": [
@@ -3139,6 +3259,7 @@
           "output_sha256": "384abee0a33b13bc7d74d2e1126ad5a5722bf240853acbfc5493f175aa503b04",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-floyd-warshall/random-2/gate.json",
           "gate_sha256": "74c3a50a288af0543d4717956366a7b66485bae1345861aa0e7f12bd7e103303",
           "frozen_reference_outputs": [
@@ -3161,6 +3282,7 @@
           "output_sha256": "5d25f247393218cec0a7928113406415f6082e89c334d1b29097b40f9d7f4c95",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-floyd-warshall/random-3/gate.json",
           "gate_sha256": "a8dc69ed4aa4416757f17bf51f0a416f9de9ce31fa1039ed88c0de5b470c15b2",
           "frozen_reference_outputs": [
@@ -3183,6 +3305,7 @@
           "output_sha256": "8e0e8517991491cc5a08ebbc26e74e5ddfb2f69e6c55b0858cc26f0fd9130b30",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-floyd-warshall/random-4/gate.json",
           "gate_sha256": "eec19164119ad3e885099a1c68b5d22c8199c83806550163991d65404af8a6c0",
           "frozen_reference_outputs": [
@@ -3213,6 +3336,7 @@
           "output_sha256": "b95e1d6a1aa1308e3cef9022a716f82222f35a1912358d647291af9190bc3688",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-nussinov/random-0/gate.json",
           "gate_sha256": "60c9da3d14d754e8783a194b855261655ac3cc98bfb68b55c40aec2021e9c69c",
           "frozen_reference_outputs": [
@@ -3235,6 +3359,7 @@
           "output_sha256": "037fe6baabe4620deca970d025306406e5e843ad318f8b1726d0b46f86b2daa2",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-nussinov/random-1/gate.json",
           "gate_sha256": "67bdcfcbc627849817c40b9a758985c5c37d9d7766ddf399e8a355de96b4a671",
           "frozen_reference_outputs": [
@@ -3257,6 +3382,7 @@
           "output_sha256": "ae55d792c692168c14723dd0082b2489da2e17cb77609d709ded8fc4e1d8f506",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-nussinov/random-2/gate.json",
           "gate_sha256": "a35be1c0ab6946676457e984200de685d836d4689bf97be6fa8f4abe38f0a1ad",
           "frozen_reference_outputs": [
@@ -3279,6 +3405,7 @@
           "output_sha256": "5ee076f1ffe9492ff16dc79dce8b990683c3f9b1d1971fb1380cddd5f064921d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-nussinov/random-3/gate.json",
           "gate_sha256": "a7afbd443ed093426990fa765952f6f0f716d5d6fca3225a16bdaae191c69434",
           "frozen_reference_outputs": [
@@ -3301,6 +3428,7 @@
           "output_sha256": "fcd59e9b5e68daa1c83e1fe76dc4abe95799e63d33f21edef182caeb042cdfc2",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-nussinov/random-4/gate.json",
           "gate_sha256": "23369f7350c85aa648fce8656c32d95b4415e8850376bd10e13266e16c0f3a2a",
           "frozen_reference_outputs": [
@@ -3331,6 +3459,7 @@
           "output_sha256": "c54b7511c1a98e82b86fb2af06a99726889b1c2c2d353d6af8f40fdf5b36a5fc",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-adi/random-0/gate.json",
           "gate_sha256": "a29b015bafcad6126d97ea0aa6856aac01d7f2e068c8cb863ce37177c315894f",
           "frozen_reference_outputs": [
@@ -3353,6 +3482,7 @@
           "output_sha256": "44ae9fc43193af19d3dcb4d54fa55fc5b5870d6bab20ea4e3d935d6f61e413a6",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-adi/random-1/gate.json",
           "gate_sha256": "b32cd26acd3cf0f8deb0b30526464ca9d5db53b9e2d057e6d6b8f48f60fa2383",
           "frozen_reference_outputs": [
@@ -3375,6 +3505,7 @@
           "output_sha256": "3fa25d512a1f0c648dfc980d78c6f343569521a13acecaa98e88106a4cd3c5f6",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-adi/random-2/gate.json",
           "gate_sha256": "3f0527f42dfb5cb690d7d8ebb85baa4f2dbfc926f0c8f9fc8263e4064b1d83a4",
           "frozen_reference_outputs": [
@@ -3397,6 +3528,7 @@
           "output_sha256": "0109f855fc3a985e6503e8b581ac83163d1e46df7850458329302fb1ab127879",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-adi/random-3/gate.json",
           "gate_sha256": "12697fa5c00fcc09bfa86f5498b59b7347a1e3440e4acbed74befb543fe989b0",
           "frozen_reference_outputs": [
@@ -3419,6 +3551,7 @@
           "output_sha256": "9cc22c0993c24fd3be20ed00b94ec0a31c570d52c6e8e77eb239b4d169b1a7ee",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-adi/random-4/gate.json",
           "gate_sha256": "32387d5581a87a7559d780aad6d1e1ec4d20b83ef02011e9a2552259d0d5a7dd",
           "frozen_reference_outputs": [
@@ -3449,6 +3582,7 @@
           "output_sha256": "4ba16ebafcc6df4cb2c757ca8f3eec53a15977ef3dcd367cdb4ec8db1acb2722",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-fdtd-2d/random-0/gate.json",
           "gate_sha256": "d6dc095a37255a56a4a3c5ced83186decf59d34738290a160f463242e385bcc4",
           "frozen_reference_outputs": [
@@ -3489,6 +3623,7 @@
           "output_sha256": "4784d8a50e1f1d9d0fa3d81642c9c51c702f256e7924e754acb66814fe9e0020",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-fdtd-2d/random-1/gate.json",
           "gate_sha256": "2f2246722125f950153b5e3a133816705889f2f04897a1665f576c35f3d35fe7",
           "frozen_reference_outputs": [
@@ -3529,6 +3664,7 @@
           "output_sha256": "f9296002362df3a328413e214ab933ed7c2490ad90423b561e2964d7fd41c67e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-fdtd-2d/random-2/gate.json",
           "gate_sha256": "8ca6c6310246b09fe618bfef812d8074402b12dc0c9147aa7ab8f135a9e691be",
           "frozen_reference_outputs": [
@@ -3569,6 +3705,7 @@
           "output_sha256": "40523bda938e76b1c41aab2361b46a129ede57322aa015f221a3f9350f8819ec",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-fdtd-2d/random-3/gate.json",
           "gate_sha256": "71c32af1deff1647b0ef31d7f072d7538cf4fcd10d89186b309c4c6120923a95",
           "frozen_reference_outputs": [
@@ -3609,6 +3746,7 @@
           "output_sha256": "ab78b3ba2d437fa2187d2366006a51bba94220f8cc4e7008cfb2fb6bbef4cb9d",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-fdtd-2d/random-4/gate.json",
           "gate_sha256": "2d880dc32aa114cafa3b5ca0de6b5f530e45bb8c5f7f1d31e411778c91fd3ebc",
           "frozen_reference_outputs": [
@@ -3657,6 +3795,7 @@
           "output_sha256": "5c04b50c78d8d14e18ac121362ce92af5f05d46e8e4f84dd2ffee3258e52c6aa",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-heat-3d/random-0/gate.json",
           "gate_sha256": "ac897fa9ce71a236629405d0914f679803be688b040d61b4516bed0e3355b541",
           "frozen_reference_outputs": [
@@ -3690,6 +3829,7 @@
           "output_sha256": "73bfa066c2005cf0c2d5f3077b65081532f9b1c1e0eb499baae6c6b59624a731",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-heat-3d/random-1/gate.json",
           "gate_sha256": "dddfcf620a2b46d2ce2986622099e29d0c8a9fbe6f5d2d930acad3dd0f584bd2",
           "frozen_reference_outputs": [
@@ -3723,6 +3863,7 @@
           "output_sha256": "1a26dbc18e8d0ae72a302376686b29e58f8ade268445a350f272b1a16f2f0248",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-heat-3d/random-2/gate.json",
           "gate_sha256": "3f507456d36da640ff7f40c955cff0ea2715f6b3e2be45eaf3d78d0a15922446",
           "frozen_reference_outputs": [
@@ -3756,6 +3897,7 @@
           "output_sha256": "a0a52d89a4f686261fc73bdaa83bc441541a055e815fcf6464fd67e5e9b25150",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-heat-3d/random-3/gate.json",
           "gate_sha256": "4f100c1526e98356990ae52f16878a853efadc8bc17a41f82ef794d0c76d4f00",
           "frozen_reference_outputs": [
@@ -3789,6 +3931,7 @@
           "output_sha256": "decdc3fcc2a4cc519174bfd74e9366b6e5223aa5bd287eed5e9f3bb2c404ae7b",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-heat-3d/random-4/gate.json",
           "gate_sha256": "73f11aaca9505686dbd8a31de51756fbae5407c1ec1e3bec5726162108e77340",
           "frozen_reference_outputs": [
@@ -3830,6 +3973,7 @@
           "output_sha256": "cdbc2ae05f9cfd2ceb00ef4cba6f1fbc045f5b6d3ecdb14bf121aca0fd719a13",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-1d/random-0/gate.json",
           "gate_sha256": "b8b1da815104ad89ab694fef0b5b8d7fbb6eeb6e25fe2f98b72681eb0437daca",
           "frozen_reference_outputs": [
@@ -3859,6 +4003,7 @@
           "output_sha256": "9909cb8c3969414c80ee35738d7778c69957d3c640b2bac50aad7e3e10bf6378",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-1d/random-1/gate.json",
           "gate_sha256": "42213702b1dbe1232440c6d81dd2f0ab4153642ce815b13c15c2d069f9defcc7",
           "frozen_reference_outputs": [
@@ -3888,6 +4033,7 @@
           "output_sha256": "a37596bff9f5362141117291608ebaee8f34195390edcf05edc5858806768ec6",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-1d/random-2/gate.json",
           "gate_sha256": "18745f03344eb7b39bfed55b5275d820304f0c60757a205e5607d9e5a41df3df",
           "frozen_reference_outputs": [
@@ -3917,6 +4063,7 @@
           "output_sha256": "57ca37b40b9cf9ac17e905db5e88e41468013771f232831520fd06728ba23bfc",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-1d/random-3/gate.json",
           "gate_sha256": "bc42acdfcd4b2768aa0981b460a31ebd461df827264ce14b0f4809a042ffb53c",
           "frozen_reference_outputs": [
@@ -3946,6 +4093,7 @@
           "output_sha256": "f660e1e326121e7005c299136704ba3ec7c188a42f4c19f0bae3a3c2a0b667a7",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-1d/random-4/gate.json",
           "gate_sha256": "b9b6ba1fcc25b7db14debe95b60fa71948edf642969244fcb38b44aef94d6da1",
           "frozen_reference_outputs": [
@@ -3983,6 +4131,7 @@
           "output_sha256": "cfd1a6ed495ff2dbadeadf5b0a220d6fec8db3216be9add9202b564fe66f8e65",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-2d/random-0/gate.json",
           "gate_sha256": "499350596832853093cab42d6db20a1a205b439c603f334e132e9c2f13ea949b",
           "frozen_reference_outputs": [
@@ -4014,6 +4163,7 @@
           "output_sha256": "87bb81d50d6245b23b7c7eeaf47996d3cdaf5e4a69bd306f5d434d79a0493bec",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-2d/random-1/gate.json",
           "gate_sha256": "b420ad2411aee295c34ca342704fcb4022fe710971102cca0673d6da12f90750",
           "frozen_reference_outputs": [
@@ -4045,6 +4195,7 @@
           "output_sha256": "b95e4a4bf5d3d8e0ead53c30276cd5e4da3fccb3046847e33eb126ac2370f280",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-2d/random-2/gate.json",
           "gate_sha256": "f631e0940546b8be6dee2ee88e6cad193fa982f4ecfaf7b6cc21e9f1e64b0eb9",
           "frozen_reference_outputs": [
@@ -4076,6 +4227,7 @@
           "output_sha256": "319151045c3f2032571b7c25ae1ebb998d5c48d36c417c071d64ccfae0ad6f6f",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-2d/random-3/gate.json",
           "gate_sha256": "8bd44a5a543d777986348bde4f602582ea728b41208b250dd5b57ff6df4da30b",
           "frozen_reference_outputs": [
@@ -4107,6 +4259,7 @@
           "output_sha256": "9f50eb5e686f04554bf05a8a0fcf3a384c0e4127a77535136ebcc4486df57199",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/polybench-jacobi-2d/random-4/gate.json",
           "gate_sha256": "c5a69d41e2443311a0d2d708af805ea10d4b0200fc73e9af8f643669d30959d4",
           "frozen_reference_outputs": [
@@ -4146,6 +4299,7 @@
           "output_sha256": "f0c31dddb7a5a1f1241f3452ae19d9f60f1f0b39fde2404ea1c71002e51c1085",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-seidel-2d/random-0/gate.json",
           "gate_sha256": "d7089ca2c73a9c7169eff7b2d3e9e39707479183cf858329bfb11bdc394550f3",
           "frozen_reference_outputs": [
@@ -4168,6 +4322,7 @@
           "output_sha256": "79ad97d0039980eafd9cf9ce48bcfc8164d60b65b4e01ee362ca48271c13a24e",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-seidel-2d/random-1/gate.json",
           "gate_sha256": "5f37a969c06acf6c7ab938fb7c8108bee6918f4307b188d552b268b77b51dc82",
           "frozen_reference_outputs": [
@@ -4190,6 +4345,7 @@
           "output_sha256": "800355c2bd2d667399c2d6ecb53ca66b728d6eb91bdde7272003beef1dc3878c",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-seidel-2d/random-2/gate.json",
           "gate_sha256": "20bdaa671a7e9f672395dbfd8465336649dae966645e333f90b3a0e9d9d6c821",
           "frozen_reference_outputs": [
@@ -4212,6 +4368,7 @@
           "output_sha256": "b60888acf098de7f1ff4ba005a136a9d6fbe3088592599a6fdd8d74642986a65",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-seidel-2d/random-3/gate.json",
           "gate_sha256": "302c54195cd96e8daea8cf9b311ec0eccce093268c998adee08b41992b8cba55",
           "frozen_reference_outputs": [
@@ -4234,6 +4391,7 @@
           "output_sha256": "294dbb8e1ec48f37f66737d3d9df9882034d45990f2d6de037316c9f02dfdae5",
           "independent_checks": {},
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/polybench-seidel-2d/random-4/gate.json",
           "gate_sha256": "2e41873bfdb6659c47a5ecfd83430a999fe399252831838e4ed65d862a417147",
           "frozen_reference_outputs": [
@@ -4269,6 +4427,7 @@
             "reported_residual": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-CG/random-0/gate.json",
           "gate_sha256": "c27a2de9a13b475e9bfd9a2788e6b82963953b60a05330a62105bf17b0a50af3",
           "frozen_reference_outputs": [
@@ -4301,6 +4460,7 @@
             "reported_residual": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-CG/random-1/gate.json",
           "gate_sha256": "681e0c81470ff291aa84fe695348ebffe9e2fbc9a5623ae540f7b3e39c17c011",
           "frozen_reference_outputs": [
@@ -4333,6 +4493,7 @@
             "reported_residual": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-CG/random-2/gate.json",
           "gate_sha256": "48f5f5332fc9026034486491e1afd973dad6c1183480f178f2fb03f7f037c5c9",
           "frozen_reference_outputs": [
@@ -4365,6 +4526,7 @@
             "reported_residual": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-CG/random-3/gate.json",
           "gate_sha256": "c6932d631119147c5f2c431786e79a5f00a2e0ec3a0812bbfb2743389fbce5ce",
           "frozen_reference_outputs": [
@@ -4397,6 +4559,7 @@
             "reported_residual": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-CG/random-4/gate.json",
           "gate_sha256": "af081ab59bc29ec9e448f4653be6854296757ed17585a0f0dfe1669cd2c03968",
           "frozen_reference_outputs": [
@@ -4428,20 +4591,21 @@
           "id": "random-0",
           "seed": 0,
           "status": "passed",
-          "input_sha256": "5c6a6aefbab302c28e14cdb2ae548905604d0af6eb69bbd05421f6cda3833537",
-          "output_sha256": "5656a827943c047a3bc23a64ac45e890700c725556f52203db3519a15212d249",
+          "input_sha256": "46c170c4cfbce04d22cbcff967721eeac6c8b5740d57c86c405f0b3eb3c92112",
+          "output_sha256": "e9aa43ef0a8bdc5212a6fb384a8c68db0fb3cd61d14565ad31451fafc300cda9",
           "independent_checks": {
             "finite_outputs": true,
-            "residual_reduction_ratio": 0.2029895192759978,
+            "residual_reduction_ratio": 0.15524143971784085,
             "multigrid_reduces_residual": true
           },
           "current_generator_reproduced_input": true,
-          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-MG/random-0/gate.json",
-          "gate_sha256": "2ed3a38408607d81966b7075fd5ace55972d2ea09d7d1291a9ec953e138285c4",
+          "numerically_distinct_from_previous": true,
+          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/npb-3.4.4-MG/random-0/gate.json",
+          "gate_sha256": "f06f35fa770b0bf07aed142669e9e255be609d70d269009c770534e33a3d5807",
           "frozen_reference_outputs": [
             {
               "output": "solution",
-              "sha256": "932a0bdaa3405f32f362aa721d5ea5fc9e9587826d7b966244b638e721f280f7",
+              "sha256": "ea7e8ebfc1e90704eeed9056bd42469af7bf420e332c4f4cd80971bad8d4cf59",
               "dtype": "<f8",
               "shape": [
                 256,
@@ -4455,20 +4619,21 @@
           "id": "random-1",
           "seed": 1,
           "status": "passed",
-          "input_sha256": "7067ba1e5d218f49620f7cb55bbb58ec2491e5852e4c1b2659fdbb2563599e35",
-          "output_sha256": "8342911a65965fbaf768c4e24a4332e4bbe98a44872248464f0bfc2f3cc3592b",
+          "input_sha256": "4450c9e273ae8d45d483f2c459edbf8edcf238878a237c237aca8623cff1bbdb",
+          "output_sha256": "60be2e4a98253a25a5399094101e5c79b56a49323cd238362699f8888c488069",
           "independent_checks": {
             "finite_outputs": true,
-            "residual_reduction_ratio": 0.20303710859731472,
+            "residual_reduction_ratio": 0.1552590658735368,
             "multigrid_reduces_residual": true
           },
           "current_generator_reproduced_input": true,
-          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-MG/random-1/gate.json",
-          "gate_sha256": "0146ca7739d99b6b95da2e5ae9d06b80de6cf9953bc874f14c00c28b6ff88889",
+          "numerically_distinct_from_previous": true,
+          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/npb-3.4.4-MG/random-1/gate.json",
+          "gate_sha256": "bf077c39690e64b47afe6104d397bb7ddf625ad4cf783b13ca3375c9c26cfb51",
           "frozen_reference_outputs": [
             {
               "output": "solution",
-              "sha256": "a0914ebc04402bcbe32968ce603f6fb4f31c5e79f4bf7975fea68b10c0cb6c91",
+              "sha256": "cced2804e242037c77aa19c9ac83a0ed71901dcf6dde44d4845b0e84aae2e4f8",
               "dtype": "<f8",
               "shape": [
                 256,
@@ -4482,20 +4647,21 @@
           "id": "random-2",
           "seed": 2,
           "status": "passed",
-          "input_sha256": "b6420cf7b74c052307b75fb6cc037dd956f9e4453ca5a26f9d0abdad312d41df",
-          "output_sha256": "ccd231da215fa5476c0fbf052860adcfa630050899e22e3778931b5ca4a9e0dd",
+          "input_sha256": "a1915052b3ac90fea5b03e6679d8d12f6e6276cc12234f2f2f9ede309517df91",
+          "output_sha256": "92bc073654ada58465fa1ae3e1b34f2cd304030a8902bfc24155c29a86382b24",
           "independent_checks": {
             "finite_outputs": true,
-            "residual_reduction_ratio": 0.20306542180965234,
+            "residual_reduction_ratio": 0.15524318257361516,
             "multigrid_reduces_residual": true
           },
           "current_generator_reproduced_input": true,
-          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-MG/random-2/gate.json",
-          "gate_sha256": "51e72b1d1f409fcd0cdf66e2c382f2aed8157fdec6faebb32c9f025b82a5b3e1",
+          "numerically_distinct_from_previous": true,
+          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/npb-3.4.4-MG/random-2/gate.json",
+          "gate_sha256": "17ca45ce04eb8b13d632aad92cd405c8740f14ed961cfc48be2a163becb00f05",
           "frozen_reference_outputs": [
             {
               "output": "solution",
-              "sha256": "2e8a0040adf7b573c0cb3bc0ef5f42cf247803b9dc9aff68cb0c77f4ecd598ba",
+              "sha256": "9906fbc50d962b503bf27d3f34e9e1c1f95652b63e73dc32a85dc17eecfd4404",
               "dtype": "<f8",
               "shape": [
                 256,
@@ -4509,20 +4675,21 @@
           "id": "random-3",
           "seed": 3,
           "status": "passed",
-          "input_sha256": "2da7bab2719a64818004dee02cfeafa48d38ac74f4c8e870dce08fe8d4ce6923",
-          "output_sha256": "a7a0b28e74651967ad972e16e61287156da052fd9ee8e5e7387bae4ca48783cb",
+          "input_sha256": "f44b3a0b7ff3c0b39a99487a95b7979935339b23aaf0c1d7b090278881f4c584",
+          "output_sha256": "02ac6f8b090f07de3d6b0e8f00388af0239bcf88162c1f419e78aecf45f521e8",
           "independent_checks": {
             "finite_outputs": true,
-            "residual_reduction_ratio": 0.2029900523272862,
+            "residual_reduction_ratio": 0.1552031441927623,
             "multigrid_reduces_residual": true
           },
           "current_generator_reproduced_input": true,
-          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-MG/random-3/gate.json",
-          "gate_sha256": "d1a003036698d05bde62be291f23584f06b3f2d003a83d87318cf6b5fe781685",
+          "numerically_distinct_from_previous": true,
+          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/npb-3.4.4-MG/random-3/gate.json",
+          "gate_sha256": "b8df39a512216452855ee5649afe02c7d849e97d7876284e188132fa9f35362d",
           "frozen_reference_outputs": [
             {
               "output": "solution",
-              "sha256": "7d1272cffe52fb9365efe07296bb146a6580e7976138a07fa060995eb6f1eae8",
+              "sha256": "4d5bde0120524757b3f89e289f1cc6ebd2809dbd8c6919734b61ea8c431dd2a5",
               "dtype": "<f8",
               "shape": [
                 256,
@@ -4536,20 +4703,21 @@
           "id": "random-4",
           "seed": 4,
           "status": "passed",
-          "input_sha256": "5d0abca8acc8331dc6e23b8fafcd3b45be33fa7db210815a23ec99607ce714aa",
-          "output_sha256": "14d9947a39d600b59e62d2b7942ff2c7f823ad4f38de3b17790a2fd8dbb3b998",
+          "input_sha256": "93c9ec22d4d56599f04f34bd4180704cd0a5073e66e5446859981345810a66da",
+          "output_sha256": "497c2f973ae00fec840c2a3b8125f691997687b4a8a15f78d391bd9e737b9a17",
           "independent_checks": {
             "finite_outputs": true,
-            "residual_reduction_ratio": 0.20302478487939096,
+            "residual_reduction_ratio": 0.15529680372291277,
             "multigrid_reduces_residual": true
           },
           "current_generator_reproduced_input": true,
-          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-MG/random-4/gate.json",
-          "gate_sha256": "92f5bb604c3483cc05b390b9e659cd7094a06e462f1f679ad332ff39b9d45f9c",
+          "numerically_distinct_from_previous": true,
+          "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-c-preflight-v2/npb-3.4.4-MG/random-4/gate.json",
+          "gate_sha256": "8b69b701fc1a1a5c7dd07c68466f5e2b5f6dede7a03dcb484e7bace4a1e090d1",
           "frozen_reference_outputs": [
             {
               "output": "solution",
-              "sha256": "56e8ab6f34f0e2ac75520e8604b1827c2804baee8f8d162dbd2a9de4c76e1706",
+              "sha256": "a58bf61450818ae6c4fc87b269498a6b95d5bc0c0618ea9a2645da4653a3b6b1",
               "dtype": "<f8",
               "shape": [
                 256,
@@ -4560,8 +4728,8 @@
           ]
         }
       ],
-      "config": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-large-v1/MG/run.yaml",
-      "config_sha256": "2a0c3ee74aa4611288ca6eb0410dbbd855fed08cc575fda1172dae535de5adec"
+      "config": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/mg-bridge-v2/MG/run.yaml",
+      "config_sha256": "e0265c124504b75b6ca37bc3578fcac67ceb4e32b2b6fd72cadbde758cd0f6b3"
     },
     {
       "id": "npb-3.4.4/FT",
@@ -4579,6 +4747,7 @@
             "dc_coefficient": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-FT/random-0/gate.json",
           "gate_sha256": "42ee90e49510ddb54d22d6798be33559c4ddea2aeb1fa107329cb1913936d63d",
           "frozen_reference_outputs": [
@@ -4607,6 +4776,7 @@
             "dc_coefficient": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-FT/random-1/gate.json",
           "gate_sha256": "44eac7f278c7802cd83c548ad96aa26e6d3fd54b957a710f5e34edc3edff2d8e",
           "frozen_reference_outputs": [
@@ -4635,6 +4805,7 @@
             "dc_coefficient": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-FT/random-2/gate.json",
           "gate_sha256": "1d67c69bdd8cee1575dfdd487e63ec5e8ffd3db3e708d529eb5b79b72cc95815",
           "frozen_reference_outputs": [
@@ -4663,6 +4834,7 @@
             "dc_coefficient": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-FT/random-3/gate.json",
           "gate_sha256": "72c1f5d2685abc6396ae7fc57d67d8c3c7b22fca8a57b79fb9895dc9cdd0d9e5",
           "frozen_reference_outputs": [
@@ -4691,6 +4863,7 @@
             "dc_coefficient": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/npb-3.4.4-FT/random-4/gate.json",
           "gate_sha256": "7464d903fbc04b943fd00e0af77dd3264290d6c9f798b62217a4bf9e9f99e60e",
           "frozen_reference_outputs": [
@@ -4727,6 +4900,7 @@
             "balanced_pair_forces": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-LavaMD/random-0/gate.json",
           "gate_sha256": "cd720102463742970904461eedd8ee1cc158f2b94312e7e0ab06ed02d8099c82",
           "frozen_reference_outputs": [
@@ -4753,6 +4927,7 @@
             "balanced_pair_forces": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-LavaMD/random-1/gate.json",
           "gate_sha256": "f6f8ec32e4f9b6678f2ca293fe18eca698aaf8cc56b52ee5f10075b6d445bbae",
           "frozen_reference_outputs": [
@@ -4779,6 +4954,7 @@
             "balanced_pair_forces": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-LavaMD/random-2/gate.json",
           "gate_sha256": "6cf0693a82b39a752b83f24e812dfcfe49a0f60c40750b573d916a77340de059",
           "frozen_reference_outputs": [
@@ -4805,6 +4981,7 @@
             "balanced_pair_forces": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-LavaMD/random-3/gate.json",
           "gate_sha256": "1b34f9496456fb9da81a0dfcc47b278e6777e7c4d8adeb756c34aff046eadf00",
           "frozen_reference_outputs": [
@@ -4831,6 +5008,7 @@
             "balanced_pair_forces": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-LavaMD/random-4/gate.json",
           "gate_sha256": "baa8ad8312da3991f3e0e665a956d9b405793c674d8fe075140d7cd807c7b57f",
           "frozen_reference_outputs": [
@@ -4866,6 +5044,7 @@
             "nontrivial_ode_evolution": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-Myocyte/random-0/gate.json",
           "gate_sha256": "2460c4ea6384bbee43b1cc915c4779e435c080af6a48ba35a19e977fe2204180",
           "frozen_reference_outputs": [
@@ -4894,6 +5073,7 @@
             "nontrivial_ode_evolution": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-Myocyte/random-1/gate.json",
           "gate_sha256": "a69461356ebdce855cf6168d5eb3707a24c79a0c6330855d7e745a506b8dcac9",
           "frozen_reference_outputs": [
@@ -4922,6 +5102,7 @@
             "nontrivial_ode_evolution": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-Myocyte/random-2/gate.json",
           "gate_sha256": "f5f61b59d6c6e1240393f4fd8d563fa75ef2da4656ce33a6fab05ce085f33d6d",
           "frozen_reference_outputs": [
@@ -4950,6 +5131,7 @@
             "nontrivial_ode_evolution": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-Myocyte/random-3/gate.json",
           "gate_sha256": "202d1cca053f745c3e331bf1a4b2e2ab5b2cec54980fbd2979167864feeb8f5f",
           "frozen_reference_outputs": [
@@ -4978,6 +5160,7 @@
             "nontrivial_ode_evolution": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/rodinia-Myocyte/random-4/gate.json",
           "gate_sha256": "0c64503dfe9915571f87d62f423a8b081924d7dd7455ae3c3f849bcf45fe90c6",
           "frozen_reference_outputs": [
@@ -5012,6 +5195,7 @@
             "wavelet_roundtrip": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/rodinia-DWT2D/random-0/gate.json",
           "gate_sha256": "84879a300bda83470838549b3020ec29b566f75a64af78da5e549a0159397f3a",
           "frozen_reference_outputs": [
@@ -5045,6 +5229,7 @@
             "wavelet_roundtrip": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/rodinia-DWT2D/random-1/gate.json",
           "gate_sha256": "327dc93bc822eb462f025f57fbd3ba35978d7b0d6c771e2525bf9eada85be4c1",
           "frozen_reference_outputs": [
@@ -5078,6 +5263,7 @@
             "wavelet_roundtrip": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/rodinia-DWT2D/random-2/gate.json",
           "gate_sha256": "9b2539b8dffcf678409fea3f7c8e5868ecf03af836530238d4a7ffb678995475",
           "frozen_reference_outputs": [
@@ -5111,6 +5297,7 @@
             "wavelet_roundtrip": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/rodinia-DWT2D/random-3/gate.json",
           "gate_sha256": "1c8c4d04510fc21da96e3ee011641146c20a7b3ee68f1cb09517c64aae497c59",
           "frozen_reference_outputs": [
@@ -5144,6 +5331,7 @@
             "wavelet_roundtrip": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/rodinia-DWT2D/random-4/gate.json",
           "gate_sha256": "644b94b2a7ce9ec4f6b28f0f0c77bfdcb81d4adb38d6cdda577dcb83121e3112",
           "frozen_reference_outputs": [
@@ -5189,6 +5377,7 @@
             "independent_euler_rk_update": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-c-preflight-v2/rodinia-CFD/random-0/gate.json",
           "gate_sha256": "60a00123110b96c717fca2e3a7e528cd8d3ad656310c65a41f211c507581dcc1",
           "frozen_reference_outputs": [
@@ -5218,6 +5407,7 @@
             "independent_euler_rk_update": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-c-preflight-v2/rodinia-CFD/random-1/gate.json",
           "gate_sha256": "d7bede8633ec305b671130f6c4df2f9de085c7e14473e35102b1540ebadc0d6d",
           "frozen_reference_outputs": [
@@ -5247,6 +5437,7 @@
             "independent_euler_rk_update": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-c-preflight-v2/rodinia-CFD/random-2/gate.json",
           "gate_sha256": "af4a6a40208f936b329392ba505ffd16fd99708860dc80214e9b1a82bdc0d384",
           "frozen_reference_outputs": [
@@ -5276,6 +5467,7 @@
             "independent_euler_rk_update": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-c-preflight-v2/rodinia-CFD/random-3/gate.json",
           "gate_sha256": "2f8ab4b9f909c85607a82551cf1a95dac76ca54c54d30b081fcc9ce02082e0f7",
           "frozen_reference_outputs": [
@@ -5305,6 +5497,7 @@
             "independent_euler_rk_update": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-c-preflight-v2/rodinia-CFD/random-4/gate.json",
           "gate_sha256": "c3ceb6a9a20fbfa1be09f0c83f669a8727bbf8555f8e31ddf3465b4886d7c4bf",
           "frozen_reference_outputs": [
@@ -5339,6 +5532,7 @@
             "independent_entropies": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/itk-mutual-information/random-0/gate.json",
           "gate_sha256": "8843951459eb0de364a624b4803db564d82110c7b6a58c164cbf2c1803323997",
           "frozen_reference_outputs": [
@@ -5373,6 +5567,7 @@
             "independent_entropies": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/itk-mutual-information/random-1/gate.json",
           "gate_sha256": "1d133f16fc3586ac3ff7969eb2c1f8c338b9eace4f351068e61843e2b27b5782",
           "frozen_reference_outputs": [
@@ -5407,6 +5602,7 @@
             "independent_entropies": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/itk-mutual-information/random-2/gate.json",
           "gate_sha256": "de66c3076328287ecd28a825df1876db9e73931dda85cc9002a7a8a66566316c",
           "frozen_reference_outputs": [
@@ -5441,6 +5637,7 @@
             "independent_entropies": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/itk-mutual-information/random-3/gate.json",
           "gate_sha256": "7b9cfe747ad9a0d83c3c072b5ec9cf01006f5517f8ff49c01cb5f19094695938",
           "frozen_reference_outputs": [
@@ -5475,6 +5672,7 @@
             "independent_entropies": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/itk-mutual-information/random-4/gate.json",
           "gate_sha256": "5dc6fdc8d481f1a92d999b642f97faa344cf433618b98d643babaf40f6e9fb04",
           "frozen_reference_outputs": [
@@ -5519,6 +5717,7 @@
             "factor_norm_consistency": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/randlapack-randomized-svd/random-0/gate.json",
           "gate_sha256": "8b545f587ce5f67dd1e92a3ae5c478d3422defbb2b8d24bc52b7f43551a0ac75",
           "frozen_reference_outputs": [
@@ -5555,6 +5754,7 @@
             "factor_norm_consistency": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/randlapack-randomized-svd/random-1/gate.json",
           "gate_sha256": "f13e6f46b2725a237ad72122402238d7e22152e69e053ec40ca8a807f29fa7a3",
           "frozen_reference_outputs": [
@@ -5591,6 +5791,7 @@
             "factor_norm_consistency": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/randlapack-randomized-svd/random-2/gate.json",
           "gate_sha256": "622dbb5aff76807064c43b4d90c3aa1e56634c36cd045d73857250d00500de65",
           "frozen_reference_outputs": [
@@ -5627,6 +5828,7 @@
             "factor_norm_consistency": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/randlapack-randomized-svd/random-3/gate.json",
           "gate_sha256": "c7d44df9fb99833551926fa2e86c261e5a6dda0a5ea7238610450337d09a4f8f",
           "frozen_reference_outputs": [
@@ -5663,6 +5865,7 @@
             "factor_norm_consistency": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/randlapack-randomized-svd/random-4/gate.json",
           "gate_sha256": "6125c2930ce9a403004ed33ab96938514e3bd1e39f91059de591fc611abdeae7",
           "frozen_reference_outputs": [
@@ -5705,6 +5908,7 @@
             "nonzero_complex_grid": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/parboil-mri-gridding/random-0/gate.json",
           "gate_sha256": "99c802c23ba6561e4cebcbe6289cd807861cd526af57922ae1996618955964ef",
           "frozen_reference_outputs": [
@@ -5739,6 +5943,7 @@
             "nonzero_complex_grid": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/parboil-mri-gridding/random-1/gate.json",
           "gate_sha256": "c2ca45683d0365b18a83d44910738282ad20a31adb84f3ec4a312335f5d5c45d",
           "frozen_reference_outputs": [
@@ -5773,6 +5978,7 @@
             "nonzero_complex_grid": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/parboil-mri-gridding/random-2/gate.json",
           "gate_sha256": "a2812ea174811489e0362f46dbf974fe43b4389f1edd07d74191f6c46906aa05",
           "frozen_reference_outputs": [
@@ -5807,6 +6013,7 @@
             "nonzero_complex_grid": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/parboil-mri-gridding/random-3/gate.json",
           "gate_sha256": "82fc679688263841593eecac419e88e8b2d2de02efecdcb6431f7476442e7e27",
           "frozen_reference_outputs": [
@@ -5841,6 +6048,7 @@
             "nonzero_complex_grid": true
           },
           "current_generator_reproduced_input": true,
+          "numerically_distinct_from_previous": true,
           "gate": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/parboil-mri-gridding/random-4/gate.json",
           "gate_sha256": "6362e020c9fa76add25ff9947c933d1d6eb6905ae519493cea4b5326dce78a48",
           "frozen_reference_outputs": [
