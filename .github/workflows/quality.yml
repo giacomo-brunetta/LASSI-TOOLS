@@ -10,9 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
-      - name: Initialize nested dependencies
-        run: git submodule update --init --recursive benchmarks/randlapack third_party/herbie third_party/tenspiler
+          submodules: false
+      - name: Initialize benchmark and tool dependencies
+        run: |
+          git submodule update --init
+          git submodule update --init --recursive benchmarks/randlapack third_party/herbie third_party/tenspiler
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
