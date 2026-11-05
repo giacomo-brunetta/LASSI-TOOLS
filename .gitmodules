@@ -13,3 +13,15 @@
 [submodule "third_party/herbie"]
 	path = third_party/herbie
 	url = https://github.com/herbie-fp/herbie.git
+[submodule "benchmarks/randlapack"]
+	path = benchmarks/randlapack
+	url = https://github.com/BallisticLA/RandLAPACK.git
+[submodule "benchmarks/parboil"]
+	path = benchmarks/parboil
+	url = https://github.com/palmer-dabbelt/parboil.git
+[submodule "benchmarks/npb-3.4.4"]
+	path = benchmarks/npb-3.4.4
+	url = https://github.com/KeyLiaoHPC/TacVar.git
+[submodule "benchmarks/itk"]
+	path = benchmarks/itk
+	url = https://github.com/InsightSoftwareConsortium/ITK.git

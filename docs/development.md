@@ -3,7 +3,8 @@
 Run the same command used by GitHub Actions before pushing:
 
 ```sh
-git submodule update --init --recursive
+git submodule update --init
+git submodule update --init --recursive benchmarks/randlapack third_party/herbie third_party/tenspiler
 uv sync --locked --extra dev --extra globus --extra roofline
 uv run --locked --extra dev --extra globus --extra roofline python tools/check_quality.py
 ```

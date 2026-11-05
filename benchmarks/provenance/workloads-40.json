@@ -1,0 +1,508 @@
+{
+  "schema_version": 1,
+  "scope": "Source acquisition only; no build, execution, or pipeline integration claimed. Source entries identify representative entry points; full dependencies remain in each pinned suite.",
+  "workload_count": 40,
+  "suites": {
+    "polybench": {
+      "path": "benchmarks/polybench",
+      "url": "https://github.com/MatthiasJReisinger/PolyBenchC-4.2.1.git",
+      "commit": "3e872547cef7e5c9909422ef1e6af03cf4e56072"
+    },
+    "npb-3.4.4": {
+      "path": "benchmarks/npb-3.4.4",
+      "url": "https://github.com/KeyLiaoHPC/TacVar.git",
+      "commit": "89eeed9b6fee4cada835c189ec53d36dae704d3d",
+      "official_archive_comparison": {
+        "url": "https://www.nas.nasa.gov/assets/npb/NPB3.4.4.tar.gz",
+        "sha256": "1ae219398e02a0a79ad51b7460fcffbf7b5df83a69d5d3d3a9dc2d8acf523549",
+        "matched_files": 378,
+        "missing_files": [
+          "Changes.log"
+        ],
+        "differing_files": []
+      }
+    },
+    "rodinia": {
+      "path": "benchmarks/rodinia",
+      "url": "https://github.com/yuhc/gpu-rodinia.git",
+      "commit": "9c10d3ea16ddba2ba057cc3951a9efc4c2cc18a4"
+    },
+    "itk": {
+      "path": "benchmarks/itk",
+      "url": "https://github.com/InsightSoftwareConsortium/ITK.git",
+      "commit": "b114762d67034af9eaf7fe7542c29dcf9051c744"
+    },
+    "randlapack": {
+      "path": "benchmarks/randlapack",
+      "url": "https://github.com/BallisticLA/RandLAPACK.git",
+      "commit": "7541f138e1f72e27f6db514b681b66bcaea61bf4"
+    },
+    "parboil": {
+      "path": "benchmarks/parboil",
+      "url": "https://github.com/palmer-dabbelt/parboil.git",
+      "commit": "4e0fc54866546efa44fe93af57c9cef62f6c8eb9"
+    }
+  },
+  "workloads": [
+    {
+      "id": "polybench/correlation",
+      "suite": "polybench",
+      "name": "correlation",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/datamining/correlation/correlation.c",
+          "sha256": "f35de426846bd8ee6ebb77d4c96176b3cf1dbeafd4efe2d19d06f74043ce5d24"
+        }
+      ]
+    },
+    {
+      "id": "polybench/covariance",
+      "suite": "polybench",
+      "name": "covariance",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/datamining/covariance/covariance.c",
+          "sha256": "a386edb7635c8d991413f38417b6c7cde8a2db75d95c3cf93f28440165cf710d"
+        }
+      ]
+    },
+    {
+      "id": "polybench/gemm",
+      "suite": "polybench",
+      "name": "gemm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/gemm/gemm.c",
+          "sha256": "1568eec3636bbca13d576643eb9d44b280fb37409679a747ae89123e5f310acc"
+        }
+      ]
+    },
+    {
+      "id": "polybench/gemver",
+      "suite": "polybench",
+      "name": "gemver",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/gemver/gemver.c",
+          "sha256": "fc130ebf4e632bfb24dabe9f61d9184a05ad8618551bef7533d4a903caee4147"
+        }
+      ]
+    },
+    {
+      "id": "polybench/gesummv",
+      "suite": "polybench",
+      "name": "gesummv",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/gesummv/gesummv.c",
+          "sha256": "0500b876ed3d2058cdea353119d0e8e9d814e8c531c9437e069121d13e80231f"
+        }
+      ]
+    },
+    {
+      "id": "polybench/symm",
+      "suite": "polybench",
+      "name": "symm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/symm/symm.c",
+          "sha256": "cd5355043f9a4b7300886fbfb1d25720456f6f65375838353fd633b5ece27814"
+        }
+      ]
+    },
+    {
+      "id": "polybench/syr2k",
+      "suite": "polybench",
+      "name": "syr2k",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/syr2k/syr2k.c",
+          "sha256": "4d7a77f3516a1f97f551582fdb6d5c6aedf7a515bc8329bc041d8161440b2663"
+        }
+      ]
+    },
+    {
+      "id": "polybench/syrk",
+      "suite": "polybench",
+      "name": "syrk",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/syrk/syrk.c",
+          "sha256": "db06033355fec93ffefb4ace46f0f8a551b5c49e83b97ed3839e3602d72270df"
+        }
+      ]
+    },
+    {
+      "id": "polybench/trmm",
+      "suite": "polybench",
+      "name": "trmm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/trmm/trmm.c",
+          "sha256": "cb0448897ccc566ff9d1cfd24c872e7ffc103a24c6924b75a63787d639b9a2f1"
+        }
+      ]
+    },
+    {
+      "id": "polybench/2mm",
+      "suite": "polybench",
+      "name": "2mm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/2mm/2mm.c",
+          "sha256": "9e4d952429dfebe2130ce86de6c894f35f43fac899e8e65e94b413e79462e481"
+        }
+      ]
+    },
+    {
+      "id": "polybench/3mm",
+      "suite": "polybench",
+      "name": "3mm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/3mm/3mm.c",
+          "sha256": "ca1eb00d358891b2e2f5d075942758b111e3d5e62e11507cb8378c8f1c420012"
+        }
+      ]
+    },
+    {
+      "id": "polybench/atax",
+      "suite": "polybench",
+      "name": "atax",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/atax/atax.c",
+          "sha256": "b3925adb41b5efb545ee1c9278ee2776e4970fdec64e72398494a336d59facbb"
+        }
+      ]
+    },
+    {
+      "id": "polybench/bicg",
+      "suite": "polybench",
+      "name": "bicg",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/bicg/bicg.c",
+          "sha256": "540a0f5864bc443857a5fa5ac473c7302980f32294a33c8dc10f49ddf8612115"
+        }
+      ]
+    },
+    {
+      "id": "polybench/doitgen",
+      "suite": "polybench",
+      "name": "doitgen",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/doitgen/doitgen.c",
+          "sha256": "fb1aed52d0707a37eb557474703b9503b2b103fd9128cce6f125fbbabfe13a5e"
+        }
+      ]
+    },
+    {
+      "id": "polybench/mvt",
+      "suite": "polybench",
+      "name": "mvt",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/mvt/mvt.c",
+          "sha256": "201dfe26e1119f3901b11f4c802e970dc48c7f6a0e64dca71854292d0c689465"
+        }
+      ]
+    },
+    {
+      "id": "polybench/cholesky",
+      "suite": "polybench",
+      "name": "cholesky",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/cholesky/cholesky.c",
+          "sha256": "94b3838ec1e63da2dde8e2eff4c08e15f075796c8546bf1a4864667de840d429"
+        }
+      ]
+    },
+    {
+      "id": "polybench/durbin",
+      "suite": "polybench",
+      "name": "durbin",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/durbin/durbin.c",
+          "sha256": "d9fc23c870a83e8dc1baf02cd22d1172df460636893a64604e5f229e774bfabc"
+        }
+      ]
+    },
+    {
+      "id": "polybench/gramschmidt",
+      "suite": "polybench",
+      "name": "gramschmidt",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/gramschmidt/gramschmidt.c",
+          "sha256": "a693f97c1a9d3cf1de8568919772e281075590f1ab703b4a79a3658ce9a41184"
+        }
+      ]
+    },
+    {
+      "id": "polybench/lu",
+      "suite": "polybench",
+      "name": "lu",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/lu/lu.c",
+          "sha256": "fef8b5a139f9a06d1290efb366039928d6e7601c80394e4f22300f6eb179135b"
+        }
+      ]
+    },
+    {
+      "id": "polybench/ludcmp",
+      "suite": "polybench",
+      "name": "ludcmp",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/ludcmp/ludcmp.c",
+          "sha256": "cc5c1fe0e3def03cf1bb4bc8ad86a26630073277fdd61d434c8032257fa56a9f"
+        }
+      ]
+    },
+    {
+      "id": "polybench/trisolv",
+      "suite": "polybench",
+      "name": "trisolv",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/trisolv/trisolv.c",
+          "sha256": "cc6b88871b988558fd03a7091ed01a412f61ebcfc60c0fea26a6d525ec338608"
+        }
+      ]
+    },
+    {
+      "id": "polybench/deriche",
+      "suite": "polybench",
+      "name": "deriche",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/medley/deriche/deriche.c",
+          "sha256": "def21924fc242239ba893011216d15312be573d6f62ec0872d592aaa5fac8575"
+        }
+      ]
+    },
+    {
+      "id": "polybench/floyd-warshall",
+      "suite": "polybench",
+      "name": "floyd-warshall",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/medley/floyd-warshall/floyd-warshall.c",
+          "sha256": "53cc5292bca21e379b31e6a6daaee1e30b7180675cad0b0d0acc8e7975262b12"
+        }
+      ]
+    },
+    {
+      "id": "polybench/nussinov",
+      "suite": "polybench",
+      "name": "nussinov",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/medley/nussinov/nussinov.c",
+          "sha256": "d38571c8430e8ea4c6f0eea343dbd9403f376ca5bcd59d90419e8d7cb5722989"
+        }
+      ]
+    },
+    {
+      "id": "polybench/adi",
+      "suite": "polybench",
+      "name": "adi",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/adi/adi.c",
+          "sha256": "9927aa0bfe3576c7c6ba575ce9102cc61f2d9b2257d1304892f3b84c4a85576c"
+        }
+      ]
+    },
+    {
+      "id": "polybench/fdtd-2d",
+      "suite": "polybench",
+      "name": "fdtd-2d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/fdtd-2d/fdtd-2d.c",
+          "sha256": "197f90ee7b0cb8a01955df72d636dd179b133060594103a77725887e88562e92"
+        }
+      ]
+    },
+    {
+      "id": "polybench/heat-3d",
+      "suite": "polybench",
+      "name": "heat-3d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/heat-3d/heat-3d.c",
+          "sha256": "c976678611f8e4f9e3e38ab95a2e46c6ef59c03d7e7f7f8214ff8c5eed476934"
+        }
+      ]
+    },
+    {
+      "id": "polybench/jacobi-1d",
+      "suite": "polybench",
+      "name": "jacobi-1d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/jacobi-1d/jacobi-1d.c",
+          "sha256": "b8390a18c6b42f1c68dcd241bd2403265c73469e07d002fcbad860c9c2925e7e"
+        }
+      ]
+    },
+    {
+      "id": "polybench/jacobi-2d",
+      "suite": "polybench",
+      "name": "jacobi-2d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/jacobi-2d/jacobi-2d.c",
+          "sha256": "5bd884a7ef7ccc3e009bb5988c919ca4aa09a0c4fb14d229d52109423a215255"
+        }
+      ]
+    },
+    {
+      "id": "polybench/seidel-2d",
+      "suite": "polybench",
+      "name": "seidel-2d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/seidel-2d/seidel-2d.c",
+          "sha256": "6cd69ddf170e873b817bc07c6ae60afe462bb233f6d98547501482fdeafcf754"
+        }
+      ]
+    },
+    {
+      "id": "npb-3.4.4/CG",
+      "suite": "npb-3.4.4",
+      "name": "CG",
+      "sources": [
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/CG/cg.f90",
+          "sha256": "5dd3c8fec69b457b38a38b56ec168aad925c15bf9342be13ce522943131f3e98"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/CG/cg.f90",
+          "sha256": "598ccd6f41971ef8f1db1873a9573b555763832829a1310b2f8abf908975386d"
+        }
+      ]
+    },
+    {
+      "id": "npb-3.4.4/MG",
+      "suite": "npb-3.4.4",
+      "name": "MG",
+      "sources": [
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/MG/mg.f90",
+          "sha256": "5b6e08892341e5b06f5b50d27cb46371047d89a5f87acd43d45d1674429fcc2b"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/MG/mg.f90",
+          "sha256": "b4874070384da0f517c8ea83a80ac778662d6f67c7832ac535339650feab52ee"
+        }
+      ]
+    },
+    {
+      "id": "npb-3.4.4/FT",
+      "suite": "npb-3.4.4",
+      "name": "FT",
+      "sources": [
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/FT/ft.f90",
+          "sha256": "5c348d02d190398055daf558dedd46b3fbdd2c6a955699b5b8438774b3fe8d9d"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/FT/ft.f90",
+          "sha256": "1847aa6136446e2727503a75964500cd7e2f70b1c4fe5299263dc6a768fe44fb"
+        }
+      ]
+    },
+    {
+      "id": "rodinia/LavaMD",
+      "suite": "rodinia",
+      "name": "LavaMD",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/openmp/lavaMD/kernel/kernel_cpu.c",
+          "sha256": "ff1a1e81b26fadc3566d16e6e73a8d2241066aecd2f001a638bc02379c2be881"
+        }
+      ]
+    },
+    {
+      "id": "rodinia/Myocyte",
+      "suite": "rodinia",
+      "name": "Myocyte",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/embedded_fehlberg_7_8.c",
+          "sha256": "19a3d3def9fbb5c81b0196fcf910a01a05097fe9c38f457198fd2114e6ab0f6b"
+        }
+      ]
+    },
+    {
+      "id": "rodinia/DWT2D",
+      "suite": "rodinia",
+      "name": "DWT2D",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/cuda/dwt2d/main.cu",
+          "sha256": "99d25453a62aac9ca9aaaa8a854c01a101391bb16c5dec4ca448e95a565f318f"
+        }
+      ]
+    },
+    {
+      "id": "rodinia/CFD",
+      "suite": "rodinia",
+      "name": "CFD",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/openmp/cfd/euler3d_cpu.cpp",
+          "sha256": "a2b0a4a61b0ad9bf4290191801154b3bfc5cb8c3be6fb9c7097936d1b3e5b535"
+        }
+      ]
+    },
+    {
+      "id": "itk/mutual-information",
+      "suite": "itk",
+      "name": "mutual-information",
+      "sources": [
+        {
+          "path": "benchmarks/itk/Examples/Statistics/ImageMutualInformation1.cxx",
+          "sha256": "681bdceeff57143453dd1b409e36c2c94427f670a292aa7ace611ba4b227b95e"
+        }
+      ]
+    },
+    {
+      "id": "randlapack/randomized-svd",
+      "suite": "randlapack",
+      "name": "randomized-svd",
+      "sources": [
+        {
+          "path": "benchmarks/randlapack/RandLAPACK/drivers/rl_rsvd.hh",
+          "sha256": "775a9c48d9e37df03c41cc2963c77a698245a26f610a60a006f0496b48812611"
+        },
+        {
+          "path": "benchmarks/randlapack/test/drivers/test_rsvd.cc",
+          "sha256": "cea3632dd00d590fabdc22d6abc4c38596e41a55a97337038ec405c9ddaf0376"
+        }
+      ]
+    },
+    {
+      "id": "parboil/mri-gridding",
+      "suite": "parboil",
+      "name": "mri-gridding",
+      "sources": [
+        {
+          "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/main.c",
+          "sha256": "1280e6358e65c21a2fdf4f77c023e44dd1e7ffacbe8814b1c58b05a0dacf7fd7"
+        },
+        {
+          "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/CPU_kernels.c",
+          "sha256": "15fa9bc2eb0363026f3254d4604af0c1a4d3540df86b746e1dd6bd59c3fb9280"
+        }
+      ]
+    }
+  ]
+}
