@@ -22,7 +22,6 @@ from .config import RunConfig
 KINDS = {
     "rodinia/LavaMD": "lavamd",
     "rodinia/Myocyte": "myocyte",
-    "rodinia/DWT2D": "dwt2d",
     "rodinia/CFD": "cfd",
     "npb-3.4.4/CG": "npb-cg",
     "npb-3.4.4/MG": "npb-mg",
@@ -186,9 +185,6 @@ def compile_reference(
         sources.append(str(upstream / "CPU_kernels.c"))
         if small_test:
             flags += ["-DLASSI_GRID_SIDE=16", "-DLASSI_GRID_SAMPLES=128"]
-    elif kind == "dwt2d":
-        if small_test:
-            flags += ["-DLASSI_DWT_SIDE=32", "-DLASSI_DWT_LEVELS=3"]
     else:
         raise ValueError(f"Unknown native workload: {kind}")
     run([cc, "-std=c11", *sources, *flags, "-lm", "-o", str(output)])

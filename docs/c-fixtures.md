@@ -6,6 +6,41 @@ dataset, for example `-DLARGE_DATASET`, and support C11 generic selection. The
 harness preserves the original include directory and compiler flags. It never
 translates initializer expressions into Python.
 
+## Original source preservation and generated instrumentation
+
+The original file containing the kernel is a read-only reference. Never insert
+fixture hooks, initialization changes, computation anchors, or output dumps into
+that file, and never apply instrumentation patches inside a benchmark submodule.
+Keep generated run/build artifacts outside those source submodules. Source
+changes that are intentionally being evaluated belong in separate candidate or
+adapter files, with their own identity and validation evidence.
+
+`build_fixture_oracle` reads the reference and writes an instrumented copy to
+`<run_dir>/oracle/c-fixture/reference.c`. The configured `{reference}` build
+placeholder resolves to this generated copy. Instrumentation adds binary input
+import/export immediately before the declared computation and output export
+immediately afterward. The kernel body and arithmetic are retained. The original
+source file is never opened for writing. If explicit computation anchors are
+needed, provide them in a separate fixture entry point instead of editing the
+upstream kernel file.
+
+The active workload adapters live separately under
+[`benchmarks/checks/native`](../benchmarks/checks/native/). C++/Fortran bridges
+call the pinned native routines. NPB's extracted `routines.f90` and generated
+parameter headers are written under the artifact's `native-build` directory;
+the original `.f90` files remain unchanged. DWT2D and its separate C port have
+been removed from the active cohort; original Rodinia CUDA/OpenCL sources remain
+untouched. The PolyBench zeroing allocator is also a separate harness file; it
+defines unused storage before native initialization without editing upstream
+allocation or kernel source. These distinctions and the exact workload profiles
+are documented in the [workload check guide](../benchmarks/checks/README.md).
+
+Retain the pinned submodule commit and original source SHA256 alongside the
+fixture specification, generated source/build commands, input and output
+identities. The cohort preparer checks the original source hashes before use;
+preflight rechecks them. A mismatch must stop validation rather than silently
+accept a modified original as the reference.
+
 For PolyBench GEMM, a specification is:
 
 ```yaml

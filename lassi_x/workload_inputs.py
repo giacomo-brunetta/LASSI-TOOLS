@@ -1,4 +1,4 @@
-"""Seeded, domain-valid application inputs for the ten native suite adapters."""
+"""Seeded, domain-valid application inputs for the nine native suite adapters."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ import numpy as np
 FIELDS = {
     "lavamd": ["positions", "charges"],
     "myocyte": ["initial"],
-    "dwt2d": ["image"],
     "cfd": ["state", "areas", "neighbors", "normals"],
     "mutual-information": ["image1", "image2"],
     "randomized-svd": ["matrix"],
@@ -83,8 +82,6 @@ def random_inputs(kind: str, arrays: dict[str, Any], seed: int) -> dict[str, Any
         result["initial"] = arrays["initial"] * rng.uniform(
             0.999, 1.001, size=arrays["initial"].shape
         )
-    elif kind == "dwt2d":
-        result["image"] = rng.uniform(0, 1, size=arrays["image"].shape)
     elif kind == "mri-gridding":
         samples = np.empty_like(arrays["samples"])
         samples[:, :2] = rng.standard_normal(samples[:, :2].shape)

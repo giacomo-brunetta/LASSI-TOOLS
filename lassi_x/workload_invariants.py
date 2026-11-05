@@ -57,26 +57,6 @@ def cfd_step(inputs: dict[str, Any]) -> Any:
     return current
 
 
-def dwt_coefficients(image: Any, levels: int) -> Any:
-    """Array-based lifting reference with packed subbands and mirrored boundaries."""
-    data = image.astype(np.float64).copy()
-    constants = (-1.586134342, -0.05298011854, 0.8829110762, 0.4435068522)
-    for axis in (1, 0):
-        data = np.moveaxis(data, axis, -1)
-        for step, coefficient in enumerate(constants):
-            parity = 1 - step % 2
-            indices = np.arange(parity, data.shape[-1], 2)
-            left = np.where(indices > 0, indices - 1, 1)
-            right = np.where(indices + 1 < data.shape[-1], indices + 1, data.shape[-1] - 2)
-            data[..., indices] += coefficient * (data[..., left] + data[..., right])
-        data[..., ::2] /= 1.230174104914
-        data[..., 1::2] *= 1.230174104914
-        data = np.moveaxis(data, -1, axis)
-    bands = [data[::2, ::2], data[::2, 1::2], data[1::2, ::2], data[1::2, 1::2]]
-    first = dwt_coefficients(bands[0], levels - 1) if levels > 1 else bands[0].ravel()
-    return np.concatenate([first, *(band.ravel() for band in bands[1:])])
-
-
 def check_native(kind: str, inputs: dict[str, Any], outputs: dict[str, Any]) -> dict[str, Any]:
     """Raise on scientific failure; return bounded metrics for the case report."""
     metrics: dict[str, Any] = {}
@@ -143,16 +123,6 @@ def check_native(kind: str, inputs: dict[str, Any], outputs: dict[str, Any]) -> 
         close(trajectory[:, 0], inputs["initial"], "ode_initial_state", rtol=0, atol=0)
         require(bool((trajectory[:, :, 31:38] > 0).all()), "positive_ion_concentrations")
         require(not np.array_equal(trajectory[:, 0], trajectory[:, -1]), "nontrivial_ode_evolution")
-    elif kind == "dwt2d":
-        close(outputs["reconstruction"], inputs["image"], "wavelet_roundtrip", rtol=2e-5, atol=2e-5)
-        if inputs["image"].size <= 2**16:
-            close(
-                outputs["coefficients"],
-                dwt_coefficients(inputs["image"], int(inputs["levels"])),
-                "independent_lifting",
-                rtol=2e-5,
-                atol=2e-5,
-            )
     elif kind == "cfd":
         updated = outputs["updated"]
         require(bool((updated[0] > 0).all()), "positive_density")

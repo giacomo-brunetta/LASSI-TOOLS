@@ -32,13 +32,19 @@ blanket recursive update with that import. Each suite retains
 its own upstream license and build instructions. Rodinia's large input datasets
 require a separate download described in its upstream README.
 
-The requested 40-workload source cohort is frozen in
-[the source manifest](provenance/workloads-40.json): all 30 PolyBench kernels;
-NPB CG, MG, and FT; Rodinia LavaMD, Myocyte, DWT2D, and CFD; ITK mutual
-information; RandLAPACK randomized SVD; and Parboil MRI-Gridding. The manifest
-records suite URLs, full commit IDs, and SHA-256 hashes of representative source
-entry points. Entire suites remain available, including shared dependencies and
-alternative implementations; the manifest counts each workload once.
+The active **39-workload** cohort is frozen in
+[the source manifest](provenance/workloads-39.json): all 30 PolyBench kernels;
+NPB CG, MG, and FT; Rodinia LavaMD, Myocyte, and CFD; ITK mutual information;
+RandLAPACK randomized SVD; and Parboil MRI-Gridding. The manifest records suite
+URLs, full commit IDs, source hashes and computation profiles. Entire suites
+remain available, including shared dependencies and alternative implementations;
+the manifest counts each selected workload once.
+
+DWT2D, the two-dimensional wavelet/image-compression workload, was removed by user
+request without replacement. Its original CUDA/OpenCL files remain untouched in
+the complete Rodinia submodule. The prior [40-workload manifest](provenance/workloads-40.json)
+and its reports are historical evidence; use their recorded harness revision to
+replay the former C-port profile.
 
 NPB 3.4.4 is separate from the historical `npb/` C port. NASA distributes the
 [official release as an archive](https://www.nas.nasa.gov/software/npb.html).
@@ -60,7 +66,7 @@ This inventory acquires sources only. It does not add these workloads to the
 integrated CPU suite, build them, run experiments, or establish correctness.
 Follow each upstream project's license, dependency, build, and dataset instructions.
 
-The CPU suite selects 24 PolyBench kernels and nine scientific kernels by default
+The separate historical CPU suite selects 24 PolyBench kernels and nine scientific kernels by default
 (33 total); `--full-polybench` includes all 39. See the
 [suite instructions](../experiments/cpu-generation/README.md). Rodinia and NPB are
 reference examples, outside this integrated suite.
@@ -80,8 +86,8 @@ dirty; new experiments must record the actual source hashes and validate their
 inputs independently of historical results.
 
 Multiple-case development correctness support is described in
-[the check plan](checks/README.md). All 40 workloads have explicit native C fixture
+[the check plan](checks/README.md). All 39 active workloads have explicit native C fixture
 profiles and five seeded random LARGE cases. The manifest records computation
-boundaries, native source languages and the serial DWT port. Preparation and C
+boundaries and native source languages. Preparation and C
 preflight must pass every case; source availability alone does not certify a
 translated implementation or accelerator execution.

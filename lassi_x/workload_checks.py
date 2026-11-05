@@ -177,7 +177,7 @@ async def prepare(
         raise ValueError("Supply at least two distinct nonnegative seeds")
     root, destination = root.resolve(), destination.resolve()
     destination.mkdir(parents=True, exist_ok=False)
-    manifest_path = root / "benchmarks/provenance/workloads-40.json"
+    manifest_path = root / "benchmarks/provenance/workloads-39.json"
     manifest = json.loads(manifest_path.read_text())
     report: dict[str, Any] = {
         "manifest_sha256": digest(manifest_path),

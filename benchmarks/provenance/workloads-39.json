@@ -1,0 +1,1432 @@
+{
+  "schema_version": 1,
+  "scope": "Active 39-workload native fixture cohort. DWT2D was removed by user request; original benchmark submodules remain unchanged. Historical 40-workload provenance and evidence remain separately preserved.",
+  "workload_count": 39,
+  "suites": {
+    "polybench": {
+      "path": "benchmarks/polybench",
+      "url": "https://github.com/MatthiasJReisinger/PolyBenchC-4.2.1.git",
+      "commit": "3e872547cef7e5c9909422ef1e6af03cf4e56072"
+    },
+    "npb-3.4.4": {
+      "path": "benchmarks/npb-3.4.4",
+      "url": "https://github.com/KeyLiaoHPC/TacVar.git",
+      "commit": "89eeed9b6fee4cada835c189ec53d36dae704d3d",
+      "official_archive_comparison": {
+        "url": "https://www.nas.nasa.gov/assets/npb/NPB3.4.4.tar.gz",
+        "sha256": "1ae219398e02a0a79ad51b7460fcffbf7b5df83a69d5d3d3a9dc2d8acf523549",
+        "matched_files": 378,
+        "missing_files": [
+          "Changes.log"
+        ],
+        "differing_files": []
+      }
+    },
+    "rodinia": {
+      "path": "benchmarks/rodinia",
+      "url": "https://github.com/yuhc/gpu-rodinia.git",
+      "commit": "9c10d3ea16ddba2ba057cc3951a9efc4c2cc18a4"
+    },
+    "itk": {
+      "path": "benchmarks/itk",
+      "url": "https://github.com/InsightSoftwareConsortium/ITK.git",
+      "commit": "b114762d67034af9eaf7fe7542c29dcf9051c744"
+    },
+    "randlapack": {
+      "path": "benchmarks/randlapack",
+      "url": "https://github.com/BallisticLA/RandLAPACK.git",
+      "commit": "7541f138e1f72e27f6db514b681b66bcaea61bf4"
+    },
+    "parboil": {
+      "path": "benchmarks/parboil",
+      "url": "https://github.com/palmer-dabbelt/parboil.git",
+      "commit": "4e0fc54866546efa44fe93af57c9cef62f6c8eb9"
+    }
+  },
+  "workloads": [
+    {
+      "id": "polybench/correlation",
+      "suite": "polybench",
+      "name": "correlation",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/datamining/correlation/correlation.c",
+          "sha256": "f35de426846bd8ee6ebb77d4c96176b3cf1dbeafd4efe2d19d06f74043ce5d24"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/correlation.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/covariance",
+      "suite": "polybench",
+      "name": "covariance",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/datamining/covariance/covariance.c",
+          "sha256": "a386edb7635c8d991413f38417b6c7cde8a2db75d95c3cf93f28440165cf710d"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/covariance.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/gemm",
+      "suite": "polybench",
+      "name": "gemm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/gemm/gemm.c",
+          "sha256": "1568eec3636bbca13d576643eb9d44b280fb37409679a747ae89123e5f310acc"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/gemm.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/gemver",
+      "suite": "polybench",
+      "name": "gemver",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/gemver/gemver.c",
+          "sha256": "fc130ebf4e632bfb24dabe9f61d9184a05ad8618551bef7533d4a903caee4147"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/gemver.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/gesummv",
+      "suite": "polybench",
+      "name": "gesummv",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/gesummv/gesummv.c",
+          "sha256": "0500b876ed3d2058cdea353119d0e8e9d814e8c531c9437e069121d13e80231f"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/gesummv.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/symm",
+      "suite": "polybench",
+      "name": "symm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/symm/symm.c",
+          "sha256": "cd5355043f9a4b7300886fbfb1d25720456f6f65375838353fd633b5ece27814"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/symm.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/syr2k",
+      "suite": "polybench",
+      "name": "syr2k",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/syr2k/syr2k.c",
+          "sha256": "4d7a77f3516a1f97f551582fdb6d5c6aedf7a515bc8329bc041d8161440b2663"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/syr2k.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/syrk",
+      "suite": "polybench",
+      "name": "syrk",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/syrk/syrk.c",
+          "sha256": "db06033355fec93ffefb4ace46f0f8a551b5c49e83b97ed3839e3602d72270df"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/syrk.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/trmm",
+      "suite": "polybench",
+      "name": "trmm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/blas/trmm/trmm.c",
+          "sha256": "cb0448897ccc566ff9d1cfd24c872e7ffc103a24c6924b75a63787d639b9a2f1"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/trmm.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/2mm",
+      "suite": "polybench",
+      "name": "2mm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/2mm/2mm.c",
+          "sha256": "9e4d952429dfebe2130ce86de6c894f35f43fac899e8e65e94b413e79462e481"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/2mm.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/3mm",
+      "suite": "polybench",
+      "name": "3mm",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/3mm/3mm.c",
+          "sha256": "ca1eb00d358891b2e2f5d075942758b111e3d5e62e11507cb8378c8f1c420012"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/3mm.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/atax",
+      "suite": "polybench",
+      "name": "atax",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/atax/atax.c",
+          "sha256": "b3925adb41b5efb545ee1c9278ee2776e4970fdec64e72398494a336d59facbb"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/atax.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/bicg",
+      "suite": "polybench",
+      "name": "bicg",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/bicg/bicg.c",
+          "sha256": "540a0f5864bc443857a5fa5ac473c7302980f32294a33c8dc10f49ddf8612115"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/bicg.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/doitgen",
+      "suite": "polybench",
+      "name": "doitgen",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/doitgen/doitgen.c",
+          "sha256": "fb1aed52d0707a37eb557474703b9503b2b103fd9128cce6f125fbbabfe13a5e"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/doitgen.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/mvt",
+      "suite": "polybench",
+      "name": "mvt",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/kernels/mvt/mvt.c",
+          "sha256": "201dfe26e1119f3901b11f4c802e970dc48c7f6a0e64dca71854292d0c689465"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/mvt.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/cholesky",
+      "suite": "polybench",
+      "name": "cholesky",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/cholesky/cholesky.c",
+          "sha256": "94b3838ec1e63da2dde8e2eff4c08e15f075796c8546bf1a4864667de840d429"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/cholesky.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/durbin",
+      "suite": "polybench",
+      "name": "durbin",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/durbin/durbin.c",
+          "sha256": "d9fc23c870a83e8dc1baf02cd22d1172df460636893a64604e5f229e774bfabc"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/durbin.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/gramschmidt",
+      "suite": "polybench",
+      "name": "gramschmidt",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/gramschmidt/gramschmidt.c",
+          "sha256": "a693f97c1a9d3cf1de8568919772e281075590f1ab703b4a79a3658ce9a41184"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/gramschmidt.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/lu",
+      "suite": "polybench",
+      "name": "lu",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/lu/lu.c",
+          "sha256": "fef8b5a139f9a06d1290efb366039928d6e7601c80394e4f22300f6eb179135b"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/lu.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/ludcmp",
+      "suite": "polybench",
+      "name": "ludcmp",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/ludcmp/ludcmp.c",
+          "sha256": "cc5c1fe0e3def03cf1bb4bc8ad86a26630073277fdd61d434c8032257fa56a9f"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/ludcmp.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/trisolv",
+      "suite": "polybench",
+      "name": "trisolv",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/linear-algebra/solvers/trisolv/trisolv.c",
+          "sha256": "cc6b88871b988558fd03a7091ed01a412f61ebcfc60c0fea26a6d525ec338608"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/trisolv.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/deriche",
+      "suite": "polybench",
+      "name": "deriche",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/medley/deriche/deriche.c",
+          "sha256": "def21924fc242239ba893011216d15312be573d6f62ec0872d592aaa5fac8575"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/deriche.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/floyd-warshall",
+      "suite": "polybench",
+      "name": "floyd-warshall",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/medley/floyd-warshall/floyd-warshall.c",
+          "sha256": "53cc5292bca21e379b31e6a6daaee1e30b7180675cad0b0d0acc8e7975262b12"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/floyd-warshall.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/nussinov",
+      "suite": "polybench",
+      "name": "nussinov",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/medley/nussinov/nussinov.c",
+          "sha256": "d38571c8430e8ea4c6f0eea343dbd9403f376ca5bcd59d90419e8d7cb5722989"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/nussinov.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/adi",
+      "suite": "polybench",
+      "name": "adi",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/adi/adi.c",
+          "sha256": "9927aa0bfe3576c7c6ba575ce9102cc61f2d9b2257d1304892f3b84c4a85576c"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/adi.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/fdtd-2d",
+      "suite": "polybench",
+      "name": "fdtd-2d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/fdtd-2d/fdtd-2d.c",
+          "sha256": "197f90ee7b0cb8a01955df72d636dd179b133060594103a77725887e88562e92"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/fdtd-2d.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/heat-3d",
+      "suite": "polybench",
+      "name": "heat-3d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/heat-3d/heat-3d.c",
+          "sha256": "c976678611f8e4f9e3e38ab95a2e46c6ef59c03d7e7f7f8214ff8c5eed476934"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/heat-3d.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/jacobi-1d",
+      "suite": "polybench",
+      "name": "jacobi-1d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/jacobi-1d/jacobi-1d.c",
+          "sha256": "b8390a18c6b42f1c68dcd241bd2403265c73469e07d002fcbad860c9c2925e7e"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/jacobi-1d.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/jacobi-2d",
+      "suite": "polybench",
+      "name": "jacobi-2d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/jacobi-2d/jacobi-2d.c",
+          "sha256": "5bd884a7ef7ccc3e009bb5988c919ca4aa09a0c4fb14d229d52109423a215255"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/jacobi-2d.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "polybench/seidel-2d",
+      "suite": "polybench",
+      "name": "seidel-2d",
+      "sources": [
+        {
+          "path": "benchmarks/polybench/stencils/seidel-2d/seidel-2d.c",
+          "sha256": "6cd69ddf170e873b817bc07c6ae60afe462bb233f6d98547501482fdeafcf754"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/seidel-2d.json",
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "id": "npb-3.4.4/CG",
+      "suite": "npb-3.4.4",
+      "name": "CG",
+      "sources": [
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/CG/cg.f90",
+          "sha256": "5dd3c8fec69b457b38a38b56ec168aad925c15bf9342be13ce522943131f3e98"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/CG/cg.f90",
+          "sha256": "598ccd6f41971ef8f1db1873a9573b555763832829a1310b2f8abf908975386d"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/CG/cg_data.f90",
+          "sha256": "cdc70d3478f14d30d49106937a500ce5d1fdcc63e1f12b7abec952b777c123d4"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/randdp.f90",
+          "sha256": "363d488bbcbdc33c1e20df698caea21807fb957eb5550d4ad3ff5f3fc632e9fd"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/timers.f90",
+          "sha256": "8a30f46181595096b8dcb491e9d6e458d87d4eedf4425bcaaf8f6a134f0c2ad3"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/wtime.c",
+          "sha256": "18de9969b33629f4f912b48a27de4a05c0f5a72daa7df7849f9b07b19762f057"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/sys/setparams.c",
+          "sha256": "30469aff4f6450fb9fda11c39420a8acf347d823643640d747e3fbb53bd3b83b"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/npb-cg.json",
+        "reference": "benchmarks/checks/native/npb-cg.c",
+        "reference_sha256": "16cf86a1f9f3dca49e2cd628af96b68fe7b348b8a0a160b8d00c1eb6d3a39e3a",
+        "computation": "NPB 3.4.4 conj_grad: all 25 solver iterations",
+        "large_profile": "NAS class-B vector size: n=75000, permuted tridiagonal SPD CSR with 3*n-2 nonzeros",
+        "implementation": "Pinned Fortran routines linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "npb-3.4.4/MG",
+      "suite": "npb-3.4.4",
+      "name": "MG",
+      "sources": [
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/MG/mg.f90",
+          "sha256": "5b6e08892341e5b06f5b50d27cb46371047d89a5f87acd43d45d1674429fcc2b"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/MG/mg.f90",
+          "sha256": "b4874070384da0f517c8ea83a80ac778662d6f67c7832ac535339650feab52ee"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/MG/mg_data.f90",
+          "sha256": "f330509902249d4e0b41a2114a8f0f33c185b98ed6ef5b27f934032a7cdd1bfa"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/randdp.f90",
+          "sha256": "363d488bbcbdc33c1e20df698caea21807fb957eb5550d4ad3ff5f3fc632e9fd"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/timers.f90",
+          "sha256": "8a30f46181595096b8dcb491e9d6e458d87d4eedf4425bcaaf8f6a134f0c2ad3"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/wtime.c",
+          "sha256": "18de9969b33629f4f912b48a27de4a05c0f5a72daa7df7849f9b07b19762f057"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/sys/setparams.c",
+          "sha256": "30469aff4f6450fb9fda11c39420a8acf347d823643640d747e3fbb53bd3b83b"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/npb-mg.json",
+        "reference": "benchmarks/checks/native/npb-mg.c",
+        "reference_sha256": "10b9dab1a08be9f87ed2066c39ca16bd383af97aa683d94f776aebf377b2585b",
+        "computation": "NPB 3.4.4: four complete multigrid V-cycles with periodic boundaries",
+        "large_profile": "NAS class-B grid: 256^3 interior cells",
+        "implementation": "Pinned Fortran routines linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "npb-3.4.4/FT",
+      "suite": "npb-3.4.4",
+      "name": "FT",
+      "sources": [
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/FT/ft.f90",
+          "sha256": "5c348d02d190398055daf558dedd46b3fbdd2c6a955699b5b8438774b3fe8d9d"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/FT/ft.f90",
+          "sha256": "1847aa6136446e2727503a75964500cd7e2f70b1c4fe5299263dc6a768fe44fb"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/FT/ft_data.f90",
+          "sha256": "2c7f5a6e55d332caa15abc7789182c72db3b13ba688e4b3229781a3f011a4587"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/randdp.f90",
+          "sha256": "363d488bbcbdc33c1e20df698caea21807fb957eb5550d4ad3ff5f3fc632e9fd"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/timers.f90",
+          "sha256": "8a30f46181595096b8dcb491e9d6e458d87d4eedf4425bcaaf8f6a134f0c2ad3"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/wtime.c",
+          "sha256": "18de9969b33629f4f912b48a27de4a05c0f5a72daa7df7849f9b07b19762f057"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/sys/setparams.c",
+          "sha256": "30469aff4f6450fb9fda11c39420a8acf347d823643640d747e3fbb53bd3b83b"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/npb-ft.json",
+        "reference": "benchmarks/checks/native/npb-ft.c",
+        "reference_sha256": "4f0b73ea7177386dd0ce91210ab4d4e2630a355d8d48e3baf93383bc50927c91",
+        "computation": "NPB 3.4.4: complete unnormalized positive-sign 3-D FFT",
+        "large_profile": "NAS class-B grid: 512x256x256 complex values",
+        "implementation": "Pinned Fortran routines linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "rodinia/LavaMD",
+      "suite": "rodinia",
+      "name": "LavaMD",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/openmp/lavaMD/kernel/kernel_cpu.c",
+          "sha256": "ff1a1e81b26fadc3566d16e6e73a8d2241066aecd2f001a638bc02379c2be881"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/lavaMD/main.h",
+          "sha256": "14539f64b9c86793d72260eecd5b77312f755ae8925a2a15dc6dd3815ea23a1a"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/lavaMD/util/timer/timer.c",
+          "sha256": "e437daf303ba449ff7f097ef4dbfb1bdb2248e4347baecfc7e063f017a252620"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/lavamd.json",
+        "reference": "benchmarks/checks/native/lavamd.c",
+        "reference_sha256": "a90c69ccd9cb50417a3a2df9d72a1ae3e1f3efe30af5b02a5f2d7675d2055c19",
+        "computation": "All particle interactions with native neighboring-box topology",
+        "large_profile": "10^3 boxes x 100 particles = 100000 particles",
+        "implementation": "Pinned C kernel",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "rodinia/Myocyte",
+      "suite": "rodinia",
+      "name": "Myocyte",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/embedded_fehlberg_7_8.c",
+          "sha256": "19a3d3def9fbb5c81b0196fcf910a01a05097fe9c38f457198fd2114e6ab0f6b"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/define.c",
+          "sha256": "668042be8fc32c557b781074d62a91f944038e4bcdd980526ca3f46592397f75"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/ecc.c",
+          "sha256": "be99c964e133759998479b2e796ea3d39d3b0ac1e796190e0e5dd78fcdfba746"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/cam.c",
+          "sha256": "19eeec7b9d7829bf014e33773e8898bb946cd288094b98f5740c31246950304d"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/fin.c",
+          "sha256": "7afa984ade8f8998180dc63f0f70f9f586a494c9d8348810780ece0a666171f5"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/master.c",
+          "sha256": "9c67012e6cf38469280312e8ae52eb26b077152a07b8977bd2396255bb270b09"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/solver.c",
+          "sha256": "2fa88b277a6bd5fdeadcd529bc01e5db75cd9f5ece206b7d5c345effb6ee54b5"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/myocyte.json",
+        "reference": "benchmarks/checks/native/myocyte.c",
+        "reference_sha256": "072bb227ef965fb2e1d85fb3f759dea07af1e1e2bf0d437d2a80cff8c770c2c8",
+        "computation": "Complete adaptive Fehlberg 7/8 cardiac ODE solver, serial mode 1",
+        "large_profile": "64 independent 91-variable cells, 100 ms, all 101 trajectory frames",
+        "implementation": "Pinned float C model and solver",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "rodinia/CFD",
+      "suite": "rodinia",
+      "name": "CFD",
+      "sources": [
+        {
+          "path": "benchmarks/rodinia/openmp/cfd/euler3d_cpu.cpp",
+          "sha256": "a2b0a4a61b0ad9bf4290191801154b3bfc5cb8c3be6fb9c7097936d1b3e5b535"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/cfd.json",
+        "reference": "benchmarks/checks/native/cfd.c",
+        "reference_sha256": "3f91d8c859a68cc2a58a43566e6353dba2b4217881ab60e05e5b01950093d3d5",
+        "computation": "One complete three-stage Runge-Kutta Euler update using original flux/step functions",
+        "large_profile": "105456 tetrahedra from a 26^3 conforming cube mesh, randomized numbering; inward face normals, slip walls and far-field boundaries",
+        "implementation": "Pinned C++ numerical functions linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "itk/mutual-information",
+      "suite": "itk",
+      "name": "mutual-information",
+      "sources": [
+        {
+          "path": "benchmarks/itk/Examples/Statistics/ImageMutualInformation1.cxx",
+          "sha256": "681bdceeff57143453dd1b409e36c2c94427f670a292aa7ace611ba4b227b95e"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/mutual-information.json",
+        "reference": "benchmarks/checks/native/mutual-information.c",
+        "reference_sha256": "6ee4ce03c2d4f722647ea05b8a5c7cb2768f01736bf4e3e82e55ee2d6d5f7688",
+        "computation": "ITK JoinImageFilter and ImageToHistogramFilter, joint/marginal entropies and mutual information",
+        "large_profile": "Two 2048x2048 uint8 images; 255x255 joint histogram",
+        "implementation": "Pinned ITK C++ histogram classes through C ABI; in-memory equivalent of example I/O",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "randlapack/randomized-svd",
+      "suite": "randlapack",
+      "name": "randomized-svd",
+      "sources": [
+        {
+          "path": "benchmarks/randlapack/RandLAPACK/drivers/rl_rsvd.hh",
+          "sha256": "775a9c48d9e37df03c41cc2963c77a698245a26f610a60a006f0496b48812611"
+        },
+        {
+          "path": "benchmarks/randlapack/test/drivers/test_rsvd.cc",
+          "sha256": "cea3632dd00d590fabdc22d6abc4c38596e41a55a97337038ec405c9ddaf0376"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/randomized-svd.json",
+        "reference": "benchmarks/checks/native/randomized-svd.c",
+        "reference_sha256": "f8ce12733459e0dd543f84e1c2363ed1b66be7870e995ae7d923f426bbf5ec34",
+        "computation": "Complete RandLAPACK RSVD with original QB/RF/RS objects and reconstruction",
+        "large_profile": "2048x1024 double matrix, target rank 32, fixed algorithm RNG seed 42",
+        "implementation": "Pinned RandLAPACK/RandBLAS C++ through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    },
+    {
+      "id": "parboil/mri-gridding",
+      "suite": "parboil",
+      "name": "mri-gridding",
+      "sources": [
+        {
+          "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/main.c",
+          "sha256": "1280e6358e65c21a2fdf4f77c023e44dd1e7ffacbe8814b1c58b05a0dacf7fd7"
+        },
+        {
+          "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/CPU_kernels.c",
+          "sha256": "15fa9bc2eb0363026f3254d4604af0c1a4d3540df86b746e1dd6bd59c3fb9280"
+        },
+        {
+          "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/UDTypes.h",
+          "sha256": "4f3179b1ee85a52e3a6c05686c70273513315c6d590c131d8c5b90580a7d6ed5"
+        }
+      ],
+      "correctness": {
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/mri-gridding.json",
+        "reference": "benchmarks/checks/native/mri-gridding.c",
+        "reference_sha256": "f720c1406a82cca522ae4270275935e3aada2dc7f431de513532b29c1a5df0a0",
+        "computation": "Complete gridding_Gold CPU scatter with complex grid and sample density",
+        "large_profile": "262144 random samples; 128^3 grid, kernel width 3, oversampling 1.25, no LUT",
+        "implementation": "Pinned Parboil C kernel",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
+      }
+    }
+  ],
+  "native_dependencies": {
+    "blaspp": {
+      "path": "third_party/blaspp",
+      "commit": "2628ac538fee95417429c846f09f1017c764a2a8"
+    },
+    "lapackpp": {
+      "path": "third_party/lapackpp",
+      "commit": "047cb8c999866f3b8558de7d5ea2165e108835b5"
+    },
+    "random123": {
+      "path": "third_party/random123",
+      "commit": "726a093cd9a73f3ec3c8d7a70ff10ed8efec8d13"
+    }
+  }
+}

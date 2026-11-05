@@ -20,13 +20,13 @@ from .workload_native import KINDS
 
 def audit(root: Path, plan: Path, destination: Path) -> dict[str, Any]:
     """Require one predeclared owner for every workload, including failures."""
-    manifest_path = root / "benchmarks/provenance/workloads-40.json"
+    manifest_path = root / "benchmarks/provenance/workloads-39.json"
     manifest = json.loads(manifest_path.read_text())
     partitions = json.loads(plan.read_text())["partitions"]
     declared = [wid for partition in partitions for wid in partition["workload_ids"]]
     wanted = [w["id"] for w in manifest["workloads"]]
     if len(declared) != len(set(declared)) or set(declared) != set(wanted):
-        raise ValueError("Evidence partitions must own all forty workloads exactly once")
+        raise ValueError("Evidence partitions must own each active workload exactly once")
     sources: dict[str, Any] = {}
     records = []
     for partition in partitions:
@@ -201,7 +201,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
     result = audit(args.root, args.plan, args.destination)
-    return int(result["workloads_passed"] != 40)
+    return int(result["workloads_passed"] != len(result["workloads"]))
 
 
 if __name__ == "__main__":

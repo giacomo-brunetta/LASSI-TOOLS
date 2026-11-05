@@ -1,4 +1,4 @@
-"""Build the pinned native dependencies for all forty workload fixture adapters.
+"""Build the pinned native dependencies for the active workload fixture adapters.
 
 Uses initialized Git submodules and local compilers. No source downloads,
 model requests or accelerator execution occur in this preparation step.
@@ -26,7 +26,7 @@ PINS = {
 def prepare(root: Path, destination: Path, jobs: int) -> None:
     root, destination = root.resolve(), destination.resolve()
     destination.mkdir(parents=True, exist_ok=True)
-    manifest = json.loads((root / "benchmarks/provenance/workloads-40.json").read_text())
+    manifest = json.loads((root / "benchmarks/provenance/workloads-39.json").read_text())
     pins = {
         **PINS,
         **{

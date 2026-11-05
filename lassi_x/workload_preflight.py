@@ -52,7 +52,7 @@ async def preflight(
 ) -> dict[str, Any]:
     """Check the complete cohort; never select between competing passed/failed rows."""
     destination.mkdir(parents=True, exist_ok=False)
-    manifest_path = root / "benchmarks/provenance/workloads-40.json"
+    manifest_path = root / "benchmarks/provenance/workloads-39.json"
     manifest = json.loads(manifest_path.read_text())
     selected: dict[str, Any] = {}
     evidence = []

@@ -85,9 +85,9 @@ def test_unconfigured_native_dependencies_cannot_be_reported_as_checked(
 ) -> None:
     directory, report = prepared
     assert json.loads((directory / "report.json").read_text()) == report
-    assert len(report["workloads"]) == 40
+    assert len(report["workloads"]) == 39
     unsupported = [w for w in report["workloads"] if w["status"] == "unsupported"]
-    assert len(unsupported) == 10
+    assert len(unsupported) == 9
     assert all(w["cases"] == [] for w in unsupported)
 
 
@@ -140,7 +140,7 @@ def test_real_pipeline_rejects_primary_only_candidate_and_rechecks_repair(
 
 def test_production_defaults_use_large_and_multiple_random_inputs() -> None:
     assert inspect.signature(prepare).parameters["dataset"].default == "large"
-    manifest = json.loads((ROOT / "benchmarks/provenance/workloads-40.json").read_text())
+    manifest = json.loads((ROOT / "benchmarks/provenance/workloads-39.json").read_text())
     workload = next(w for w in manifest["workloads"] if w["id"] == "polybench/gemm")
     config = configuration(ROOT, workload, ROOT / "benchmarks/checks/gemm.json", "large")
     assert "-DLARGE_DATASET" in config.oracle.build
@@ -158,7 +158,7 @@ def test_large_durbin_random_references(tmp_path: Path) -> None:
     """Exercise actual LARGE compilation/import and all five seeded references."""
     if shutil.which("cc") is None:
         pytest.skip("C compiler unavailable")
-    manifest = json.loads((ROOT / "benchmarks/provenance/workloads-40.json").read_text())
+    manifest = json.loads((ROOT / "benchmarks/provenance/workloads-39.json").read_text())
     workload = next(w for w in manifest["workloads"] if w["id"] == "polybench/durbin")
     config = configuration(ROOT, workload, ROOT / "benchmarks/checks/durbin.json", "large")
     native = asyncio.run(build_oracle(config, tmp_path / "native"))
@@ -199,3 +199,9 @@ def test_rejects_cases_that_only_differ_below_acceptance_tolerance(
     row = next(w for w in report["workloads"] if w["id"] == "polybench/gemm")
     assert row["status"] == "failed"
     assert "numerically distinguishable" in row["reason"]
+
+
+def test_active_cohort_excludes_dwt2d() -> None:
+    manifest = json.loads((ROOT / "benchmarks/provenance/workloads-39.json").read_text())
+    assert manifest["workload_count"] == len(manifest["workloads"]) == 39
+    assert "rodinia/DWT2D" not in {w["id"] for w in manifest["workloads"]}

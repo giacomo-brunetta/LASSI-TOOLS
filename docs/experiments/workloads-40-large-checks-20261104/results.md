@@ -40,3 +40,22 @@ original 3.4.4 Fortran routines through C entry points; ITK/RandLAPACK/CFD retai
 their native C++ computations. DWT uses the documented serial C port of the pinned
 CUDA lifting algorithm, with independent coefficient/roundtrip checks; CUDA
 hardware equivalence was not evaluated. No models or accelerators were contacted.
+
+
+## DWT interpretation
+
+The 40-profile count includes the separate serial C DWT 9/7 port. It does not
+establish equivalence to the original Rodinia CUDA or OpenCL implementations.
+Both are present and unchanged in the pinned repository; neither was executed
+for this validation. DWT's LARGE cases check reconstruction, while bounded small
+cases additionally check coefficients against independent lifting equations.
+See the [backend and DWT explanation](../../../benchmarks/checks/README.md#rodinia-backends-and-removal-of-dwt2d).
+
+
+## Subsequent cohort change
+
+DWT2D was later removed by user request. This report remains a historical record
+of the 40-profile run, including its explicitly labelled C port. The active
+cohort is now [39 workloads](../../../benchmarks/provenance/workloads-39.json),
+with five LARGE cases each (195 cases). The former DWT C port is no longer an
+active reference. Original benchmark files remain unchanged.

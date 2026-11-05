@@ -14,7 +14,7 @@ Native workload tests require C/C++, CMake, gfortran and BLAS/LAPACK. On Ubuntu,
 install `cmake gfortran libopenblas-dev`; on Apple Silicon use Homebrew
 `cmake gcc libomp`. The preparation helper builds pinned submodule dependencies
 without downloading source. Tests require its completed dependency inventory;
-they do not silently skip the ten native workloads. To reuse another explicit
+they do not silently skip the nine native workloads. To reuse another explicit
 prepared root, set `LASSI_WORKLOAD_NATIVE_ROOT` to that directory. CI prepares
 `build/workload-native` before running the same checks.
 
