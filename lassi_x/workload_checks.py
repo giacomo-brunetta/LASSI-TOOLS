@@ -20,6 +20,11 @@ import yaml
 from .config import CorrectnessTestConfig, RunConfig
 from .input_contract import load_contract, save_contract
 from .validation import build_oracle
+from .workload_inputs import FIELDS as NATIVE_FIELDS
+from .workload_inputs import random_inputs as native_random_inputs
+from .workload_invariants import check_native
+from .workload_native import KINDS
+from .workload_native import configuration as native_configuration
 
 # Randomize a consumed tensor, preserving dimensions and structural state.
 RANDOM_FIELDS = dict(
@@ -159,6 +164,9 @@ async def prepare(
     *,
     seeds: tuple[int, ...] = DEFAULT_SEEDS,
     dataset: str = "large",
+    native_root: Path | None = None,
+    workload_ids: tuple[str, ...] | None = None,
+    retain_raw: bool = False,
 ) -> dict[str, Any]:
     """Freeze multiple seeded random cases, all at the same LARGE dimensions.
 
@@ -191,38 +199,64 @@ async def prepare(
         ],
     }
     for workload, entry in zip(manifest["workloads"], report["workloads"], strict=True):
-        if workload["suite"] != "polybench":
+        if workload_ids is not None and workload["id"] not in workload_ids:
+            continue
+        if workload["suite"] != "polybench" and native_root is None:
             entry["status"] = "unsupported"
-            entry["reason"] = "Suite-specific input and output adapter required"
+            entry["reason"] = "Explicit native dependency root required for this suite"
             continue
         directory = destination / workload["name"]
         directory.mkdir()
         try:
-            spec = root / "benchmarks/checks" / (workload["name"] + ".json")
-            config = configuration(root, workload, spec, dataset)
+            profile = (
+                workload["name"] if workload["suite"] == "polybench" else KINDS[workload["id"]]
+            )
+            spec = root / "benchmarks/checks" / (profile + ".json")
+            if workload["suite"] == "polybench":
+                config = configuration(root, workload, spec, dataset)
+            else:
+                assert native_root is not None
+                config = native_configuration(root, workload, dataset, native_root)
+
             # Bootstrap exports the native interface; it is not a candidate test.
             native = await build_oracle(config, directory / "native")
             assert native.input_contract_path is not None
             arrays, metadata = load_contract(native.input_contract_path)
+            if not retain_raw:
+                discard_transfers(native.input_contract_path.parent)
             cases: list[RunConfig] = []
             checks: list[CorrectnessTestConfig] = []
             for seed in seeds:
                 case_id = f"random-{seed}"
                 inputs = directory / f"{case_id}-inputs.npz"
-                save_contract(inputs, random_inputs(workload["name"], arrays, seed), metadata)
+                randomized = (
+                    random_inputs(profile, arrays, seed)
+                    if workload["suite"] == "polybench"
+                    else native_random_inputs(profile, arrays, seed)
+                )
+                save_contract(inputs, randomized, metadata)
                 case = config.validated_update(
                     oracle=config.oracle.validated_update(input_fixture=inputs)
                 )
                 oracle = await build_oracle(case, directory / case_id)
+                invariants = {}
+                if workload["suite"] != "polybench":
+                    outputs, _ = load_contract(oracle.output_path.parent / "outputs.npz")
+                    invariants = check_native(profile, randomized, outputs)
+                if not retain_raw:
+                    discard_transfers(oracle.output_path.parent)
                 cases.append(case)
                 entry["cases"].append(
                     {
                         "id": case_id,
                         "seed": seed,
-                        "randomized_field": RANDOM_FIELDS[workload["name"]],
+                        "randomized_fields": [RANDOM_FIELDS[profile]]
+                        if workload["suite"] == "polybench"
+                        else NATIVE_FIELDS[profile],
                         "dataset": dataset,
                         "input_sha256": digest(inputs),
                         "output_sha256": digest(oracle.output_path),
+                        "independent_checks": invariants,
                     }
                 )
                 if len(cases) > 1:
@@ -236,6 +270,8 @@ async def prepare(
                             }
                         )
                     )
+            if len({c["output_sha256"] for c in entry["cases"]}) != len(seeds):
+                raise ValueError("Random cases must produce distinct observable outputs")
             config = cases[0].validated_update(
                 arena=config.arena.validated_update(
                     correctness_tests=checks,
@@ -244,11 +280,19 @@ async def prepare(
             )
             config_path = directory / "run.yaml"
             config_path.write_text(yaml.safe_dump(config.model_dump(mode="json")))
+            case_files = explicit_case_configs(
+                config, [c["id"] for c in entry["cases"]], directory / "cases"
+            )
             entry.update(
                 status="reference_checked",
+                case_configs=case_files,
                 config=str(config_path),
                 config_sha256=digest(config_path),
                 fixture_spec_sha256=digest(spec),
+                reference_sha256=digest(config.resolve_project_path(config.kernel.reference)),
+                context_sha256={
+                    str(p): digest(config.resolve_project_path(p)) for p in config.kernel.context
+                },
             )
         except (ValueError, RuntimeError) as error:
             entry.update(status="failed", reason=str(error))
@@ -257,13 +301,71 @@ async def prepare(
     return report
 
 
+def explicit_case_configs(
+    config: RunConfig,
+    case_ids: list[str],
+    directory: Path,
+) -> list[dict[str, str]]:
+    """Export flat cases accepted by the C-adaptation pipeline's case loader."""
+    cases = [config] + [
+        config.validated_update(
+            kernel=config.kernel.validated_update(validation_dataset=case.dataset),
+            oracle=case.oracle,
+        )
+        for case in config.arena.correctness_tests
+    ]
+    if len(cases) != len(case_ids):
+        raise ValueError("Every explicit case requires its own identity")
+    directory.mkdir(parents=True, exist_ok=False)
+    result = []
+    for case_id, case in zip(case_ids, cases, strict=True):
+        if not case_id.startswith("random-") or not case_id.removeprefix("random-").isdigit():
+            raise ValueError("Explicit random case IDs must contain a nonnegative seed")
+        case = case.validated_update(arena=case.arena.validated_update(correctness_tests=[]))
+        path = directory / (case_id + ".yaml")
+        path.write_text(yaml.safe_dump(case.model_dump(mode="json")))
+        result.append({"id": case_id, "path": str(path), "sha256": digest(path)})
+    return result
+
+
+def discard_transfers(directory: Path) -> None:
+    """Drop duplicate binary transfers after canonical contracts are saved."""
+    removed = []
+    for path in directory.iterdir():
+        if path.suffix == ".bin":
+            removed.append({"path": path.name, "bytes": path.stat().st_size})
+            path.unlink()
+    (directory / "retention.json").write_text(
+        json.dumps(
+            {
+                "policy": "Canonical inputs.npz, outputs.npz and expected.npy retained",
+                "removed_duplicate_transfers": removed,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--seeds", nargs="+", type=int, default=list(DEFAULT_SEEDS))
+    parser.add_argument("--native-root", type=Path)
+    parser.add_argument("--workload-ids", nargs="+")
+    parser.add_argument("--retain-raw", action="store_true")
     args = parser.parse_args()
-    report = asyncio.run(prepare(args.root, args.destination, seeds=tuple(args.seeds)))
+    report = asyncio.run(
+        prepare(
+            args.root,
+            args.destination,
+            seeds=tuple(args.seeds),
+            native_root=args.native_root or args.root / "build/workload-native",
+            retain_raw=args.retain_raw,
+            workload_ids=tuple(args.workload_ids) if args.workload_ids else None,
+        )
+    )
     counts = {
         status: sum(w["status"] == status for w in report["workloads"])
         for status in ("reference_checked", "failed", "unsupported")

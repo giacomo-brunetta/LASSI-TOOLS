@@ -1,0 +1,80 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "nnz": {
+      "argument": "nnz",
+      "access": "read_only",
+      "scalar": true
+    },
+    "rows": {
+      "argument": "rows",
+      "access": "read_only"
+    },
+    "columns": {
+      "argument": "columns",
+      "access": "read_only"
+    },
+    "values": {
+      "argument": "values",
+      "access": "read_only"
+    },
+    "rhs": {
+      "argument": "rhs",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "solution",
+    "residual"
+  ],
+  "fields": {
+    "n": {
+      "expression": "n",
+      "shape": []
+    },
+    "nnz": {
+      "expression": "nnz",
+      "shape": []
+    },
+    "rows": {
+      "expression": "rows",
+      "shape": [
+        "n+1"
+      ]
+    },
+    "columns": {
+      "expression": "columns",
+      "shape": [
+        "nnz"
+      ]
+    },
+    "values": {
+      "expression": "values",
+      "shape": [
+        "nnz"
+      ]
+    },
+    "rhs": {
+      "expression": "rhs",
+      "shape": [
+        "n"
+      ]
+    },
+    "solution": {
+      "expression": "solution",
+      "shape": [
+        "n"
+      ]
+    },
+    "residual": {
+      "expression": "residual",
+      "shape": []
+    }
+  }
+}

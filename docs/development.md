@@ -6,8 +6,17 @@ Run the same command used by GitHub Actions before pushing:
 git submodule update --init
 git submodule update --init --recursive benchmarks/randlapack third_party/herbie third_party/tenspiler
 uv sync --locked --extra dev --extra globus --extra roofline
+uv run --locked --extra dev --extra globus --extra roofline python tools/prepare_workload_dependencies.py build/workload-native --jobs 4
 uv run --locked --extra dev --extra globus --extra roofline python tools/check_quality.py
 ```
+
+Native workload tests require C/C++, CMake, gfortran and BLAS/LAPACK. On Ubuntu,
+install `cmake gfortran libopenblas-dev`; on Apple Silicon use Homebrew
+`cmake gcc libomp`. The preparation helper builds pinned submodule dependencies
+without downloading source. Tests require its completed dependency inventory;
+they do not silently skip the ten native workloads. To reuse another explicit
+prepared root, set `LASSI_WORKLOAD_NATIVE_ROOT` to that directory. CI prepares
+`build/workload-native` before running the same checks.
 
 Use Python 3.12 and uv 0.11.7 to match CI. The committed lockfile fixes the
 dependency and development-tool versions. The roofline extra is required for

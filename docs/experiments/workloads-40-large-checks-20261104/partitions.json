@@ -1,0 +1,74 @@
+{
+  "partitions": [
+    {
+      "workload_ids": [
+        "polybench/gemm",
+        "polybench/gesummv",
+        "polybench/symm",
+        "polybench/syr2k",
+        "polybench/syrk",
+        "polybench/trmm",
+        "polybench/2mm",
+        "polybench/3mm",
+        "polybench/atax",
+        "polybench/bicg",
+        "polybench/doitgen",
+        "polybench/mvt",
+        "polybench/cholesky",
+        "polybench/durbin",
+        "polybench/lu",
+        "polybench/trisolv",
+        "polybench/deriche",
+        "polybench/floyd-warshall",
+        "polybench/nussinov",
+        "polybench/adi",
+        "polybench/fdtd-2d",
+        "polybench/seidel-2d"
+      ],
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-v1/report.json",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-c-preflight-v1/report.json"
+    },
+    {
+      "workload_ids": [
+        "polybench/correlation",
+        "polybench/covariance",
+        "polybench/gemver",
+        "polybench/gramschmidt",
+        "polybench/heat-3d",
+        "polybench/jacobi-1d",
+        "polybench/jacobi-2d",
+        "polybench/ludcmp"
+      ],
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-v2/report.json",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/polybench-state-c-preflight-v2/report.json"
+    },
+    {
+      "workload_ids": [
+        "npb-3.4.4/CG",
+        "npb-3.4.4/MG",
+        "npb-3.4.4/FT",
+        "rodinia/LavaMD",
+        "rodinia/Myocyte",
+        "itk/mutual-information",
+        "randlapack/randomized-svd",
+        "parboil/mri-gridding"
+      ],
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-large-v1/report.json",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/native-c-preflight-v1/report.json"
+    },
+    {
+      "workload_ids": [
+        "rodinia/CFD"
+      ],
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-v2/report.json",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/cfd-profile-c-preflight-v2/report.json"
+    },
+    {
+      "workload_ids": [
+        "rodinia/DWT2D"
+      ],
+      "preparation": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-v2/report.json",
+      "preflight": "/Users/giacomobrunetta/Projects/LASSI-TOOLS-artifacts/workloads-40-large-20261104/dwt-source-c-preflight-v2/report.json"
+    }
+  ]
+}

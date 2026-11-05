@@ -80,6 +80,8 @@ dirty; new experiments must record the actual source hashes and validate their
 inputs independently of historical results.
 
 Multiple-case development correctness support is described in
-[the check plan](checks/README.md). All 30 PolyBench kernels have executable
-five-case seeded random LARGE fixture preparation; the ten additional workloads require application
-adapters and are explicitly reported as unsupported by that preparation tool.
+[the check plan](checks/README.md). All 40 workloads have explicit native C fixture
+profiles and five seeded random LARGE cases. The manifest records computation
+boundaries, native source languages and the serial DWT port. Preparation and C
+preflight must pass every case; source availability alone does not certify a
+translated implementation or accelerator execution.

@@ -1,0 +1,65 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "width": {
+      "argument": "width",
+      "access": "read_only",
+      "scalar": true
+    },
+    "height": {
+      "argument": "height",
+      "access": "read_only",
+      "scalar": true
+    },
+    "image1": {
+      "argument": "image1",
+      "access": "read_only"
+    },
+    "image2": {
+      "argument": "image2",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "histogram",
+    "statistics"
+  ],
+  "fields": {
+    "width": {
+      "expression": "width",
+      "shape": []
+    },
+    "height": {
+      "expression": "height",
+      "shape": []
+    },
+    "image1": {
+      "expression": "image1",
+      "shape": [
+        "height",
+        "width"
+      ]
+    },
+    "image2": {
+      "expression": "image2",
+      "shape": [
+        "height",
+        "width"
+      ]
+    },
+    "histogram": {
+      "expression": "histogram",
+      "shape": [
+        "255",
+        "255"
+      ]
+    },
+    "statistics": {
+      "expression": "statistics",
+      "shape": [
+        "4"
+      ]
+    }
+  }
+}

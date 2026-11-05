@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ import numpy as np
 import pytest
 import yaml
 
+from lassi_x.c_to_torch import TranslationPlan, _configs
 from lassi_x.config import RunConfig
 from lassi_x.execution import LocalExecutionBackend, put_bytes
 from lassi_x.input_contract import load_contract, save_contract
@@ -43,6 +45,21 @@ def test_native_cases_execute_with_exact_inputs(
     assert entry["status"] == "reference_checked", entry
     assert [c["id"] for c in entry["cases"]] == [f"random-{seed}" for seed in DEFAULT_SEEDS]
     config = RunConfig.model_validate(yaml.safe_load(Path(entry["config"]).read_text()))
+    # Exercise the new pipeline's actual case loader, without invoking synthesis.
+    plan = TranslationPlan.model_validate(
+        {
+            "cases": [c["path"] for c in entry["case_configs"]],
+            "function": "main",
+            "model": {"model": "not-called"},
+            "native_python": sys.executable,
+            "tenspiler_root": str(ROOT / "third_party/tenspiler"),
+            "llvm_bin": str(ROOT),
+            "llvm_pass": str(ROOT / "unused-in-loader-test.so"),
+        }
+    )
+    loaded = _configs(plan)
+    assert len(loaded) == len(DEFAULT_SEEDS)
+    assert len({str(c.oracle.input_fixture) for c in loaded}) == len(DEFAULT_SEEDS)
     assert len(config.arena.correctness_tests) == 4
     original, _ = load_contract(directory / name / "native/oracle/c-fixture/inputs.npz")
     field = RANDOM_FIELDS[name]
@@ -63,7 +80,7 @@ def test_native_cases_execute_with_exact_inputs(
             np.linalg.cholesky(value)
 
 
-def test_unsupported_suites_cannot_be_reported_as_checked(
+def test_unconfigured_native_dependencies_cannot_be_reported_as_checked(
     prepared: tuple[Path, dict[str, Any]],
 ) -> None:
     directory, report = prepared

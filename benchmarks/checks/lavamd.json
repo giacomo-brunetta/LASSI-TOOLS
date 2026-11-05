@@ -1,0 +1,65 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "side": {
+      "argument": "side",
+      "access": "read_only",
+      "scalar": true
+    },
+    "alpha": {
+      "argument": "alpha",
+      "access": "read_only"
+    },
+    "positions": {
+      "argument": "positions",
+      "access": "read_only"
+    },
+    "charges": {
+      "argument": "charges",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "forces"
+  ],
+  "fields": {
+    "n": {
+      "expression": "n",
+      "shape": []
+    },
+    "side": {
+      "expression": "side",
+      "shape": []
+    },
+    "alpha": {
+      "expression": "alpha",
+      "shape": []
+    },
+    "positions": {
+      "expression": "positions",
+      "shape": [
+        "n",
+        "4"
+      ]
+    },
+    "charges": {
+      "expression": "charges",
+      "shape": [
+        "n"
+      ]
+    },
+    "forces": {
+      "expression": "forces",
+      "shape": [
+        "n",
+        "4"
+      ]
+    }
+  }
+}

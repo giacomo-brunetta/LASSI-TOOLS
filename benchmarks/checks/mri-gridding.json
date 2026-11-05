@@ -1,0 +1,54 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "side": {
+      "argument": "side",
+      "access": "read_only",
+      "scalar": true
+    },
+    "samples": {
+      "argument": "samples",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "grid",
+    "density"
+  ],
+  "fields": {
+    "n": {
+      "expression": "n",
+      "shape": []
+    },
+    "side": {
+      "expression": "side",
+      "shape": []
+    },
+    "samples": {
+      "expression": "samples",
+      "shape": [
+        "n",
+        "6"
+      ]
+    },
+    "grid": {
+      "expression": "grid",
+      "shape": [
+        "cells",
+        "2"
+      ]
+    },
+    "density": {
+      "expression": "density",
+      "shape": [
+        "cells"
+      ]
+    }
+  }
+}

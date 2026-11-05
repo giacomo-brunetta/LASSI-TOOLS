@@ -25,3 +25,12 @@
 [submodule "benchmarks/itk"]
 	path = benchmarks/itk
 	url = https://github.com/InsightSoftwareConsortium/ITK.git
+[submodule "third_party/blaspp"]
+	path = third_party/blaspp
+	url = https://github.com/BallisticLA/blaspp.git
+[submodule "third_party/lapackpp"]
+	path = third_party/lapackpp
+	url = https://github.com/BallisticLA/lapackpp.git
+[submodule "third_party/random123"]
+	path = third_party/random123
+	url = https://github.com/DEShawResearch/Random123.git

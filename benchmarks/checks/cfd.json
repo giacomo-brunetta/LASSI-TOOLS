@@ -1,0 +1,71 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "state": {
+      "argument": "state",
+      "access": "read_only"
+    },
+    "areas": {
+      "argument": "areas",
+      "access": "read_only"
+    },
+    "neighbors": {
+      "argument": "neighbors",
+      "access": "read_only"
+    },
+    "normals": {
+      "argument": "normals",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "updated"
+  ],
+  "fields": {
+    "n": {
+      "expression": "n",
+      "shape": []
+    },
+    "state": {
+      "expression": "state",
+      "shape": [
+        "5",
+        "n"
+      ]
+    },
+    "areas": {
+      "expression": "areas",
+      "shape": [
+        "n"
+      ]
+    },
+    "neighbors": {
+      "expression": "neighbors",
+      "shape": [
+        "4",
+        "n"
+      ]
+    },
+    "normals": {
+      "expression": "normals",
+      "shape": [
+        "3",
+        "4",
+        "n"
+      ]
+    },
+    "updated": {
+      "expression": "updated",
+      "shape": [
+        "5",
+        "n"
+      ]
+    }
+  }
+}

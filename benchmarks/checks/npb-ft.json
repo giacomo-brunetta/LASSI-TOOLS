@@ -1,0 +1,60 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "nx": {
+      "argument": "nx",
+      "access": "read_only",
+      "scalar": true
+    },
+    "ny": {
+      "argument": "ny",
+      "access": "read_only",
+      "scalar": true
+    },
+    "nz": {
+      "argument": "nz",
+      "access": "read_only",
+      "scalar": true
+    },
+    "field": {
+      "argument": "field",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "spectrum"
+  ],
+  "fields": {
+    "nx": {
+      "expression": "nx",
+      "shape": []
+    },
+    "ny": {
+      "expression": "ny",
+      "shape": []
+    },
+    "nz": {
+      "expression": "nz",
+      "shape": []
+    },
+    "field": {
+      "expression": "field",
+      "shape": [
+        "nz",
+        "ny",
+        "nx",
+        "2"
+      ]
+    },
+    "spectrum": {
+      "expression": "spectrum",
+      "shape": [
+        "nz",
+        "ny",
+        "nx",
+        "2"
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "Source acquisition only; no build, execution, or pipeline integration claimed. Source entries identify representative entry points; full dependencies remain in each pinned suite.",
+  "scope": "Pinned source provenance and explicit native C fixture profiles for 40 workloads. LARGE random-case preparation and executed C preflight evidence are recorded separately; no accelerator or translated-candidate certification is implied.",
   "workload_count": 40,
   "suites": {
     "polybench": {
@@ -986,11 +986,52 @@
         {
           "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/CG/cg.f90",
           "sha256": "598ccd6f41971ef8f1db1873a9573b555763832829a1310b2f8abf908975386d"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/CG/cg_data.f90",
+          "sha256": "cdc70d3478f14d30d49106937a500ce5d1fdcc63e1f12b7abec952b777c123d4"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/randdp.f90",
+          "sha256": "363d488bbcbdc33c1e20df698caea21807fb957eb5550d4ad3ff5f3fc632e9fd"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/timers.f90",
+          "sha256": "8a30f46181595096b8dcb491e9d6e458d87d4eedf4425bcaaf8f6a134f0c2ad3"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/wtime.c",
+          "sha256": "18de9969b33629f4f912b48a27de4a05c0f5a72daa7df7849f9b07b19762f057"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/sys/setparams.c",
+          "sha256": "30469aff4f6450fb9fda11c39420a8acf347d823643640d747e3fbb53bd3b83b"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/npb-cg.json",
+        "reference": "benchmarks/checks/native/npb-cg.c",
+        "reference_sha256": "16cf86a1f9f3dca49e2cd628af96b68fe7b348b8a0a160b8d00c1eb6d3a39e3a",
+        "computation": "NPB 3.4.4 conj_grad: all 25 solver iterations",
+        "large_profile": "NAS class-B vector size: n=75000, permuted tridiagonal SPD CSR with 3*n-2 nonzeros",
+        "implementation": "Pinned Fortran routines linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1005,11 +1046,52 @@
         {
           "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/MG/mg.f90",
           "sha256": "b4874070384da0f517c8ea83a80ac778662d6f67c7832ac535339650feab52ee"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/MG/mg_data.f90",
+          "sha256": "f330509902249d4e0b41a2114a8f0f33c185b98ed6ef5b27f934032a7cdd1bfa"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/randdp.f90",
+          "sha256": "363d488bbcbdc33c1e20df698caea21807fb957eb5550d4ad3ff5f3fc632e9fd"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/timers.f90",
+          "sha256": "8a30f46181595096b8dcb491e9d6e458d87d4eedf4425bcaaf8f6a134f0c2ad3"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/wtime.c",
+          "sha256": "18de9969b33629f4f912b48a27de4a05c0f5a72daa7df7849f9b07b19762f057"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/sys/setparams.c",
+          "sha256": "30469aff4f6450fb9fda11c39420a8acf347d823643640d747e3fbb53bd3b83b"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/npb-mg.json",
+        "reference": "benchmarks/checks/native/npb-mg.c",
+        "reference_sha256": "10b9dab1a08be9f87ed2066c39ca16bd383af97aa683d94f776aebf377b2585b",
+        "computation": "NPB 3.4.4: four complete multigrid V-cycles with periodic boundaries",
+        "large_profile": "NAS class-B grid: 256^3 interior cells",
+        "implementation": "Pinned Fortran routines linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1024,11 +1106,52 @@
         {
           "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-MPI/FT/ft.f90",
           "sha256": "1847aa6136446e2727503a75964500cd7e2f70b1c4fe5299263dc6a768fe44fb"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/FT/ft_data.f90",
+          "sha256": "2c7f5a6e55d332caa15abc7789182c72db3b13ba688e4b3229781a3f011a4587"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/randdp.f90",
+          "sha256": "363d488bbcbdc33c1e20df698caea21807fb957eb5550d4ad3ff5f3fc632e9fd"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/timers.f90",
+          "sha256": "8a30f46181595096b8dcb491e9d6e458d87d4eedf4425bcaaf8f6a134f0c2ad3"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/common/wtime.c",
+          "sha256": "18de9969b33629f4f912b48a27de4a05c0f5a72daa7df7849f9b07b19762f057"
+        },
+        {
+          "path": "benchmarks/npb-3.4.4/suites/NPB3.4.4/NPB3.4-OMP/sys/setparams.c",
+          "sha256": "30469aff4f6450fb9fda11c39420a8acf347d823643640d747e3fbb53bd3b83b"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/npb-ft.json",
+        "reference": "benchmarks/checks/native/npb-ft.c",
+        "reference_sha256": "4f0b73ea7177386dd0ce91210ab4d4e2630a355d8d48e3baf93383bc50927c91",
+        "computation": "NPB 3.4.4: complete unnormalized positive-sign 3-D FFT",
+        "large_profile": "NAS class-B grid: 512x256x256 complex values",
+        "implementation": "Pinned Fortran routines linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1039,11 +1162,40 @@
         {
           "path": "benchmarks/rodinia/openmp/lavaMD/kernel/kernel_cpu.c",
           "sha256": "ff1a1e81b26fadc3566d16e6e73a8d2241066aecd2f001a638bc02379c2be881"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/lavaMD/main.h",
+          "sha256": "14539f64b9c86793d72260eecd5b77312f755ae8925a2a15dc6dd3815ea23a1a"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/lavaMD/util/timer/timer.c",
+          "sha256": "e437daf303ba449ff7f097ef4dbfb1bdb2248e4347baecfc7e063f017a252620"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/lavamd.json",
+        "reference": "benchmarks/checks/native/lavamd.c",
+        "reference_sha256": "a90c69ccd9cb50417a3a2df9d72a1ae3e1f3efe30af5b02a5f2d7675d2055c19",
+        "computation": "All particle interactions with native neighboring-box topology",
+        "large_profile": "10^3 boxes x 100 particles = 100000 particles",
+        "implementation": "Pinned C kernel",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1054,11 +1206,56 @@
         {
           "path": "benchmarks/rodinia/openmp/myocyte/embedded_fehlberg_7_8.c",
           "sha256": "19a3d3def9fbb5c81b0196fcf910a01a05097fe9c38f457198fd2114e6ab0f6b"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/define.c",
+          "sha256": "668042be8fc32c557b781074d62a91f944038e4bcdd980526ca3f46592397f75"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/ecc.c",
+          "sha256": "be99c964e133759998479b2e796ea3d39d3b0ac1e796190e0e5dd78fcdfba746"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/cam.c",
+          "sha256": "19eeec7b9d7829bf014e33773e8898bb946cd288094b98f5740c31246950304d"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/fin.c",
+          "sha256": "7afa984ade8f8998180dc63f0f70f9f586a494c9d8348810780ece0a666171f5"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/master.c",
+          "sha256": "9c67012e6cf38469280312e8ae52eb26b077152a07b8977bd2396255bb270b09"
+        },
+        {
+          "path": "benchmarks/rodinia/openmp/myocyte/solver.c",
+          "sha256": "2fa88b277a6bd5fdeadcd529bc01e5db75cd9f5ece206b7d5c345effb6ee54b5"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/myocyte.json",
+        "reference": "benchmarks/checks/native/myocyte.c",
+        "reference_sha256": "072bb227ef965fb2e1d85fb3f759dea07af1e1e2bf0d437d2a80cff8c770c2c8",
+        "computation": "Complete adaptive Fehlberg 7/8 cardiac ODE solver, serial mode 1",
+        "large_profile": "64 independent 91-variable cells, 100 ms, all 101 trajectory frames",
+        "implementation": "Pinned float C model and solver",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1069,11 +1266,52 @@
         {
           "path": "benchmarks/rodinia/cuda/dwt2d/main.cu",
           "sha256": "99d25453a62aac9ca9aaaa8a854c01a101391bb16c5dec4ca448e95a565f318f"
+        },
+        {
+          "path": "benchmarks/rodinia/cuda/dwt2d/dwt_cuda/fdwt97.cu",
+          "sha256": "b3e9f665bb5632c3f0007e3b8ab6798f145b4cc87182823007ddb69e39359b43"
+        },
+        {
+          "path": "benchmarks/rodinia/cuda/dwt2d/dwt_cuda/rdwt97.cu",
+          "sha256": "30ffc4ded7ee4e10bf698ca189bf07b08964d7ad464ca8d5cbb9c950ca298881"
+        },
+        {
+          "path": "benchmarks/rodinia/cuda/dwt2d/dwt_cuda/common.h",
+          "sha256": "1dc992307fd69203888d3fb478bc139a4c5383ca810f569e39e1e54e967f83fe"
+        },
+        {
+          "path": "benchmarks/rodinia/cuda/dwt2d/dwt_cuda/io.h",
+          "sha256": "e19de17e7480dacfe27b71f832601be46e76de946cdb0098ffcf0d81c4f676ac"
+        },
+        {
+          "path": "benchmarks/rodinia/cuda/dwt2d/dwt_cuda/transform_buffer.h",
+          "sha256": "ff98a90ea28fbfe6a4ebcb7163eb20488aa337c4424c5e7daf9e6f048dfbd5dc"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/dwt2d.json",
+        "reference": "benchmarks/checks/native/dwt2d.c",
+        "reference_sha256": "ece158d23e52179e656309a252ce68b9719fa4a01abdf8765a4ba4e6717a009e",
+        "computation": "Five-level 2-D CDF 9/7 forward transform and reconstruction; packed LL/HL/LH/HH bands",
+        "large_profile": "2048x2048 float image, five levels",
+        "implementation": "Serial C port of pinned CUDA lifting, mirrored boundaries and normalization; CUDA execution equivalence is not hardware-validated",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1087,8 +1325,29 @@
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/cfd.json",
+        "reference": "benchmarks/checks/native/cfd.c",
+        "reference_sha256": "3f91d8c859a68cc2a58a43566e6353dba2b4217881ab60e05e5b01950093d3d5",
+        "computation": "One complete three-stage Runge-Kutta Euler update using original flux/step functions",
+        "large_profile": "105456 tetrahedra from a 26^3 conforming cube mesh, randomized numbering; inward face normals, slip walls and far-field boundaries",
+        "implementation": "Pinned C++ numerical functions linked through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1102,8 +1361,29 @@
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/mutual-information.json",
+        "reference": "benchmarks/checks/native/mutual-information.c",
+        "reference_sha256": "6ee4ce03c2d4f722647ea05b8a5c7cb2768f01736bf4e3e82e55ee2d6d5f7688",
+        "computation": "ITK JoinImageFilter and ImageToHistogramFilter, joint/marginal entropies and mutual information",
+        "large_profile": "Two 2048x2048 uint8 images; 255x255 joint histogram",
+        "implementation": "Pinned ITK C++ histogram classes through C ABI; in-memory equivalent of example I/O",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1121,8 +1401,29 @@
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/randomized-svd.json",
+        "reference": "benchmarks/checks/native/randomized-svd.c",
+        "reference_sha256": "f8ce12733459e0dd543f84e1c2363ed1b66be7870e995ae7d923f426bbf5ec34",
+        "computation": "Complete RandLAPACK RSVD with original QB/RF/RS objects and reconstruction",
+        "large_profile": "2048x1024 double matrix, target rank 32, fixed algorithm RNG seed 42",
+        "implementation": "Pinned RandLAPACK/RandBLAS C++ through C ABI",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     },
     {
@@ -1137,12 +1438,51 @@
         {
           "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/CPU_kernels.c",
           "sha256": "15fa9bc2eb0363026f3254d4604af0c1a4d3540df86b746e1dd6bd59c3fb9280"
+        },
+        {
+          "path": "benchmarks/parboil/benchmarks/mri-gridding/src/base/UDTypes.h",
+          "sha256": "4f3179b1ee85a52e3a6c05686c70273513315c6d590c131d8c5b90580a7d6ed5"
         }
       ],
       "correctness": {
-        "status": "application_adapter_required",
-        "reason": "Whole-application versus inner-kernel input/output boundary must be specified."
+        "status": "fixture_adapter",
+        "spec": "benchmarks/checks/mri-gridding.json",
+        "reference": "benchmarks/checks/native/mri-gridding.c",
+        "reference_sha256": "f720c1406a82cca522ae4270275935e3aada2dc7f431de513532b29c1a5df0a0",
+        "computation": "Complete gridding_Gold CPU scatter with complex grid and sample density",
+        "large_profile": "262144 random samples; 128^3 grid, kernel width 3, oversampling 1.25, no LUT",
+        "implementation": "Pinned Parboil C kernel",
+        "dataset": "large",
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "development_cases": [
+          "large-random-0",
+          "large-random-1",
+          "large-random-2",
+          "large-random-3",
+          "large-random-4"
+        ],
+        "prepare": "python -m lassi_x.workload_checks DESTINATION --native-root NATIVE_ROOT"
       }
     }
-  ]
+  ],
+  "native_dependencies": {
+    "blaspp": {
+      "path": "third_party/blaspp",
+      "commit": "2628ac538fee95417429c846f09f1017c764a2a8"
+    },
+    "lapackpp": {
+      "path": "third_party/lapackpp",
+      "commit": "047cb8c999866f3b8558de7d5ea2165e108835b5"
+    },
+    "random123": {
+      "path": "third_party/random123",
+      "commit": "726a093cd9a73f3ec3c8d7a70ff10ed8efec8d13"
+    }
+  }
 }

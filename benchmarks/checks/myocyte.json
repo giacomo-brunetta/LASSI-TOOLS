@@ -1,0 +1,58 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "steps": {
+      "argument": "steps",
+      "access": "read_only",
+      "scalar": true
+    },
+    "initial": {
+      "argument": "initial",
+      "access": "read_only"
+    },
+    "parameters": {
+      "argument": "parameters",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "trajectory"
+  ],
+  "fields": {
+    "n": {
+      "expression": "n",
+      "shape": []
+    },
+    "steps": {
+      "expression": "steps",
+      "shape": []
+    },
+    "initial": {
+      "expression": "initial",
+      "shape": [
+        "n",
+        "91"
+      ]
+    },
+    "parameters": {
+      "expression": "parameters",
+      "shape": [
+        "16"
+      ]
+    },
+    "trajectory": {
+      "expression": "trajectory",
+      "shape": [
+        "n",
+        "steps+1",
+        "91"
+      ]
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "m": {
+      "argument": "m",
+      "access": "read_only",
+      "scalar": true
+    },
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "rank": {
+      "argument": "rank",
+      "access": "read_only",
+      "scalar": true
+    },
+    "matrix": {
+      "argument": "matrix",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "singular_values",
+    "reconstruction"
+  ],
+  "fields": {
+    "m": {
+      "expression": "m",
+      "shape": []
+    },
+    "n": {
+      "expression": "n",
+      "shape": []
+    },
+    "rank": {
+      "expression": "rank",
+      "shape": []
+    },
+    "matrix": {
+      "expression": "matrix",
+      "shape": [
+        "m",
+        "n"
+      ]
+    },
+    "singular_values": {
+      "expression": "singular_values",
+      "shape": [
+        "rank"
+      ]
+    },
+    "reconstruction": {
+      "expression": "reconstruction",
+      "shape": [
+        "m",
+        "n"
+      ]
+    }
+  }
+}

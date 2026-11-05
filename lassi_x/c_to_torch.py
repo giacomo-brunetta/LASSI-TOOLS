@@ -226,7 +226,17 @@ async def c_gate(config: RunConfig, candidate: Path, directory: Path) -> dict[st
                         equal_nan=False,
                     )
                 )
-        rows.append({"output": name, "read_only": readonly, "passed": ok})
+        rows.append(
+            {
+                "output": name,
+                "read_only": readonly,
+                "passed": ok,
+                "shape": list(expected.shape),
+                "dtype": expected.dtype.str,
+                "expected_sha256": hashlib.sha256(memoryview(expected)).hexdigest(),
+                "observed_sha256": hashlib.sha256(memoryview(observed)).hexdigest(),
+            }
+        )
     result = {
         "passed": all(row["passed"] for row in rows),
         "checks": rows,

@@ -1,0 +1,40 @@
+{
+  "before": "/* LASSI_BEGIN */",
+  "after": "/* LASSI_END */",
+  "inputs": {
+    "side": {
+      "argument": "side",
+      "access": "read_only",
+      "scalar": true
+    },
+    "rhs": {
+      "argument": "rhs",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "solution"
+  ],
+  "fields": {
+    "side": {
+      "expression": "side",
+      "shape": []
+    },
+    "rhs": {
+      "expression": "rhs",
+      "shape": [
+        "side",
+        "side",
+        "side"
+      ]
+    },
+    "solution": {
+      "expression": "solution",
+      "shape": [
+        "side",
+        "side",
+        "side"
+      ]
+    }
+  }
+}
