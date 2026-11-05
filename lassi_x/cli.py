@@ -40,6 +40,8 @@ from .skills import (
     install_skills,
     uninstall_skills,
 )
+from .stage2_cli import add_parser as add_stage2_parser
+from .stage2_cli import execute as execute_stage2
 from .types import Measurement, Status
 from .validation import (
     build_oracle,
@@ -641,6 +643,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
     add_campaign_parser(sub)
+    add_stage2_parser(sub)
 
     run = sub.add_parser("run")
     run.add_argument("config", type=Path)
@@ -830,6 +833,8 @@ def main() -> int:
 def _dispatch() -> int:
     args = build_parser().parse_args()
     configure_logging(args.log_level)
+    if args.command == "stage2":
+        return execute_stage2(args.config, args.output)
     if args.command == "campaign":
         return command_campaign(args)
     if args.command == "run":

@@ -33,6 +33,7 @@ A successful retry must not erase the original failed or interrupted attempt.
 | Adapt C with an LLM, then synthesize and CPU-validate Torch | [`lassi_x.c_to_torch`](c-to-torch.md) | Explicit single-kernel adapter step; direct matrix-vector subset; separate C and Torch gates; not the default `run` generator |
 | Generate and CPU-validate before acquiring accelerators | `lassi-x run CONFIG --until cpu-verified` | Retains the full configuration for a later resume |
 | Compare targets or policies from the same CPU cohort | `--from-cpu-baseline BASELINE` | Frozen candidates by default; adaptations require an explicit flag |
+| Replay frozen numerical repair proposals without models | [`lassi-x stage2 replay`](stage2-deterministic.md) | Frozen CLI and Stage 2 API; caller supplies captured graph, frozen domains/results and bounded reference/precision validator; no automatic search or default worker integration |
 | Declare a new campaign with fixed task dependencies and attempts | `lassi-x campaign` | Runner implemented; trusted scientific adapters must implement its gates; tasks execute sequentially |
 | Validate one saved implementation locally | `lassi-x validate candidate` | Correctness check, not accelerator qualification or a performance result |
 | Measure one saved implementation | `lassi-x benchmark run` | Does not automatically supply an independent final holdout |

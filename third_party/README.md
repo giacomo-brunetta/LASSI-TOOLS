@@ -29,3 +29,8 @@ For a deterministic preparation path for supported C reductions, see
 [Tenspiler preparation](../docs/tenspiler-preparation.md). It generates C++ inputs
 and fixed synthesis drivers; floating-to-integer modeling requires an explicit
 option and independent validation against the original C.
+
+For deterministic Torch expression extraction, Herbie execution and Torch proposal
+generation, see the [Herbie adapter](../docs/herbie-adapter.md). Its experimental
+FP16/FP32 arithmetic platform supports a limited subset; proposals still require
+the phase 2 validation and target precision gates.

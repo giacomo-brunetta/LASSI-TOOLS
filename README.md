@@ -745,3 +745,10 @@ It provides campaign configuration generation, C-only oracle checks, CPU-only ba
 launching, outcome CSVs and frozen-baseline accelerator follow-up instructions.
 
 Development: run the [complete locked quality checks](docs/development.md) before pushing.
+
+### Deterministic Stage 2 repair replay
+
+Use `lassi-x stage2 replay CONFIG OUTPUT` to apply a frozen sequence of Herbie
+rewrites and precision proposals without model calls or online search. The command
+checks input/driver identities, invokes the configured reference validator and
+records every outcome. See the [Stage 2 contract and CLI configuration](docs/stage2-deterministic.md).
