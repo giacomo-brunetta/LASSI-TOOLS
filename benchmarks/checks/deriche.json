@@ -1,0 +1,29 @@
+{
+  "inputs": {
+    "w": {
+      "argument": "w",
+      "access": "read_only",
+      "scalar": true
+    },
+    "h": {
+      "argument": "h",
+      "access": "read_only",
+      "scalar": true
+    },
+    "alpha": {
+      "argument": "alpha",
+      "access": "read_only"
+    },
+    "imgIn": {
+      "argument": "imgIn",
+      "access": "read_only"
+    },
+    "imgOut": {
+      "argument": "imgOut",
+      "access": "read_write"
+    }
+  },
+  "outputs": [
+    "imgOut"
+  ]
+}

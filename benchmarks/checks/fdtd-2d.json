@@ -1,0 +1,40 @@
+{
+  "inputs": {
+    "tmax": {
+      "argument": "tmax",
+      "access": "read_only",
+      "scalar": true
+    },
+    "nx": {
+      "argument": "nx",
+      "access": "read_only",
+      "scalar": true
+    },
+    "ny": {
+      "argument": "ny",
+      "access": "read_only",
+      "scalar": true
+    },
+    "ex": {
+      "argument": "ex",
+      "access": "read_write"
+    },
+    "ey": {
+      "argument": "ey",
+      "access": "read_write"
+    },
+    "hz": {
+      "argument": "hz",
+      "access": "read_write"
+    },
+    "_fict_": {
+      "argument": "_fict_",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "ex",
+    "ey",
+    "hz"
+  ]
+}

@@ -78,3 +78,8 @@ git -C benchmarks/polybench apply --unidiff-zero ../provenance/polybench-3mm-loc
 Run this command from the repository root. Applying the patch makes the submodule
 dirty; new experiments must record the actual source hashes and validate their
 inputs independently of historical results.
+
+Multiple-case development correctness support is described in
+[the check plan](checks/README.md). All 30 PolyBench kernels have executable
+five-case seeded random LARGE fixture preparation; the ten additional workloads require application
+adapters and are explicitly reported as unsupported by that preparation tool.

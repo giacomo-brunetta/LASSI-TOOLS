@@ -1,0 +1,24 @@
+{
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "L": {
+      "argument": "L",
+      "access": "read_only"
+    },
+    "x": {
+      "argument": "x",
+      "access": "read_write"
+    },
+    "b": {
+      "argument": "b",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "x"
+  ]
+}

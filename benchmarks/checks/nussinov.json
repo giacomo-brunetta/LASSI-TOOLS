@@ -1,0 +1,20 @@
+{
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "seq": {
+      "argument": "seq",
+      "access": "read_only"
+    },
+    "table": {
+      "argument": "table",
+      "access": "read_write"
+    }
+  },
+  "outputs": [
+    "table"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "alpha": {
+      "argument": "alpha",
+      "access": "read_only"
+    },
+    "beta": {
+      "argument": "beta",
+      "access": "read_only"
+    },
+    "A": {
+      "argument": "A",
+      "access": "read_write"
+    },
+    "u1": {
+      "argument": "u1",
+      "access": "read_only"
+    },
+    "v1": {
+      "argument": "v1",
+      "access": "read_only"
+    },
+    "u2": {
+      "argument": "u2",
+      "access": "read_only"
+    },
+    "v2": {
+      "argument": "v2",
+      "access": "read_only"
+    },
+    "w": {
+      "argument": "w",
+      "access": "read_write"
+    },
+    "x": {
+      "argument": "x",
+      "access": "read_write"
+    },
+    "y": {
+      "argument": "y",
+      "access": "read_only"
+    },
+    "z": {
+      "argument": "z",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "w"
+  ]
+}

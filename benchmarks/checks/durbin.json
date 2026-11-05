@@ -1,0 +1,16 @@
+{
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "r": {
+      "argument": "r",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "y"
+  ]
+}

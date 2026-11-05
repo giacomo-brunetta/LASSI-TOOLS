@@ -1,0 +1,25 @@
+{
+  "inputs": {
+    "m": {
+      "argument": "m",
+      "access": "read_only",
+      "scalar": true
+    },
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "float_n": {
+      "argument": "float_n",
+      "access": "read_only"
+    },
+    "data": {
+      "argument": "data",
+      "access": "read_write"
+    }
+  },
+  "outputs": [
+    "cov"
+  ]
+}

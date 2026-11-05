@@ -1,0 +1,30 @@
+{
+  "inputs": {
+    "m": {
+      "argument": "m",
+      "access": "read_only",
+      "scalar": true
+    },
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "A": {
+      "argument": "A",
+      "access": "read_only"
+    },
+    "r": {
+      "argument": "r",
+      "access": "read_only"
+    },
+    "p": {
+      "argument": "p",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "s",
+    "q"
+  ]
+}

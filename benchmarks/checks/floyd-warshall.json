@@ -1,0 +1,16 @@
+{
+  "inputs": {
+    "n": {
+      "argument": "n",
+      "access": "read_only",
+      "scalar": true
+    },
+    "path": {
+      "argument": "path",
+      "access": "read_write"
+    }
+  },
+  "outputs": [
+    "path"
+  ]
+}

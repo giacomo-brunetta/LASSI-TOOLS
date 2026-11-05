@@ -1,0 +1,30 @@
+{
+  "inputs": {
+    "nr": {
+      "argument": "nr",
+      "access": "read_only",
+      "scalar": true
+    },
+    "nq": {
+      "argument": "nq",
+      "access": "read_only",
+      "scalar": true
+    },
+    "np": {
+      "argument": "np",
+      "access": "read_only",
+      "scalar": true
+    },
+    "A": {
+      "argument": "A",
+      "access": "read_write"
+    },
+    "C4": {
+      "argument": "C4",
+      "access": "read_only"
+    }
+  },
+  "outputs": [
+    "A"
+  ]
+}
